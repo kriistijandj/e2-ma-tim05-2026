@@ -24,6 +24,12 @@
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:text="Profile"/>
+
+        <Button
+            android:id="@+id/buttonNotif"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Notif" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

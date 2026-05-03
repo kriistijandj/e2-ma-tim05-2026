@@ -1,8 +1,6 @@
-package com.example.slagalica;
+package com.example.slagalica.activities;
 
-import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -10,23 +8,23 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.example.slagalica.activities.NotificationActivity;
+import com.example.slagalica.R;
+import com.example.slagalica.fragments.NotificationFragment;
 
-public class MainActivity extends AppCompatActivity {
+public class NotificationActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_home);
+        setContentView(R.layout.activity_notification);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-        Button notif = findViewById(R.id.buttonNotif);
-        notif.setOnClickListener(v -> {
-            startActivity(new Intent(this, NotificationActivity.class));
-        });
+
+        getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container,
+                new NotificationFragment()).commit();
     }
 }

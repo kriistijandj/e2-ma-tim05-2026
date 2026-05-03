@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Slagalica">
         <activity
+            android:name=".activities.NotificationActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.GameActivity"
             android:exported="false" />
         <activity
