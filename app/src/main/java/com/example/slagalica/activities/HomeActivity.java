@@ -24,5 +24,10 @@ public class HomeActivity extends AppCompatActivity {
         btnGame.setOnClickListener(v -> {
             startActivity(new Intent(this, GameActivity.class));
         });
+
+        Button notif = findViewById(R.id.buttonNotif);
+        notif.setOnClickListener(v -> {
+            startActivity(new Intent(this, NotificationActivity.class));
+        });
     }
 }

@@ -9,6 +9,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.example.slagalica.R;
+import com.example.slagalica.games.KorakPoKorakFragment;
 
 public class GameActivity extends AppCompatActivity {
 
@@ -18,11 +19,9 @@ public class GameActivity extends AppCompatActivity {
         setContentView(R.layout.activity_game);
 
         // pokreni prvu igru (fragment)
-        FragmentTransition.to(
-                new KorakPoKorakFragment(),
-                this,
-                false,
-                R.id.gameContainer
-        );
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.gameContainer, new KorakPoKorakFragment())
+                .commit();
     }
 }
