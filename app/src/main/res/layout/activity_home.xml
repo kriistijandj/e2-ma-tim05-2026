@@ -7,4 +7,23 @@
     android:layout_height="match_parent"
     tools:context=".activities.HomeActivity">
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <Button
+            android:id="@+id/btnStartGame"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Start Game"/>
+
+        <Button
+            android:id="@+id/btnProfile"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Profile"/>
+    </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
