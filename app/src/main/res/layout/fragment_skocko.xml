@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <GridLayout
+        android:id="@+id/gridAttempts"
+        android:rowCount="6"
+        android:columnCount="4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"/>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button android:id="@+id/btnSkocko" android:text="S" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnKvadrat" android:text="□" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnKrug" android:text="○" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnSrce" android:text="♥" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnTrougao" android:text="△" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnZvezda" android:text="★" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnSubmit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Submit"/>
+</LinearLayout>
