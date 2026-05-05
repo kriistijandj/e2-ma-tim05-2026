@@ -5,4 +5,11 @@
     <string name="sve">Sve</string>
     <string name="procitane">Pročitane</string>
     <string name="neprocitane">Nepročitane</string>
+    <string name="notif">Notifications</string>
+    <string name="logout">Odjava</string>
+    <string name="profile">Profile</string>
+    <string name="home">Home</string>
+    <string name="navigation_drawer_open">Navigation Drawer Open</string>
+    <string name="navigation_drawer_close">Navigation Drawer Close</string>
+    <string name="slagalica">Slagalica</string>
 </resources>
