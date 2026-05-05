@@ -2,65 +2,29 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
-    android:padding="10dp"
+    android:padding="12dp"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- POKUŠAJI -->
     <GridLayout
         android:id="@+id/gridAttempts"
         android:rowCount="6"
         android:columnCount="4"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"/>
 
-    <!-- SELEKCIJA SIMBOLA -->
     <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="62dp"
-        android:orientation="horizontal">
+        android:layout_height="wrap_content">
 
-        <Button
-            android:id="@+id/btnSkocko"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="4dp"
-            android:text="S" />
-
-        <Button
-            android:id="@+id/btnKvadrat"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="4dp"
-            android:text="□" />
-
-        <Button
-            android:id="@+id/btnKrug"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="4dp"
-            android:text="○" />
-
-        <Button
-            android:id="@+id/btnSrce"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="4dp"
-            android:text="♥" />
-
-        <Button
-            android:id="@+id/btnTrougao"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="4dp"
-            android:text="△" />
-
-        <Button
-            android:id="@+id/btnZvezda"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="4dp"
-            android:text="★" />
+        <Button android:id="@+id/btnSkocko" android:text="S" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnKvadrat" android:text="□" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnKrug" android:text="○" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnSrce" android:text="♥" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnTrougao" android:text="△" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
+        <Button android:id="@+id/btnZvezda" android:text="★" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
 
     </LinearLayout>
 
@@ -68,5 +32,5 @@
         android:id="@+id/btnSubmit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Submit pokušaj"/>
+        android:text="Submit"/>
 </LinearLayout>

@@ -69,11 +69,6 @@ public class HomeFragment extends Fragment {
         btnGame.setOnClickListener(v ->
                 Navigation.findNavController(view).navigate(R.id.nav_game)
         );
-        Button btnSkocko = view.findViewById(R.id.btnSkocko);
-
-        btnSkocko.setOnClickListener(v ->
-                Navigation.findNavController(view).navigate(R.id.nav_gameSkocko)
-        );
 
         return view;
     }
