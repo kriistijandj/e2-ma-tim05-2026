@@ -70,6 +70,11 @@ public class GameFragment extends Fragment {
                 Navigation.findNavController(view).navigate(R.id.nav_gameSkocko)
         );
 
+        Button btnGame2 = view.findViewById(R.id.btnAsocijacije);
+
+        btnGame2.setOnClickListener(v ->
+                Navigation.findNavController(view).navigate(R.id.nav_gameAsocijacije)
+        );
         return view;
     }
 }

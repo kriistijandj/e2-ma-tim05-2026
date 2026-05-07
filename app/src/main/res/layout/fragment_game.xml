@@ -17,5 +17,11 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
         android:text="Skocko" />
+    <Button
+        android:id="@+id/btnAsocijacije"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="120dp"
+        android:text="Asocijacije" />
 
 </FrameLayout>
