@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:background="#0E7C86">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="5dp">
+        <TextView android:id="@+id/tvTurn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="#FFF" android:textSize="18sp" android:text="Na potezu: Igrač 1" />
+        <TextView android:id="@+id/tvTimer" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFF" android:textSize="18sp" android:text="120s" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/tvScore" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:textColor="#FFF" android:textSize="16sp" android:text="P1: 0 | P2: 0" android:paddingBottom="10dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="5dp">
+            <Button android:id="@+id/a1" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="A1"/>
+            <Button android:id="@+id/a2" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="A2"/>
+            <Button android:id="@+id/a3" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="A3"/>
+            <Button android:id="@+id/a4" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="A4"/>
+            <Button android:id="@+id/colA" style="@style/AssocSolutionBtn" android:layout_height="0dp" android:layout_weight="1.2" android:text="REŠENJE A"/>
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="5dp">
+            <Button android:id="@+id/b1" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="B1"/>
+            <Button android:id="@+id/b2" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="B2"/>
+            <Button android:id="@+id/b3" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="B3"/>
+            <Button android:id="@+id/b4" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="B4"/>
+            <Button android:id="@+id/colB" style="@style/AssocSolutionBtn" android:layout_height="0dp" android:layout_weight="1.2" android:text="REŠENJE B"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/etGuess"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Unesi rešenje..."
+        android:textColorHint="#CCC"
+        android:textColor="#FFF"
+        android:backgroundTint="#FFF"
+        android:gravity="center"
+        android:layout_marginTop="5dp"/>
+
+    <Button
+        android:id="@+id/btnFinal"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="KONAČNO REŠENJE"
+        android:backgroundTint="#F5C542"
+        android:textColor="#000"
+        android:textStyle="bold"
+        android:layout_marginVertical="5dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="5dp">
+            <Button android:id="@+id/colC" style="@style/AssocSolutionBtn" android:layout_height="0dp" android:layout_weight="1.2" android:text="REŠENJE C"/>
+            <Button android:id="@+id/c4" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="C4"/>
+            <Button android:id="@+id/c3" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="C3"/>
+            <Button android:id="@+id/c2" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="C2"/>
+            <Button android:id="@+id/c1" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="C1"/>
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="5dp">
+            <Button android:id="@+id/colD" style="@style/AssocSolutionBtn" android:layout_height="0dp" android:layout_weight="1.2" android:text="REŠENJE D"/>
+            <Button android:id="@+id/d4" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="D4"/>
+            <Button android:id="@+id/d3" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="D3"/>
+            <Button android:id="@+id/d2" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="D2"/>
+            <Button android:id="@+id/d1" style="@style/AssocBtn" android:layout_height="0dp" android:layout_weight="1" android:text="D1"/>
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>
