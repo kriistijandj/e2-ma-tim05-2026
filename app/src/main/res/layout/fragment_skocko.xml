@@ -1,36 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:padding="12dp"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <GridLayout
-        android:id="@+id/gridAttempts"
-        android:rowCount="6"
-        android:columnCount="4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"/>
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:background="#0E7C86">
 
     <LinearLayout
-        android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <Button android:id="@+id/btnSkocko" android:text="S" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
-        <Button android:id="@+id/btnKvadrat" android:text="□" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
-        <Button android:id="@+id/btnKrug" android:text="○" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
-        <Button android:id="@+id/btnSrce" android:text="♥" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
-        <Button android:id="@+id/btnTrougao" android:text="△" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
-        <Button android:id="@+id/btnZvezda" android:text="★" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp"/>
-
-    </LinearLayout>
-
-    <Button
-        android:id="@+id/btnSubmit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Submit"/>
+        android:orientation="horizontal"
+        android:padding="5dp">
+        <TextView android:id="@+id/tvTurnSkocko" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="#FFF" android:textSize="18sp" android:text="Na potezu: Igrač 1" />
+        <TextView android:id="@+id/tvTimerSkocko" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFF" android:textSize="18sp" android:text="30s" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/tvScoreSkocko" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:textColor="#FFF" android:text="P1: 0 | P2: 0" android:paddingBottom="10dp"/>
+
+    <TableLayout
+        android:id="@+id/tableAttempts"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:stretchColumns="*"
+        android:gravity="center">
+    </TableLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="10dp">
+
+        <Button android:id="@+id/btnSkocko" android:text="S" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
+        <Button android:id="@+id/btnKvadrat" android:text="□" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
+        <Button android:id="@+id/btnKrug" android:text="○" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
+        <Button android:id="@+id/btnSrce" android:text="♥" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
+        <Button android:id="@+id/btnTrougao" android:text="△" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
+        <Button android:id="@+id/btnZvezda" android:text="★" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnDelete"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="OBRIŠI"
+            android:backgroundTint="#E91E63"
+            android:layout_marginEnd="5dp"/>
+
+        <Button
+            android:id="@+id/btnSubmit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:text="POTVRDI"
+            android:backgroundTint="#4CAF50"/>
+    </LinearLayout>
+
 </LinearLayout>
