@@ -44,7 +44,7 @@
         />
     <fragment
         android:id="@+id/nav_gameSkocko"
-        android:name="com.example.slagalica.fragments.SkockoFragment"
+        android:name="com.example.slagalica.games.SkockoFragment"
         android:label="Game"
         tools:layout="@layout/fragment_skocko"
         app:popUpTo="@+id/nav_home"
@@ -64,6 +64,15 @@
         tools:layout="@layout/fragment_ko_zna_zna"
         app:popUpTo="@+id/nav_home"
         app:popUpToInclusive="true" />
+        android:id="@+id/nav_gameAsocijacije"
+        android:name="com.example.slagalica.games.AsocijacijeFragment"
+        android:label="Game"
+        tools:layout="@layout/fragment_asocijacije"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true"
+        />
+
+
 
 
 
