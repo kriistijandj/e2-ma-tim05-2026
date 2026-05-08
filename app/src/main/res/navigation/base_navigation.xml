@@ -50,8 +50,20 @@
         app:popUpTo="@+id/nav_home"
         app:popUpToInclusive="true"
         />
-
-
+    <fragment
+        android:id="@+id/nav_gameSpojnice"
+        android:name="com.example.slagalica.fragments.SpojniceFragment"
+        android:label="Spojnice"
+        tools:layout="@layout/fragment_spojnice"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+    <fragment
+        android:id="@+id/nav_gameKoZnaZna"
+        android:name="com.example.slagalica.fragments.KoZnaZnaFragment"
+        android:label="Ko zna zna"
+        tools:layout="@layout/fragment_ko_zna_zna"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
 
 
 

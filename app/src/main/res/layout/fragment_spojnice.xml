@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Header: runda i tajmer -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/tvRound"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Runda 1 / 2"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:id="@+id/tvTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="30s"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#D32F2F"/>
+
+    </LinearLayout>
+
+    <!-- Kriterijum -->
+    <TextView
+        android:id="@+id/tvKriterijum"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Poveži izvođače sa njihovim pesmama"
+        android:textSize="14sp"
+        android:textStyle="italic"
+        android:gravity="center"
+        android:layout_marginBottom="12dp"
+        android:padding="8dp"
+        android:background="#E3F2FD"/>
+
+    <!-- Bodovi -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:gravity="center">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Igrač 1: "
+            android:textSize="14sp"/>
+
+        <TextView
+            android:id="@+id/tvScorePlayer1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#1976D2"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="    Igrač 2: "
+            android:textSize="14sp"/>
+
+        <TextView
+            android:id="@+id/tvScorePlayer2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#388E3C"/>
+
+    </LinearLayout>
+
+    <!-- Pojmovi: leva i desna kolona -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="12dp">
+
+        <!-- Leva kolona -->
+        <LinearLayout
+            android:id="@+id/leftColumn"
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="6dp">
+
+            <Button
+                android:id="@+id/btnLeft1"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam A1"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnLeft2"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam A2"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnLeft3"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam A3"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnLeft4"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam A4"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnLeft5"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:text="Pojam A5"
+                android:textSize="13sp"/>
+
+        </LinearLayout>
+
+        <!-- Desna kolona -->
+        <LinearLayout
+            android:id="@+id/rightColumn"
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:layout_marginStart="6dp">
+
+            <Button
+                android:id="@+id/btnRight1"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam B1"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnRight2"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam B2"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnRight3"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam B3"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnRight4"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="6dp"
+                android:text="Pojam B4"
+                android:textSize="13sp"/>
+
+            <Button
+                android:id="@+id/btnRight5"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:text="Pojam B5"
+                android:textSize="13sp"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Status poruka -->
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="13sp"
+        android:gravity="center"
+        android:textColor="#F57F17"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Dugme potvrdi -->
+    <Button
+        android:id="@+id/btnPotvrdi"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Potvrdi vezu"/>
+
+</LinearLayout>
