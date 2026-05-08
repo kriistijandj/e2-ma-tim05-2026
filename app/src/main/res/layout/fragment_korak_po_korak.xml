@@ -49,7 +49,7 @@
                     <ImageView
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:src="@drawable/ic_profile"/>
+                        android:src="@drawable/avatar"/>
 
                     <LinearLayout
                         android:layout_width="wrap_content"
@@ -140,7 +140,7 @@
                     <ImageView
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:src="@drawable/ic_profile"/>
+                        android:src="@drawable/avatar"/>
 
                 </LinearLayout>
 
@@ -154,42 +154,53 @@
             android:layout_height="wrap_content"
             android:text="Korak 1/7"
             android:textStyle="bold"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp"
+            android:layout_marginLeft="10dp"/>
 
-        <TextView
-            android:id="@+id/tvHint1"
-            style="@style/HintTextView"
-            android:text="Pojam hint se ovde prikazuje..." />
+        <LinearLayout
+            android:id="@+id/hintContainer"
+            android:layout_width="match_parent"
+            android:layout_height="390dp"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:layout_marginTop="8dp">
 
-        <TextView
-            android:id="@+id/tvHint2"
-            style="@style/HintTextView"
-            android:text="Pojam hint se ovde prikazuje..." />
+            <TextView
+                android:id="@+id/tvHint1"
+                style="@style/HintTextView"
+                android:text="Hint 1" />
 
-        <TextView
-            android:id="@+id/tvHint3"
-            style="@style/HintTextView"
-            android:text="Pojam hint se ovde prikazuje..." />
+            <TextView
+                android:id="@+id/tvHint2"
+                style="@style/HintTextView"
+                android:text="Hint 2" />
 
-        <TextView
-            android:id="@+id/tvHint4"
-            style="@style/HintTextView"
-            android:text="Pojam hint se ovde prikazuje..." />
+            <TextView
+                android:id="@+id/tvHint3"
+                style="@style/HintTextView"
+                android:text="Hint 3" />
 
-        <TextView
-            android:id="@+id/tvHint5"
-            style="@style/HintTextView"
-            android:text="Pojam hint se ovde prikazuje..." />
+            <TextView
+                android:id="@+id/tvHint4"
+                style="@style/HintTextView"
+                android:text="Hint 4" />
 
-        <TextView
-            android:id="@+id/tvHint6"
-            style="@style/HintTextView"
-            android:text="Pojam hint se ovde prikazuje..." />
+            <TextView
+                android:id="@+id/tvHint5"
+                style="@style/HintTextView"
+                android:text="Hint 5" />
 
-        <TextView
-            android:id="@+id/tvHint7"
-            style="@style/HintTextView"
-            android:text="Pojam hint se ovde prikazuje..." />
+            <TextView
+                android:id="@+id/tvHint6"
+                style="@style/HintTextView"
+                android:text="Hint 6" />
+
+            <TextView
+                android:id="@+id/tvHint7"
+                style="@style/HintTextView"
+                android:text="Hint 7" />
+
+        </LinearLayout>
 
 
         <androidx.cardview.widget.CardView
@@ -225,7 +236,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/stop"/>
+                        android:text="POTVRDI"/>
 
                     <Button
                         android:id="@+id/btnStop2"
@@ -233,7 +244,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Sledeći korak"/>
+                        android:text="SLEDEĆI KORAK"/>
 
                 </LinearLayout>
 

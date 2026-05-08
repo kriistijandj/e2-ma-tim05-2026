@@ -49,7 +49,7 @@
                     <ImageView
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:src="@drawable/ic_profile"/>
+                        android:src="@drawable/avatar"/>
 
                     <LinearLayout
                         android:layout_width="wrap_content"
@@ -140,7 +140,7 @@
                     <ImageView
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:src="@drawable/ic_profile"/>
+                        android:src="@drawable/avatar"/>
 
                 </LinearLayout>
 
@@ -281,21 +281,42 @@
                     android:orientation="horizontal"
                     android:layout_marginTop="12dp">
 
-                    <Button style="@style/GameButton" android:text="+"/>
-                    <Button style="@style/GameButton" android:text="-"/>
-                    <Button style="@style/GameButton" android:text="*"/>
+                    <Button
+                        android:id="@+id/btnPlus"
+                        style="@style/GameButton"
+                        android:text="+" />
+
+                    <Button
+                        android:id="@+id/btnMinus"
+                        style="@style/GameButton"
+                        android:text="-" />
+
+                    <Button
+                        android:id="@+id/btnMul"
+                        style="@style/GameButton"
+                        android:text="*" />
 
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    >
+                    android:orientation="horizontal">
 
-                    <Button style="@style/GameButton" android:text="/"/>
-                    <Button style="@style/GameButton" android:text="("/>
-                    <Button style="@style/GameButton" android:text=")"/>
+                    <Button
+                        android:id="@+id/btnDiv"
+                        style="@style/GameButton"
+                        android:text="/" />
+
+                    <Button
+                        android:id="@+id/btnOpen"
+                        style="@style/GameButton"
+                        android:text="(" />
+
+                    <Button
+                        android:id="@+id/btnClose"
+                        style="@style/GameButton"
+                        android:text=")" />
 
                 </LinearLayout>
 
@@ -314,7 +335,7 @@
                         android:text="@string/stop"/>
 
                     <Button
-                        android:id="@+id/btnStop2"
+                        android:id="@+id/btnDelete"
                         style="@style/StopButton"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
