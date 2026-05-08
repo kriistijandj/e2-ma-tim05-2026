@@ -1,50 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:orientation="vertical"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    tools:context=".fragments.GameFragment">
+    android:background="@color/AuthBackground"
+    android:fillViewport="true">
 
-    <Button
-        android:id="@+id/btnSkocko"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Skočko" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <Button
-        android:id="@+id/btnSpojnice"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Spojnice" />
-    <Button
-        android:id="@+id/btnKoZnaZna"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Ko zna zna" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Izaberi igru"
+            style="@style/LoginTitle"
+            android:layout_gravity="center"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="30dp"/>
 
-    <Button
-        android:id="@+id/btnAsocijacije"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="120dp"
-        android:text="Asocijacije" />
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="2"
+            android:alignmentMode="alignMargins"
+            android:columnOrderPreserved="false">
 
-    <Button
-        android:id="@+id/btnMojBroj"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="70dp"
-        android:text="Moj broj" />
+            <androidx.cardview.widget.CardView android:id="@+id/cardSkocko" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Skočko" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
-    <Button
-        android:id="@+id/btnKorak"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="120dp"
-        android:text="Korak po korak" />
+            <androidx.cardview.widget.CardView android:id="@+id/cardMojBroj" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Moj broj" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
-</LinearLayout>
+            <androidx.cardview.widget.CardView android:id="@+id/cardAsocijacije" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Asocijacije" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardKoZnaZna" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Ko zna zna" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardSpojnice" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Spojnice" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardKorak" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Korak" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </GridLayout>
+    </LinearLayout>
+</ScrollView>
