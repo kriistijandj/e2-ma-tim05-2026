@@ -12,4 +12,21 @@
     <string name="navigation_drawer_open">Navigation Drawer Open</string>
     <string name="navigation_drawer_close">Navigation Drawer Close</string>
     <string name="slagalica">Slagalica</string>
+    <string name="welcome_back">Welcome Back</string>
+    <string name="login_continue">Login to continue</string>
+
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Password</string>
+
+    <string name="login">LOGIN</string>
+    <string name="no_account">Don\'t have an account?</string>
+    <string name="signup2">Sign up</string>
+
+    <string name="signup">SIGNUP</string>
+    <string name="has_account">Already have an account?</string>
+    <string name="login2">Log in</string>
+
+    <string name="stop">STOP / POTVRDI</string>
+
+
 </resources>
