@@ -60,7 +60,7 @@
 
             <androidx.cardview.widget.CardView android:id="@+id/cardKorak" style="@style/GameMenuCard">
                 <LinearLayout style="@style/GameMenuContent">
-                    <TextView android:text="Korak" style="@style/GameMenuText"/>
+                    <TextView android:text="Korak po korak" style="@style/GameMenuText"/>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

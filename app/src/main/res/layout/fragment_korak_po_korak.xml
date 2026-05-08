@@ -1,160 +1,236 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    tools:context=".games.KorakPoKorakFragment">
+    android:padding="12dp"
+    android:background="@color/AuthBackground">
 
-    <!-- Runda + vreme -->
-    <TextView
-        android:id="@+id/tvRound"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Runda: 1"
-        android:textSize="18sp"
-        android:textStyle="bold"/>
-
-    <TextView
-        android:id="@+id/tvTimer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Vreme: 70s"
-        android:textSize="16sp"
-        android:layout_marginTop="4dp"/>
-
-    <!-- Trenutni pojam (step-by-step reveal) -->
-    <TextView
-        android:id="@+id/tvHintTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Korak 1/7"
-        android:textStyle="bold"
-        android:layout_marginTop="16dp"/>
-
-    <TextView
-        android:id="@+id/tvHint1"
+    <!-- ================= TOP CARD ================= -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Pojam hint se ovde prikazuje..."
-        android:textSize="18sp"
-        android:gravity="center"
-        android:padding="16dp"
-        android:background="#EEEEEE"
-        android:layout_marginTop="8dp"/>
+        android:layout_height="80dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginBottom="12dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="@color/cardBackground">
 
-    <TextView
-        android:id="@+id/tvHint2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Pojam hint se ovde prikazuje..."
-        android:textSize="18sp"
-        android:gravity="center"
-        android:padding="16dp"
-        android:background="#EEEEEE"
-        android:layout_marginTop="8dp"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:padding="10dp"
+            android:gravity="center_vertical">
 
-    <TextView
-        android:id="@+id/tvHint3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Pojam hint se ovde prikazuje..."
-        android:textSize="18sp"
-        android:gravity="center"
-        android:padding="16dp"
-        android:background="#EEEEEE"
-        android:layout_marginTop="8dp"/>
+            <!-- LEFT PLAYER -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-    <TextView
-        android:id="@+id/tvHint4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Pojam hint se ovde prikazuje..."
-        android:textSize="18sp"
-        android:gravity="center"
-        android:padding="16dp"
-        android:background="#EEEEEE"
-        android:layout_marginTop="8dp"/>
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/avatar" />
 
-    <TextView
-        android:id="@+id/tvHint5"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Pojam hint se ovde prikazuje..."
-        android:textSize="18sp"
-        android:gravity="center"
-        android:padding="16dp"
-        android:background="#EEEEEE"
-        android:layout_marginTop="8dp"/>
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="8dp">
 
-    <TextView
-        android:id="@+id/tvHint6"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Pojam hint se ovde prikazuje..."
-        android:textSize="18sp"
-        android:gravity="center"
-        android:padding="16dp"
-        android:background="#EEEEEE"
-        android:layout_marginTop="8dp"/>
-    <TextView
-        android:id="@+id/tvHint7"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Pojam hint se ovde prikazuje..."
-        android:textSize="18sp"
-        android:gravity="center"
-        android:padding="16dp"
-        android:background="#EEEEEE"
-        android:layout_marginTop="8dp"/>
+                    <TextView
+                        android:id="@+id/tvLeftName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Player 1"
+                        android:textStyle="bold"
+                        android:textColor="@color/textDark" />
 
-    <!-- Tajmer za 10s korak -->
-    <TextView
-        android:id="@+id/tvStepTimer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Korak vreme: 10s"
-        android:layout_marginTop="8dp"/>
+                    <TextView
+                        android:id="@+id/tvLeftScore"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Bodovi: 0"
+                        android:textSize="12sp"
+                        android:textColor="@color/textGray" />
+                </LinearLayout>
+            </LinearLayout>
 
-    <!-- Input za odgovor -->
-    <EditText
-        android:id="@+id/etAnswer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Unesi odgovor"
-        android:layout_marginTop="16dp"/>
+            <!-- TIMER -->
+            <FrameLayout
+                android:layout_width="60dp"
+                android:layout_height="60dp">
 
-    <!-- Dugmad -->
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/circle_background"
+                    app:tint="@color/secondary" />
+
+                <TextView
+                    android:id="@+id/tvTimer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="60"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:textColor="@color/textDark" />
+            </FrameLayout>
+
+            <!-- RIGHT PLAYER -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical|end">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="end"
+                    android:layout_marginEnd="8dp">
+
+                    <TextView
+                        android:id="@+id/tvRightName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Player 2"
+                        android:textStyle="bold"
+                        android:textColor="@color/textDark"
+                        android:gravity="end" />
+
+                    <TextView
+                        android:id="@+id/tvRightScore"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Bodovi: 0"
+                        android:textSize="12sp"
+                        android:textColor="@color/textGray"
+                        android:gravity="end" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/avatar" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- ================= HINT AREA ================= -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="16dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="12dp">
 
-        <Button
-            android:id="@+id/btnSubmit"
-            android:layout_width="0dp"
+        <!-- KORAK -->
+        <TextView
+            android:id="@+id/tvHintTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Potvrdi"/>
+            android:text="Korak 1/7"
+            android:textStyle="bold"
+            android:layout_gravity="start"
+            android:layout_marginBottom="12dp" />
 
-        <Button
-            android:id="@+id/btnNextStep"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Sledeći korak"/>
+        <!-- JEDINI HINT (FIXED POSITION) -->
+        <TextView
+            android:id="@+id/tvHint1"
+            style="@style/HintTextView"
+            android:text="Hint 1" />
+
+        <TextView
+            android:id="@+id/tvHint2"
+            style="@style/HintTextView"
+            android:text="Hint 2" />
+
+        <TextView
+            android:id="@+id/tvHint3"
+            style="@style/HintTextView"
+            android:text="Hint 3" />
+
+        <TextView
+            android:id="@+id/tvHint4"
+            style="@style/HintTextView"
+            android:text="Hint 4" />
+
+        <TextView
+            android:id="@+id/tvHint5"
+            style="@style/HintTextView"
+            android:text="Hint 5" />
+
+        <TextView
+            android:id="@+id/tvHint6"
+            style="@style/HintTextView"
+            android:text="Hint 6" />
+
+        <TextView
+            android:id="@+id/tvHint7"
+            style="@style/HintTextView"
+            android:text="Hint 7" />
+
     </LinearLayout>
 
-    <!-- Score -->
-    <TextView
-        android:id="@+id/tvScore"
+    <!-- ================= ANSWER CARD ================= -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Score: 0 - 0"
-        android:textSize="20sp"
-        android:gravity="center"
-        android:layout_marginTop="24dp"/>
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/cardBackground">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <EditText
+                android:id="@+id/etAnswer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Unesi odgovor"
+                android:layout_marginTop="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <Button
+                    android:id="@+id/btnStop"
+                    style="@style/StopButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="POTVRDI" />
+
+                <Button
+                    android:id="@+id/btnStop2"
+                    style="@style/StopButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="SLEDEĆI" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
 </LinearLayout>
