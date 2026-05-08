@@ -4,8 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/base_navigation"
-    app:startDestination="@id/nav_home">
-
+    app:startDestination="@id/nav_login"
+    >
     <fragment
         android:id="@+id/nav_home"
         android:name="com.example.slagalica.fragments.HomeFragment"
@@ -47,7 +47,36 @@
         android:label="Skočko"
         tools:layout="@layout/fragment_skocko"
         app:popUpTo="@+id/nav_home"
-        app:popUpToInclusive="true" />
+        app:popUpToInclusive="true"
+        />
+
+    <fragment
+        android:id="@+id/nav_login"
+        android:name="com.example.slagalica.fragments.LoginFragment"
+        android:label="Login"
+        tools:layout="@layout/fragment_login"
+        />
+
+    <fragment
+        android:id="@+id/nav_signup"
+        android:name="com.example.slagalica.fragments.SignupFragment"
+        android:label="Signup"
+        tools:layout="@layout/fragment_signup"
+        />
+
+    <fragment
+        android:id="@+id/nav_mojbroj"
+        android:name="com.example.slagalica.games.MojBrojFragment"
+        android:label="Signup"
+        tools:layout="@layout/fragment_moj_broj"
+        />
+
+    <fragment
+        android:id="@+id/nav_korak"
+        android:name="com.example.slagalica.games.KorakPoKorakFragment"
+        android:label="Signup"
+        tools:layout="@layout/fragment_korak_po_korak"
+        />
 
     <fragment
         android:id="@+id/nav_gameSpojnice"
