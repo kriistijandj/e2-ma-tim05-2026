@@ -65,9 +65,18 @@ public class GameFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_game, container, false);
 
         Button btnGame = view.findViewById(R.id.btnSkocko);
+        Button btnSpojnice = view.findViewById(R.id.btnSpojnice);
+        Button btnKoZnaZna = view.findViewById(R.id.btnKoZnaZna);
 
+        btnKoZnaZna.setOnClickListener(v ->
+                Navigation.findNavController(view).navigate(R.id.nav_gameKoZnaZna)
+        );
         btnGame.setOnClickListener(v ->
                 Navigation.findNavController(view).navigate(R.id.nav_gameSkocko)
+        );
+
+        btnSpojnice.setOnClickListener(v ->
+                Navigation.findNavController(view).navigate(R.id.nav_gameSpojnice)
         );
 
         Button btnGame2 = view.findViewById(R.id.btnAsocijacije);
