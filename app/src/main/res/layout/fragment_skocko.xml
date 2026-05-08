@@ -1,21 +1,130 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="10dp"
-    android:background="#0E7C86">
+    android:padding="12dp"
+    android:background="@color/AuthBackground">
 
-    <LinearLayout
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="5dp">
-        <TextView android:id="@+id/tvTurnSkocko" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="#FFF" android:textSize="18sp" android:text="Na potezu: Igrač 1" />
-        <TextView android:id="@+id/tvTimerSkocko" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFF" android:textSize="18sp" android:text="30s" />
-    </LinearLayout>
+        android:layout_height="80dp"
+        android:layout_marginBottom="15dp"
+        android:layout_marginTop="5dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="@color/cardBackground">
 
-    <TextView android:id="@+id/tvScoreSkocko" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:textColor="#FFF" android:text="P1: 0 | P2: 0" android:paddingBottom="10dp"/>
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="10dp">
+
+            <LinearLayout
+                android:id="@+id/leftPlayer"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/timerCircle">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_profile"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="8dp">
+                    <TextView
+                        android:id="@+id/tvLeftName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Igrač 1"
+                        android:textStyle="bold"
+                        android:textColor="@color/textDark"/>
+                    <TextView
+                        android:id="@+id/tvLeftScore"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Bodovi: 0"
+                        android:textSize="12sp"
+                        android:textColor="@color/textGray"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/timerCircle"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/circle_background"
+                    app:tint="@color/primary"/>
+
+                <TextView
+                    android:id="@+id/tvTimerSkocko"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="30"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:textColor="@color/textDark"/>
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/rightPlayer"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical|end"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@id/timerCircle">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="8dp"
+                    android:gravity="end">
+                    <TextView
+                        android:id="@+id/tvRightName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Igrač 2"
+                        android:textStyle="bold"
+                        android:textColor="@color/textDark"/>
+                    <TextView
+                        android:id="@+id/tvRightScore"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Bodovi: 0"
+                        android:textSize="12sp"
+                        android:textColor="@color/textGray"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_profile"/>
+            </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.cardview.widget.CardView>
 
     <TableLayout
         android:id="@+id/tableAttempts"
@@ -33,35 +142,19 @@
         android:gravity="center"
         android:layout_marginBottom="10dp">
 
-        <Button android:id="@+id/btnSkocko" android:text="S" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
-        <Button android:id="@+id/btnKvadrat" android:text="□" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
-        <Button android:id="@+id/btnKrug" android:text="○" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
-        <Button android:id="@+id/btnSrce" android:text="♥" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
-        <Button android:id="@+id/btnTrougao" android:text="△" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
-        <Button android:id="@+id/btnZvezda" android:text="★" android:layout_width="0dp" android:layout_weight="1" android:layout_height="60dp" android:layout_margin="2dp" android:backgroundTint="#FFF" android:textColor="#000"/>
+        <ImageButton android:id="@+id/btnSkocko" style="@style/RoundedEditText" android:layout_width="0dp" android:layout_weight="1" android:layout_height="55dp" android:layout_margin="2dp" android:src="@drawable/ic_skocko" android:padding="10dp" android:scaleType="fitCenter"/>
+        <ImageButton android:id="@+id/btnKvadrat" style="@style/RoundedEditText" android:layout_width="0dp" android:layout_weight="1" android:layout_height="55dp" android:layout_margin="2dp" android:src="@drawable/ic_kvadrat" android:padding="10dp" android:scaleType="fitCenter"/>
+        <ImageButton android:id="@+id/btnKrug" style="@style/RoundedEditText" android:layout_width="0dp" android:layout_weight="1" android:layout_height="55dp" android:layout_margin="2dp" android:src="@drawable/ic_krug" android:padding="10dp" android:scaleType="fitCenter"/>
+        <ImageButton android:id="@+id/btnSrce" style="@style/RoundedEditText" android:layout_width="0dp" android:layout_weight="1" android:layout_height="55dp" android:layout_margin="2dp" android:src="@drawable/ic_srce" android:padding="10dp" android:scaleType="fitCenter"/>
+        <ImageButton android:id="@+id/btnTrougao" style="@style/RoundedEditText" android:layout_width="0dp" android:layout_weight="1" android:layout_height="55dp" android:layout_margin="2dp" android:src="@drawable/ic_trougao" android:padding="10dp" android:scaleType="fitCenter"/>
+        <ImageButton android:id="@+id/btnZvezda" style="@style/RoundedEditText" android:layout_width="0dp" android:layout_weight="1" android:layout_height="55dp" android:layout_margin="2dp" android:src="@drawable/ic_zvezda" android:padding="10dp" android:scaleType="fitCenter"/>
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btnDelete"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="OBRIŠI"
-            android:backgroundTint="#E91E63"
-            android:layout_marginEnd="5dp"/>
-
-        <Button
-            android:id="@+id/btnSubmit"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="2"
-            android:text="POTVRDI"
-            android:backgroundTint="#4CAF50"/>
+        <Button android:id="@+id/btnDelete" style="@style/StopButton" android:text="OBRIŠI" android:layout_weight="1"/>
+        <Button android:id="@+id/btnSubmit" style="@style/PrimaryButton" android:text="POTVRDI" android:layout_width="0dp" android:layout_weight="2"/>
     </LinearLayout>
-
 </LinearLayout>

@@ -1,5 +1,6 @@
 package com.example.slagalica.games;
 
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -25,6 +26,7 @@ public class AsocijacijeFragment extends Fragment {
     private AssociationGame game;
     private Button[][] fieldButtons = new Button[4][4];
     private Button[] columnSolutionButtons = new Button[4];
+    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore;
     private Button btnFinal;
 
     private TextView tvTurn, tvTimer, tvScore;
@@ -37,10 +39,11 @@ public class AsocijacijeFragment extends Fragment {
         View v = inflater.inflate(R.layout.fragment_asocijacije, container, false);
 
         game = AssociationData.createGame();
-
-        tvTurn = v.findViewById(R.id.tvTurn);
+        tvLeftName = v.findViewById(R.id.tvLeftName);
+        tvRightName = v.findViewById(R.id.tvRightName);
+        tvLeftScore = v.findViewById(R.id.tvLeftScore);
+        tvRightScore = v.findViewById(R.id.tvRightScore);
         tvTimer = v.findViewById(R.id.tvTimer);
-        tvScore = v.findViewById(R.id.tvScore);
         etGuess = v.findViewById(R.id.etGuess);
         btnFinal = v.findViewById(R.id.btnFinal);
 
@@ -82,8 +85,10 @@ public class AsocijacijeFragment extends Fragment {
                 if (game.openField(colIdx, finalRow)) {
                     Column col = game.rounds[game.currentRound].columns[colIdx];
                     fieldButtons[colIdx][finalRow].setText(col.fields[finalRow]);
-                    fieldButtons[colIdx][finalRow].setBackgroundColor(Color.WHITE);
-                    fieldButtons[colIdx][finalRow].setTextColor(Color.BLACK);
+                    fieldButtons[colIdx][finalRow].setBackgroundTintList(
+                    ColorStateList.valueOf(Color.parseColor("#FFFFFF"))); // Bela pozadina za otvoreno
+                    fieldButtons[colIdx][finalRow].setTextColor(
+                            getResources().getColor(R.color.textDark));
                     // Nakon otvaranja polja u Slagalici se NE menja igrač,
                     // on ima pravo da pogađa (zato ne zovemo switch)
                 }
@@ -112,8 +117,7 @@ public class AsocijacijeFragment extends Fragment {
     private void revealColumn(int colIdx) {
         Column col = game.rounds[game.currentRound].columns[colIdx];
         columnSolutionButtons[colIdx].setText(col.solution);
-        columnSolutionButtons[colIdx].setBackgroundColor(Color.parseColor("#4CAF50"));
-        columnSolutionButtons[colIdx].setTextColor(Color.WHITE);
+        columnSolutionButtons[colIdx].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
 
         for (int i = 0; i < 4; i++) {
             fieldButtons[colIdx][i].setText(col.fields[i]);
@@ -125,13 +129,24 @@ public class AsocijacijeFragment extends Fragment {
     private void revealEverything() {
         for (int i = 0; i < 4; i++) revealColumn(i);
         btnFinal.setText(game.rounds[game.currentRound].finalSolution);
-        btnFinal.setBackgroundColor(Color.parseColor("#4CAF50"));
+        btnFinal.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
         if (timer != null) timer.cancel();
     }
 
     private void updateUI() {
-        tvTurn.setText("Na potezu: " + game.getCurrentPlayer().name);
-        tvScore.setText("P1: " + game.getPlayer1().score + " | P2: " + game.getPlayer2().score);
+        // Postavljamo ko je na potezu tako što malo "osvetlimo" ime ili dodamo marker
+        if (game.getCurrentPlayer() == game.getPlayer1()) {
+            tvLeftName.setTextColor(getResources().getColor(R.color.primaryDark));
+            tvRightName.setTextColor(getResources().getColor(R.color.textDark));
+        } else {
+            tvRightName.setTextColor(getResources().getColor(R.color.primaryDark));
+            tvLeftName.setTextColor(getResources().getColor(R.color.textDark));
+        }
+
+        tvLeftName.setText(game.getPlayer1().name);
+        tvRightName.setText(game.getPlayer2().name);
+        tvLeftScore.setText("Bodovi: " + game.getPlayer1().score);
+        tvRightScore.setText("Bodovi: " + game.getPlayer2().score);
     }
 
     private void startTimer() {
