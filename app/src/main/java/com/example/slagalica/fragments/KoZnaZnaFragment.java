@@ -74,8 +74,7 @@ public class KoZnaZnaFragment extends Fragment {
 
     private void loadQuestion(int idx) {
         tvQuestionNumber.setText("Pitanje " + (idx + 1) + " / 5");
-        tvTimer.setText("5s");
-        tvQuestion.setText(QUESTIONS[idx]);
+        tvTimer.setText("5");
         tvStatus.setText("");
 
         btnAnswerA.setText(ANSWERS[idx][0]);
