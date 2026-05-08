@@ -64,7 +64,6 @@ public class MojBrojFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_moj_broj, container, false);
     }
 
@@ -74,13 +73,11 @@ public class MojBrojFragment extends Fragment {
 
         EditText etExpression = view.findViewById(R.id.etExpression);
 
-        // zajednički listener za ubacivanje karaktera
         View.OnClickListener insertListener = v -> {
             Button btn = (Button) v;
             etExpression.append(btn.getText().toString());
         };
 
-        // BROJEVI
         view.findViewById(R.id.btnNum1).setOnClickListener(insertListener);
         view.findViewById(R.id.btnNum2).setOnClickListener(insertListener);
         view.findViewById(R.id.btnNum3).setOnClickListener(insertListener);
@@ -88,7 +85,6 @@ public class MojBrojFragment extends Fragment {
         view.findViewById(R.id.btnNum5).setOnClickListener(insertListener);
         view.findViewById(R.id.btnNum6).setOnClickListener(insertListener);
 
-        // OPERACIJE
         view.findViewById(R.id.btnPlus).setOnClickListener(insertListener);
         view.findViewById(R.id.btnMinus).setOnClickListener(insertListener);
         view.findViewById(R.id.btnMul).setOnClickListener(insertListener);
@@ -96,7 +92,6 @@ public class MojBrojFragment extends Fragment {
         view.findViewById(R.id.btnOpen).setOnClickListener(insertListener);
         view.findViewById(R.id.btnClose).setOnClickListener(insertListener);
 
-        // ⌫ DELETE (BACKSPACE)
         view.findViewById(R.id.btnDelete).setOnClickListener(v -> {
             String text = etExpression.getText().toString();
 

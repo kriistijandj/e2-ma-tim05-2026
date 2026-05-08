@@ -33,9 +33,7 @@ public class KorakPoKorakFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // =========================
-        // HINTOVI
-        // =========================
+
         TextView tvHint1 = view.findViewById(R.id.tvHint1);
         TextView tvHint2 = view.findViewById(R.id.tvHint2);
         TextView tvHint3 = view.findViewById(R.id.tvHint3);
@@ -49,16 +47,12 @@ public class KorakPoKorakFragment extends Fragment {
                 tvHint1, tvHint2, tvHint3, tvHint4, tvHint5, tvHint6, tvHint7
         );
 
-        // =========================
-        // INIT STATE (samo prvi vidljiv)
-        // =========================
+
         for (int i = 0; i < hints.size(); i++) {
-            hints.get(i).setVisibility(i == 0 ? View.VISIBLE : View.GONE);
+            hints.get(i).setVisibility(i == 0 ? View.VISIBLE : View.INVISIBLE);
         }
 
-        // =========================
-        // DUgME: sledeći korak
-        // =========================
+
         Button nextButton = view.findViewById(R.id.btnStop2);
 
         nextButton.setOnClickListener(v -> {
@@ -68,13 +62,12 @@ public class KorakPoKorakFragment extends Fragment {
                 updateTitle(tvHintNumber, currentHintIndex, hints.size());
                 currentHintIndex++;
 
-                // 🔥 PROVERA ODMAH POSLE INKREMENTA
                 if (currentHintIndex == hints.size()) {
                     v.setEnabled(false);
                 }
 
             } else {
-                v.setEnabled(false); // nema više hintova
+                v.setEnabled(false);
             }
         });
     }

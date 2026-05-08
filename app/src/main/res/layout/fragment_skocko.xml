@@ -35,7 +35,7 @@
                 <ImageView
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:src="@drawable/ic_profile"/>
+                    android:src="@drawable/avatar"/>
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -72,7 +72,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:src="@drawable/circle_background"
-                    app:tint="@color/primary"/>
+                    app:tint="@color/secondary"/>
 
                 <TextView
                     android:id="@+id/tvTimerSkocko"
@@ -121,7 +121,7 @@
                 <ImageView
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:src="@drawable/ic_profile"/>
+                    android:src="@drawable/avatar"/>
             </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.cardview.widget.CardView>
