@@ -2,12 +2,11 @@ package com.example.slagalica.games;
 
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.CountDownTimer;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TableLayout;
@@ -24,124 +23,113 @@ import com.example.slagalica.R;
 public class SkockoFragment extends Fragment {
 
     private TableLayout tableAttempts;
+    private ImageView[][] cells = new ImageView[6][4];
     private LinearLayout[] feedbackContainers = new LinearLayout[6];
-    private ImageView[][] attemptCells = new ImageView[6][4];
-    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore;
+
     private int currentRow = 0;
     private int currentCol = 0;
-    private CountDownTimer timer;
-    private TextView tvTimer;
+    private boolean[] rowLocked = new boolean[6];
+
+    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore, tvTimer;
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+
         View v = inflater.inflate(R.layout.fragment_skocko, container, false);
 
         tableAttempts = v.findViewById(R.id.tableAttempts);
-        tvTimer = v.findViewById(R.id.tvTimerSkocko);
 
         tvLeftName = v.findViewById(R.id.tvLeftName);
         tvRightName = v.findViewById(R.id.tvRightName);
         tvLeftScore = v.findViewById(R.id.tvLeftScore);
         tvRightScore = v.findViewById(R.id.tvRightScore);
+        tvTimer = v.findViewById(R.id.tvTimerSkocko);
+
+        tvLeftName.setText("Igrač 1");
+        tvRightName.setText("Igrač 2");
+        tvLeftScore.setText("Bodovi: 0");
+        tvRightScore.setText("Bodovi: 0");
+        tvTimer.setText("30s");
 
         setupGrid();
-        setupInputButtons(v);
-
-        v.findViewById(R.id.btnSubmit).setOnClickListener(view -> submitAttempt());
-        v.findViewById(R.id.btnDelete).setOnClickListener(view -> deleteSymbol());
-
-        startTimer();
+        setupButtons(v);
 
         return v;
     }
 
     private void setupGrid() {
-        float density = getResources().getDisplayMetrics().density;
-        int cellSize = (int) (45 * density);
-        int margin = (int) (4 * density);
-        int feedbackWidth = (int) (110 * density);
+        float d = getResources().getDisplayMetrics().density;
+        int size = (int) (45 * d);
+        int margin = (int) (4 * d);
+        int feedbackWidth = (int) (90 * d);
 
         for (int i = 0; i < 6; i++) {
             TableRow row = new TableRow(getContext());
-            row.setLayoutParams(new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1.0f));
             row.setGravity(Gravity.CENTER);
 
             for (int j = 0; j < 4; j++) {
-                ImageView cell = new ImageView(getContext());
-                TableRow.LayoutParams lp = new TableRow.LayoutParams(cellSize, cellSize);
-                lp.setMargins(margin, 0, margin, 0);
-                cell.setLayoutParams(lp);
-                cell.setPadding(8, 8, 8, 8);
-                cell.setBackgroundColor(Color.parseColor("#888888")); // Pozadina polja
+                ImageView iv = new ImageView(getContext());
+                TableRow.LayoutParams lp = new TableRow.LayoutParams(size, size);
+                lp.setMargins(margin, margin, margin, margin);
+                iv.setLayoutParams(lp);
+                iv.setBackgroundColor(Color.parseColor("#888888"));
+                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
-                attemptCells[i][j] = cell;
-                row.addView(cell);
+                cells[i][j] = iv;
+                row.addView(iv);
             }
-
-            View separator = new View(getContext());
-            row.addView(separator, new TableRow.LayoutParams((int)(20 * density), 1));
 
             LinearLayout feedback = new LinearLayout(getContext());
             feedback.setOrientation(LinearLayout.HORIZONTAL);
             feedback.setGravity(Gravity.CENTER);
 
-            TableRow.LayoutParams feedbackLp = new TableRow.LayoutParams(feedbackWidth, TableRow.LayoutParams.MATCH_PARENT);
-            feedback.setLayoutParams(feedbackLp);
+            TableRow.LayoutParams flp =
+                    new TableRow.LayoutParams(feedbackWidth, TableRow.LayoutParams.MATCH_PARENT);
+            feedback.setLayoutParams(flp);
 
             feedbackContainers[i] = feedback;
             row.addView(feedback);
-
-            // Inicijalno popunjavanje praznim kružićima
-            for (int k = 0; k < 4; k++) {
-                addCircle(feedback, Color.parseColor("#33444444"));
-            }
 
             tableAttempts.addView(row);
         }
     }
 
-    // ISPRAVLJENO: Samo jedna verzija addCircle metode
-    private void addCircle(LinearLayout container, int color) {
-        View circle = new View(getContext());
-        float density = getResources().getDisplayMetrics().density;
+    private void setupButtons(View v) {
+        bindSymbol(v, R.id.btnSkocko, R.drawable.ic_skocko);
+        bindSymbol(v, R.id.btnKvadrat, R.drawable.ic_kvadrat);
+        bindSymbol(v, R.id.btnKrug, R.drawable.ic_krug);
+        bindSymbol(v, R.id.btnSrce, R.drawable.ic_srce);
+        bindSymbol(v, R.id.btnTrougao, R.drawable.ic_trougao);
+        bindSymbol(v, R.id.btnZvezda, R.drawable.ic_zvezda);
 
-        int size = (int) (18 * density);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
-        lp.setMargins((int)(3 * density), 0, (int)(3 * density), 0);
-
-        circle.setLayoutParams(lp);
-        // Osiguraj da circle_shape.xml postoji u drawable folderu
-        circle.setBackgroundResource(R.drawable.circle_shape);
-        circle.getBackground().setTint(color);
-
-        container.addView(circle);
+        v.findViewById(R.id.btnDelete).setOnClickListener(view -> deleteSymbol());
+        v.findViewById(R.id.btnSubmit).setOnClickListener(view -> submitAttempt());
     }
 
-    private void setupInputButtons(View v) {
-        // Mapiranje dugmeta na sliku
-        v.findViewById(R.id.btnSkocko).setOnClickListener(view -> addSymbol(R.drawable.ic_skocko));
-        v.findViewById(R.id.btnKvadrat).setOnClickListener(view -> addSymbol(R.drawable.ic_kvadrat));
-        v.findViewById(R.id.btnKrug).setOnClickListener(view -> addSymbol(R.drawable.ic_krug));
-        v.findViewById(R.id.btnSrce).setOnClickListener(view -> addSymbol(R.drawable.ic_srce));
-        v.findViewById(R.id.btnTrougao).setOnClickListener(view -> addSymbol(R.drawable.ic_trougao));
-        v.findViewById(R.id.btnZvezda).setOnClickListener(view -> addSymbol(R.drawable.ic_zvezda));
+    private void bindSymbol(View v, int btnId, int drawableId) {
+        ImageButton btn = v.findViewById(btnId);
+        btn.setOnClickListener(view -> addSymbol(drawableId));
     }
 
-    private void addSymbol(int drawableResId) {
-        if (currentRow < 6 && currentCol < 4) {
-            attemptCells[currentRow][currentCol].setImageResource(drawableResId);
-            // Čuvamo koji je znak unet (trebaće ti za logiku kasnije, npr. pomoću tag-a)
-            attemptCells[currentRow][currentCol].setTag(drawableResId);
-            currentCol++;
-        }
+    private void addSymbol(int drawableId) {
+        if (currentRow >= 6) return;
+        if (rowLocked[currentRow]) return;
+        if (currentCol >= 4) return;
+
+        cells[currentRow][currentCol].setImageResource(drawableId);
+        currentCol++;
     }
+
     private void deleteSymbol() {
-        if (currentCol > 0) {
-            currentCol--;
-            attemptCells[currentRow][currentCol].setImageDrawable(null);
-            attemptCells[currentRow][currentCol].setTag(null);
-        }
+        if (currentRow >= 6) return;
+        if (rowLocked[currentRow]) return;
+        if (currentCol == 0) return;
+
+        currentCol--;
+        cells[currentRow][currentCol].setImageDrawable(null);
     }
 
     private void submitAttempt() {
@@ -150,9 +138,9 @@ public class SkockoFragment extends Fragment {
             return;
         }
 
-        // GUI simulacija provere
-        showFeedback(currentRow, 2, 1);
+        showFeedback(currentRow, 2, 1); // GUI simulacija
 
+        rowLocked[currentRow] = true;
         currentRow++;
         currentCol = 0;
 
@@ -161,39 +149,33 @@ public class SkockoFragment extends Fragment {
         }
     }
 
-    private void showFeedback(int rowIdx, int redCount, int yellowCount) {
-        feedbackContainers[rowIdx].removeAllViews();
-        feedbackContainers[rowIdx].setPadding(10, 0, 10, 0);
+    // ---------------- FEEDBACK ----------------
 
-        for (int i = 0; i < redCount; i++) {
-            addCircle(feedbackContainers[rowIdx], Color.RED);
+    private void showFeedback(int row, int red, int yellow) {
+        LinearLayout fb = feedbackContainers[row];
+        fb.removeAllViews();
+
+        for (int i = 0; i < red; i++) {
+            fb.addView(makeCircle(Color.RED));
         }
-
-        for (int i = 0; i < yellowCount; i++) {
-            addCircle(feedbackContainers[rowIdx], Color.YELLOW);
+        for (int i = 0; i < yellow; i++) {
+            fb.addView(makeCircle(Color.YELLOW));
         }
-
-        int grayCount = 4 - (redCount + yellowCount);
-        for (int i = 0; i < grayCount; i++) {
-            addCircle(feedbackContainers[rowIdx], Color.parseColor("#444444"));
+        for (int i = 0; i < 4 - red - yellow; i++) {
+            fb.addView(makeCircle(Color.DKGRAY));
         }
     }
 
-    private void startTimer() {
-        if (timer != null) timer.cancel();
-        timer = new CountDownTimer(30000, 1000) {
-            public void onTick(long ms) {
-                if (tvTimer != null) tvTimer.setText(ms / 1000 + "s");
-            }
-            public void onFinish() {
-                if (getContext() != null) Toast.makeText(getContext(), "Vreme isteklo!", Toast.LENGTH_SHORT).show();
-            }
-        }.start();
-    }
+    private View makeCircle(int color) {
+        View v = new View(getContext());
+        float d = getResources().getDisplayMetrics().density;
+        int size = (int) (12 * d);
 
-    @Override
-    public void onDestroyView() {
-        if (timer != null) timer.cancel();
-        super.onDestroyView();
+        LinearLayout.LayoutParams lp =
+                new LinearLayout.LayoutParams(size, size);
+        lp.setMargins(4, 0, 4, 0);
+        v.setLayoutParams(lp);
+        v.setBackgroundColor(color);
+        return v;
     }
 }
