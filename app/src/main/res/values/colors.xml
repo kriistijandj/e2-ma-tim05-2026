@@ -1,5 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- App Colors -->
+    <color name="background">#F5F9FF</color>
+    <color name="cardBackground">#FFFFFF</color>
+    <color name="AuthBackground">#4AE4F4</color>
+
+    <color name="primary">#00D2FF</color>
+    <color name="primaryDark">#3A7BFF</color>
+    <color name="secondary">#F2AF14</color>
+    <color name="AuthButton">#F2AF14</color>
+
+    <color name="textDark">#222222</color>
+    <color name="textGray">#888888</color>
+
+    <color name="inputBg">#F2F5FA</color>
+
 </resources>
