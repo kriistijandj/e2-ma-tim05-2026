@@ -1,25 +1,26 @@
 package com.example.slagalica.fragments;
 
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 
+import com.google.android.material.button.MaterialButton;
 import com.example.slagalica.R;
 
 public class SpojniceFragment extends Fragment {
 
     private TextView tvRound, tvTimer, tvKriterijum, tvStatus;
     private TextView tvScorePlayer1, tvScorePlayer2;
-    private Button btnPotvrdi;
+    private MaterialButton btnPotvrdi;
 
-    private Button[] leftButtons = new Button[5];
-    private Button[] rightButtons = new Button[5];
+    private MaterialButton[] leftButtons  = new MaterialButton[5];
+    private MaterialButton[] rightButtons = new MaterialButton[5];
 
     private int selectedLeftIndex  = -1;
     private int selectedRightIndex = -1;
@@ -27,14 +28,13 @@ public class SpojniceFragment extends Fragment {
     private boolean[] leftUsed  = new boolean[5];
     private boolean[] rightUsed = new boolean[5];
 
-    // connectedRight[i] = j znači lijevi[i] je spojen sa desnim[j]
     private int[] connectedRight = new int[]{-1, -1, -1, -1, -1};
 
-    private static final int COLOR_SELECTED  = Color.parseColor("#1976D2");
-    private static final int COLOR_CONNECTED = Color.parseColor("#C8E6C9");
-    private static final int COLOR_DEFAULT = Color.parseColor("#90A4AE");    private static final int COLOR_WAITING   = Color.parseColor("#FFF9C4");
+    private static final int COLOR_DEFAULT  = Color.parseColor("#F2AF14");
+    private static final int COLOR_SELECTED = Color.parseColor("#3A7BFF");
+    private static final int COLOR_CONNECTED = Color.parseColor("#4CAF50");
+    private static final int COLOR_WAITING  = Color.parseColor("#90A4AE");
 
-    // Primjer podataka – zamijeniti sa podacima iz baze
     private static final String[] LEFT_TERMS  = {
             "Riblja čorba", "Bajaga", "EKV", "Đ. Balašević", "Generacija 5"
     };
@@ -42,9 +42,9 @@ public class SpojniceFragment extends Fragment {
             "Kao dva sveta", "Tri put sam video Tita", "Ona spava", "Šta ima novo", "Nebo"
     };
 
-    private int currentRound  = 1;
-    private int scorePlayer1  = 0;
-    private int scorePlayer2  = 0;
+    private int currentRound = 1;
+    private int scorePlayer1 = 0;
+    private int scorePlayer2 = 0;
 
     public SpojniceFragment() {}
 
@@ -58,8 +58,8 @@ public class SpojniceFragment extends Fragment {
         tvTimer        = view.findViewById(R.id.tvTimer);
         tvKriterijum   = view.findViewById(R.id.tvKriterijum);
         tvStatus       = view.findViewById(R.id.tvStatus);
-        tvScorePlayer1 = view.findViewById(R.id.tvScorePlayer1);
-        tvScorePlayer2 = view.findViewById(R.id.tvScorePlayer2);
+        tvScorePlayer1 = view.findViewById(R.id.tvLeftScore);
+        tvScorePlayer2 = view.findViewById(R.id.tvRightScore);
         btnPotvrdi     = view.findViewById(R.id.btnPotvrdi);
 
         leftButtons[0]  = view.findViewById(R.id.btnLeft1);
@@ -80,6 +80,10 @@ public class SpojniceFragment extends Fragment {
         return view;
     }
 
+    private void setButtonTint(MaterialButton btn, int color) {
+        btn.setBackgroundTintList(ColorStateList.valueOf(color));
+    }
+
     private void setupRound() {
         selectedLeftIndex  = -1;
         selectedRightIndex = -1;
@@ -90,19 +94,19 @@ public class SpojniceFragment extends Fragment {
         }
 
         tvRound.setText("Runda " + currentRound + " / 2");
-        tvTimer.setText("30s");
+        tvTimer.setText("30");
         tvStatus.setText("");
         btnPotvrdi.setEnabled(true);
         btnPotvrdi.setText("Potvrdi vezu");
 
         for (int i = 0; i < 5; i++) {
             leftButtons[i].setText(LEFT_TERMS[i]);
-            leftButtons[i].setBackgroundColor(COLOR_DEFAULT);
             leftButtons[i].setEnabled(true);
+            setButtonTint(leftButtons[i], COLOR_DEFAULT);
 
             rightButtons[i].setText(RIGHT_TERMS[i]);
-            rightButtons[i].setBackgroundColor(COLOR_DEFAULT);
             rightButtons[i].setEnabled(true);
+            setButtonTint(rightButtons[i], COLOR_DEFAULT);
         }
 
         updateScoreUI();
@@ -121,18 +125,15 @@ public class SpojniceFragment extends Fragment {
         if (leftUsed[idx]) return;
 
         if (selectedLeftIndex == idx) {
-            // Deselektuj
-            leftButtons[idx].setBackgroundColor(COLOR_DEFAULT);
+            setButtonTint(leftButtons[idx], COLOR_DEFAULT);
             selectedLeftIndex = -1;
         } else {
-            // Poništi staru selekciju
             if (selectedLeftIndex != -1) {
-                leftButtons[selectedLeftIndex].setBackgroundColor(COLOR_DEFAULT);
+                setButtonTint(leftButtons[selectedLeftIndex], COLOR_DEFAULT);
             }
             selectedLeftIndex = idx;
-            leftButtons[idx].setBackgroundColor(COLOR_SELECTED);
+            setButtonTint(leftButtons[idx], COLOR_SELECTED);
 
-            // Ako je desni već čekao – napravi vezu
             if (selectedRightIndex != -1) {
                 makeConnection(selectedLeftIndex, selectedRightIndex);
             }
@@ -143,15 +144,13 @@ public class SpojniceFragment extends Fragment {
         if (rightUsed[idx]) return;
 
         if (selectedLeftIndex != -1) {
-            // Lijevi je već selektovan – napravi vezu
             makeConnection(selectedLeftIndex, idx);
         } else {
-            // Nema lijevog – označi desni kao "čeka"
             if (selectedRightIndex != -1) {
-                rightButtons[selectedRightIndex].setBackgroundColor(COLOR_DEFAULT);
+                setButtonTint(rightButtons[selectedRightIndex], COLOR_DEFAULT);
             }
             selectedRightIndex = idx;
-            rightButtons[idx].setBackgroundColor(COLOR_WAITING);
+            setButtonTint(rightButtons[idx], COLOR_WAITING);
         }
     }
 
@@ -160,8 +159,8 @@ public class SpojniceFragment extends Fragment {
         rightUsed[rightIdx]     = true;
         connectedRight[leftIdx] = rightIdx;
 
-        leftButtons[leftIdx].setBackgroundColor(COLOR_CONNECTED);
-        rightButtons[rightIdx].setBackgroundColor(COLOR_CONNECTED);
+        setButtonTint(leftButtons[leftIdx],   COLOR_CONNECTED);
+        setButtonTint(rightButtons[rightIdx], COLOR_CONNECTED);
 
         selectedLeftIndex  = -1;
         selectedRightIndex = -1;
@@ -189,7 +188,7 @@ public class SpojniceFragment extends Fragment {
     }
 
     private void updateScoreUI() {
-        tvScorePlayer1.setText(String.valueOf(scorePlayer1));
-        tvScorePlayer2.setText(String.valueOf(scorePlayer2));
+        tvScorePlayer1.setText("Bodovi: " + scorePlayer1);
+        tvScorePlayer2.setText("Bodovi: " + scorePlayer2);
     }
 }

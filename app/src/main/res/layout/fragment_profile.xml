@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="@color/AuthBackground">
 
     <LinearLayout
         android:orientation="vertical"
@@ -12,215 +13,261 @@
         android:padding="16dp">
 
         <!-- === AVATAR + OSNOVNI PODACI === -->
-        <LinearLayout
-            android:orientation="vertical"
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#FFFFFF"
-            android:padding="16dp"
             android:layout_marginBottom="12dp"
-            android:gravity="center">
+            app:cardCornerRadius="24dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/cardBackground">
 
-            <!-- Avatar -->
-            <FrameLayout
-                android:layout_width="110dp"
-                android:layout_height="110dp"
-                android:layout_marginBottom="8dp">
-
-                <!-- Zlatni okvir -->
-                <View
-                    android:layout_width="110dp"
-                    android:layout_height="110dp"
-                    android:background="#FFC107"/>
-
-                <!-- Avatar krug -->
-                <ImageView
-                    android:id="@+id/ivAvatar"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:layout_gravity="center"
-                    android:src="@android:drawable/ic_menu_myplaces"
-                    android:background="#78909C"
-                    android:scaleType="centerInside"
-                    android:padding="16dp"/>
-
-            </FrameLayout>
-
-            <!-- Dugme za izmjenu avatara -->
-            <Button
-                android:id="@+id/btnChangeAvatar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Izmijeni avatar"
-                android:textSize="12sp"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Korisničko ime -->
-            <TextView
-                android:id="@+id/tvUsername"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="korisnicko_ime"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="4dp"/>
-
-            <!-- Email -->
-            <TextView
-                android:id="@+id/tvEmail"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="email@example.com"
-                android:textSize="14sp"
-                android:textColor="#757575"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Tokeni, Zvezde, Liga u redu -->
             <LinearLayout
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:layout_marginBottom="12dp">
+                android:padding="20dp"
+                android:gravity="center">
 
-                <!-- Tokeni -->
-                <LinearLayout
-                    android:orientation="vertical"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:gravity="center">
+                <!-- Avatar -->
+                <FrameLayout
+                    android:layout_width="110dp"
+                    android:layout_height="110dp"
+                    android:layout_marginBottom="8dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🎟"
-                        android:textSize="24sp"/>
+                    <View
+                        android:layout_width="110dp"
+                        android:layout_height="110dp"
+                        android:background="#FFC107"/>
 
-                    <TextView
-                        android:id="@+id/tvTokens"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="5"
-                        android:textSize="18sp"
-                        android:textStyle="bold"/>
+                    <ImageView
+                        android:id="@+id/ivAvatar"
+                        android:layout_width="100dp"
+                        android:layout_height="100dp"
+                        android:layout_gravity="center"
+                        android:src="@android:drawable/ic_menu_myplaces"
+                        android:background="#78909C"
+                        android:scaleType="centerInside"
+                        android:padding="16dp"/>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Tokeni"
-                        android:textSize="11sp"
-                        android:textColor="#757575"/>
+                </FrameLayout>
 
-                </LinearLayout>
-
-                <!-- Zvezde -->
-                <LinearLayout
-                    android:orientation="vertical"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="⭐"
-                        android:textSize="24sp"/>
-
-                    <TextView
-                        android:id="@+id/tvStars"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="18sp"
-                        android:textStyle="bold"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Zvezde"
-                        android:textSize="11sp"
-                        android:textColor="#757575"/>
-
-                </LinearLayout>
-
-                <!-- Liga -->
-                <LinearLayout
-                    android:orientation="vertical"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🏆"
-                        android:textSize="24sp"/>
-
-                    <TextView
-                        android:id="@+id/tvLeague"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Nulta liga"
-                        android:textSize="13sp"
-                        android:textStyle="bold"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Liga"
-                        android:textSize="11sp"
-                        android:textColor="#757575"/>
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <!-- Region -->
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
-
-                <TextView
+                <!-- Dugme za izmjenu avatara -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnChangeAvatar"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📍 Region: "
-                    android:textSize="14sp"/>
+                    android:text="Izmijeni avatar"
+                    android:textSize="12sp"
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="12dp"
+                    app:backgroundTint="@color/secondary"
+                    app:cornerRadius="12dp"/>
 
+                <!-- Korisničko ime -->
                 <TextView
-                    android:id="@+id/tvRegion"
+                    android:id="@+id/tvUsername"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Sarajevo"
+                    android:text="korisnicko_ime"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp"/>
+
+                <!-- Email -->
+                <TextView
+                    android:id="@+id/tvEmail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="email@example.com"
                     android:textSize="14sp"
-                    android:textStyle="bold"/>
+                    android:textColor="@color/textGray"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- Tokeni, Zvezde, Liga -->
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:layout_marginBottom="16dp">
+
+                    <!-- Tokeni -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="@color/primary">
+
+                        <LinearLayout
+                            android:orientation="vertical"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="10dp"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🎟"
+                                android:textSize="22sp"/>
+
+                            <TextView
+                                android:id="@+id/tvTokens"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="5"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/white"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Tokeni"
+                                android:textSize="11sp"
+                                android:textColor="@color/white"/>
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
+
+                    <!-- Zvezde -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginEnd="4dp"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="@color/secondary">
+
+                        <LinearLayout
+                            android:orientation="vertical"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="10dp"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⭐"
+                                android:textSize="22sp"/>
+
+                            <TextView
+                                android:id="@+id/tvStars"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/white"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Zvezde"
+                                android:textSize="11sp"
+                                android:textColor="@color/white"/>
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
+
+                    <!-- Liga -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="@color/primaryDark">
+
+                        <LinearLayout
+                            android:orientation="vertical"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="10dp"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🏆"
+                                android:textSize="22sp"/>
+
+                            <TextView
+                                android:id="@+id/tvLeague"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Nulta"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/white"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Liga"
+                                android:textSize="11sp"
+                                android:textColor="@color/white"/>
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
+
+                </LinearLayout>
+
+                <!-- Region -->
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📍 Region: "
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/tvRegion"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sarajevo"
+                        android:textSize="14sp"
+                        android:textStyle="bold"/>
+
+                </LinearLayout>
+
+                <!-- QR kod -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="QR kod za poziv prijatelja:"
+                    android:textSize="13sp"
+                    android:textColor="@color/textGray"
+                    android:layout_marginBottom="8dp"/>
+
+                <ImageView
+                    android:id="@+id/ivQrCode"
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:src="@android:drawable/ic_menu_share"
+                    android:background="#EEEEEE"
+                    android:padding="20dp"
+                    android:scaleType="fitCenter"/>
 
             </LinearLayout>
 
-            <!-- QR kod -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="QR kod za poziv prijatelja:"
-                android:textSize="13sp"
-                android:textColor="#757575"
-                android:layout_marginBottom="8dp"/>
-
-            <ImageView
-                android:id="@+id/ivQrCode"
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                android:src="@drawable/ic_launcher_foreground"
-                android:background="#EEEEEE"
-                android:padding="8dp"
-                android:scaleType="fitCenter"/>
-
-        </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
         <!-- === STATISTIKA === -->
         <TextView
@@ -229,319 +276,142 @@
             android:text="Statistika"
             android:textSize="17sp"
             android:textStyle="bold"
-            android:layout_marginBottom="8dp"/>
+            android:textColor="@color/white"
+            android:layout_marginBottom="8dp"
+            android:layout_marginStart="4dp"/>
 
-        <LinearLayout
-            android:orientation="vertical"
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#FFFFFF"
-            android:padding="16dp"
-            android:layout_marginBottom="12dp">
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/cardBackground">
 
-            <!-- Ukupno partija + win/lose -->
             <LinearLayout
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp">
+                android:padding="16dp">
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
+                <!-- Ukupno partija -->
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Ukupno partija:"
-                    android:textSize="14sp"/>
+                    android:layout_marginBottom="10dp">
 
-                <TextView
-                    android:id="@+id/tvTotalGames"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="Ukupno partija:"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/tvTotalGames"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/primaryDark"/>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textSize="14sp"
-                    android:textStyle="bold"/>
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="Pobjede / Porazi:"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/tvWinLoss"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0% / 0%"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/primaryDark"/>
+
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/inputBg" android:layout_marginBottom="12dp"/>
+
+                <!-- Ko zna zna -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ko zna zna" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/primary" android:layout_marginBottom="4dp"/>
+                <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Tačni / Netačni odgovori:" android:textSize="13sp" android:textColor="@color/textGray"/>
+                    <TextView android:id="@+id/tvKoZnaZnaStat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 / 0" android:textSize="13sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/inputBg" android:layout_marginBottom="12dp"/>
+
+                <!-- Moj broj -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Moj broj" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/primary" android:layout_marginBottom="4dp"/>
+                <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Procenat tačnih brojeva:" android:textSize="13sp" android:textColor="@color/textGray"/>
+                    <TextView android:id="@+id/tvMojBrojStat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0%" android:textSize="13sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/inputBg" android:layout_marginBottom="12dp"/>
+
+                <!-- Korak po korak -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Korak po korak" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/primary" android:layout_marginBottom="4dp"/>
+                <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Procenat po koraku:" android:textSize="13sp" android:textColor="@color/textGray"/>
+                    <TextView android:id="@+id/tvKorakStat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="K1:0% K2:0% K3:0%" android:textSize="13sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/inputBg" android:layout_marginBottom="12dp"/>
+
+                <!-- Asocijacije -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Asocijacije" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/primary" android:layout_marginBottom="4dp"/>
+                <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Riješene / Neriješene:" android:textSize="13sp" android:textColor="@color/textGray"/>
+                    <TextView android:id="@+id/tvAsocijacijeStat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 / 0" android:textSize="13sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/inputBg" android:layout_marginBottom="12dp"/>
+
+                <!-- Skočko -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Skočko" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/primary" android:layout_marginBottom="4dp"/>
+                <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Pogoci po pokušaju:" android:textSize="13sp" android:textColor="@color/textGray"/>
+                    <TextView android:id="@+id/tvSkockoStat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="P1:0% P2:0% P3:0%" android:textSize="13sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/inputBg" android:layout_marginBottom="12dp"/>
+
+                <!-- Spojnice -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Spojnice" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/primary" android:layout_marginBottom="4dp"/>
+                <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Uspješno spojeni pojmovi:" android:textSize="13sp" android:textColor="@color/textGray"/>
+                    <TextView android:id="@+id/tvSpojniceStat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0%" android:textSize="13sp" android:textStyle="bold"/>
+                </LinearLayout>
 
             </LinearLayout>
 
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="Pobjede / Porazi:"
-                    android:textSize="14sp"/>
-
-                <TextView
-                    android:id="@+id/tvWinLoss"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0% / 0%"
-                    android:textSize="14sp"
-                    android:textStyle="bold"/>
-
-            </LinearLayout>
-
-            <!-- Separator -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#EEEEEE"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Ko zna zna -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Ko zna zna"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1976D2"
-                android:layout_marginBottom="4dp"/>
-
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="Tačni / Netačni odgovori:"
-                    android:textSize="13sp"
-                    android:textColor="#757575"/>
-
-                <TextView
-                    android:id="@+id/tvKoZnaZnaStat"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0 / 0"
-                    android:textSize="13sp"
-                    android:textStyle="bold"/>
-
-            </LinearLayout>
-
-            <!-- Separator -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#EEEEEE"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Moj broj -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Moj broj"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1976D2"
-                android:layout_marginBottom="4dp"/>
-
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="Procenat tačnih brojeva:"
-                    android:textSize="13sp"
-                    android:textColor="#757575"/>
-
-                <TextView
-                    android:id="@+id/tvMojBrojStat"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0%"
-                    android:textSize="13sp"
-                    android:textStyle="bold"/>
-
-            </LinearLayout>
-
-            <!-- Separator -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#EEEEEE"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Korak po korak -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Korak po korak"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1976D2"
-                android:layout_marginBottom="4dp"/>
-
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="Procenat po koraku:"
-                    android:textSize="13sp"
-                    android:textColor="#757575"/>
-
-                <TextView
-                    android:id="@+id/tvKorakStat"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="K1:0% K2:0% K3:0%"
-                    android:textSize="13sp"
-                    android:textStyle="bold"/>
-
-            </LinearLayout>
-
-            <!-- Separator -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#EEEEEE"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Asocijacije -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Asocijacije"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1976D2"
-                android:layout_marginBottom="4dp"/>
-
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="Riješene / Neriješene:"
-                    android:textSize="13sp"
-                    android:textColor="#757575"/>
-
-                <TextView
-                    android:id="@+id/tvAsocijacijeStat"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0 / 0"
-                    android:textSize="13sp"
-                    android:textStyle="bold"/>
-
-            </LinearLayout>
-
-            <!-- Separator -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#EEEEEE"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Skočko -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Skočko"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1976D2"
-                android:layout_marginBottom="4dp"/>
-
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="Pogoci po pokušaju:"
-                    android:textSize="13sp"
-                    android:textColor="#757575"/>
-
-                <TextView
-                    android:id="@+id/tvSkockoStat"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="P1:0% P2:0% P3:0%"
-                    android:textSize="13sp"
-                    android:textStyle="bold"/>
-
-            </LinearLayout>
-
-            <!-- Separator -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#EEEEEE"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Spojnice -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Spojnice"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1976D2"
-                android:layout_marginBottom="4dp"/>
-
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="Uspješno spojeni pojmovi:"
-                    android:textSize="13sp"
-                    android:textColor="#757575"/>
-
-                <TextView
-                    android:id="@+id/tvSpojniceStat"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0%"
-                    android:textSize="13sp"
-                    android:textStyle="bold"/>
-
-            </LinearLayout>
-
-        </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
         <!-- === LOGOUT === -->
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnLogout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Odjava"
-            android:backgroundTint="#D32F2F"
-            android:textColor="#FFFFFF"
-            android:layout_marginTop="8dp"/>
+            android:textAllCaps="false"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            app:backgroundTint="#D32F2F"
+            app:cornerRadius="12dp"/>
 
     </LinearLayout>
 
