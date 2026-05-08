@@ -9,15 +9,16 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.TextView;
 
 import com.example.slagalica.R;
 
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link GameFragment#newInstance} factory method to
+ * Use the {@link LoginFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class GameFragment extends Fragment {
+public class LoginFragment extends Fragment {
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -28,7 +29,7 @@ public class GameFragment extends Fragment {
     private String mParam1;
     private String mParam2;
 
-    public GameFragment() {
+    public LoginFragment() {
         // Required empty public constructor
     }
 
@@ -38,11 +39,11 @@ public class GameFragment extends Fragment {
      *
      * @param param1 Parameter 1.
      * @param param2 Parameter 2.
-     * @return A new instance of fragment GameFragment.
+     * @return A new instance of fragment LoginFragment.
      */
     // TODO: Rename and change types and number of parameters
-    public static GameFragment newInstance(String param1, String param2) {
-        GameFragment fragment = new GameFragment();
+    public static LoginFragment newInstance(String param1, String param2) {
+        LoginFragment fragment = new LoginFragment();
         Bundle args = new Bundle();
         args.putString(ARG_PARAM1, param1);
         args.putString(ARG_PARAM2, param2);
@@ -62,25 +63,20 @@ public class GameFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_game, container, false);
+        // Inflate the layout for this fragment
+        View view = inflater.inflate(R.layout.fragment_login, container, false);
 
-        Button btnGame = view.findViewById(R.id.btnSkocko);
+        Button btnLogin = view.findViewById(R.id.btnLogin);
 
-        btnGame.setOnClickListener(v ->
-                Navigation.findNavController(view).navigate(R.id.nav_gameSkocko)
+        btnLogin.setOnClickListener(v ->
+                Navigation.findNavController(view).navigate(R.id.nav_home)
         );
 
-        Button btnMojBroj = view.findViewById(R.id.btnMojBroj);
+        TextView txtSignup = view.findViewById(R.id.tvSignup);
 
-        btnMojBroj.setOnClickListener(v ->
-                Navigation.findNavController(view).navigate(R.id.nav_mojbroj)
-        );
-
-        Button btnKorak = view.findViewById(R.id.btnKorak);
-
-        btnKorak.setOnClickListener(v ->
-                Navigation.findNavController(view).navigate(R.id.nav_korak)
-        );
+        txtSignup.setOnClickListener(v -> {
+            Navigation.findNavController(view).navigate(R.id.nav_signup);
+        });
 
         return view;
     }

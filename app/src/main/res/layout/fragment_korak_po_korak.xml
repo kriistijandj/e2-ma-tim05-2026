@@ -1,14 +1,160 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
     tools:context=".games.KorakPoKorakFragment">
 
-    <!-- TODO: Update blank fragment layout -->
+    <!-- Runda + vreme -->
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:id="@+id/tvRound"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Runda: 1"
+        android:textSize="18sp"
+        android:textStyle="bold"/>
 
-</FrameLayout>
+    <TextView
+        android:id="@+id/tvTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Vreme: 70s"
+        android:textSize="16sp"
+        android:layout_marginTop="4dp"/>
+
+    <!-- Trenutni pojam (step-by-step reveal) -->
+    <TextView
+        android:id="@+id/tvHintTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Korak 1/7"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"/>
+
+    <TextView
+        android:id="@+id/tvHint1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pojam hint se ovde prikazuje..."
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/tvHint2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pojam hint se ovde prikazuje..."
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/tvHint3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pojam hint se ovde prikazuje..."
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/tvHint4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pojam hint se ovde prikazuje..."
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/tvHint5"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pojam hint se ovde prikazuje..."
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/tvHint6"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pojam hint se ovde prikazuje..."
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="8dp"/>
+    <TextView
+        android:id="@+id/tvHint7"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pojam hint se ovde prikazuje..."
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="8dp"/>
+
+    <!-- Tajmer za 10s korak -->
+    <TextView
+        android:id="@+id/tvStepTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Korak vreme: 10s"
+        android:layout_marginTop="8dp"/>
+
+    <!-- Input za odgovor -->
+    <EditText
+        android:id="@+id/etAnswer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Unesi odgovor"
+        android:layout_marginTop="16dp"/>
+
+    <!-- Dugmad -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp">
+
+        <Button
+            android:id="@+id/btnSubmit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Potvrdi"/>
+
+        <Button
+            android:id="@+id/btnNextStep"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Sledeći korak"/>
+    </LinearLayout>
+
+    <!-- Score -->
+    <TextView
+        android:id="@+id/tvScore"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Score: 0 - 0"
+        android:textSize="20sp"
+        android:gravity="center"
+        android:layout_marginTop="24dp"/>
+
+</LinearLayout>

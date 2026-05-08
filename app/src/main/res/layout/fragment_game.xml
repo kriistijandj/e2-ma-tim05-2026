@@ -18,4 +18,18 @@
         android:layout_marginTop="20dp"
         android:text="Skocko" />
 
+    <Button
+        android:id="@+id/btnMojBroj"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="70dp"
+        android:text="Moj broj" />
+
+    <Button
+        android:id="@+id/btnKorak"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="120dp"
+        android:text="Korak po korak" />
+
 </FrameLayout>

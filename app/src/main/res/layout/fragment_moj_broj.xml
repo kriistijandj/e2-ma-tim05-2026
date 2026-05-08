@@ -1,14 +1,133 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:padding="16dp"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".games.MojBrojFragment">
 
-    <!-- TODO: Update blank fragment layout -->
+    <!-- Runda i vreme -->
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:id="@+id/tvRound"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Runda: 1"
+        android:textSize="18sp"
+        android:textStyle="bold" />
 
-</FrameLayout>
+    <TextView
+        android:id="@+id/tvTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Vreme: 60s"
+        android:textSize="18sp"
+        android:layout_marginTop="4dp" />
+
+    <!-- Traženi broj -->
+    <TextView
+        android:id="@+id/tvTargetNumber"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Traženi broj: ???"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="16dp" />
+
+    <!-- STOP dugme -->
+
+    <!-- Expression input -->
+    <EditText
+        android:id="@+id/etExpression"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Unesi izraz (npr. (50+25)*2)"
+        android:layout_marginTop="16dp"
+        android:inputType="text" />
+
+    <!-- Brojevi -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Brojevi:"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"/>
+
+    <GridLayout
+        android:id="@+id/numbersGrid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="4"
+        android:rowCount="2"
+        android:layout_marginTop="8dp">
+
+        <!-- RED 1 (4 dugmeta) -->
+        <Button
+            android:id="@+id/btnNum1"
+            android:text="1"
+            android:layout_width="0dp"
+            android:layout_columnWeight="1"
+            android:layout_gravity="fill" />
+
+        <Button
+            android:id="@+id/btnNum2"
+            android:text="2"
+            android:layout_width="0dp"
+            android:layout_columnWeight="1"
+            android:layout_gravity="fill" />
+
+        <Button
+            android:id="@+id/btnNum3"
+            android:text="3"
+            android:layout_width="0dp"
+            android:layout_columnWeight="1"
+            android:layout_gravity="fill" />
+
+        <Button
+            android:id="@+id/btnNum4"
+            android:text="4"
+            android:layout_width="0dp"
+            android:layout_columnWeight="1"
+            android:layout_gravity="fill" />
+
+        <Button
+            android:id="@+id/btnNum5"
+            android:text="20"
+            android:layout_width="0dp"
+            android:layout_columnSpan="2"
+            android:layout_gravity="fill" />
+
+        <Button
+            android:id="@+id/btnNum6"
+            android:text="75"
+            android:layout_width="0dp"
+            android:layout_columnSpan="2"
+            android:layout_gravity="fill" />
+
+    </GridLayout>
+
+    <!-- Operatori -->
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="4"
+        android:layout_marginTop="12dp">
+
+        <Button android:text="+" />
+        <Button android:text="-" />
+        <Button android:text="*" />
+        <Button android:text="/" />
+        <Button android:text="(" />
+        <Button android:text=")" />
+    </GridLayout>
+
+    <!-- Submit -->
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="STOP / POTVRDI REZULTAT"
+        android:layout_marginTop="16dp" />
+
+</LinearLayout>
