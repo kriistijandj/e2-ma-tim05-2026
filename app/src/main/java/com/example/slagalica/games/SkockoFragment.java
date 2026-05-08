@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TableLayout;
 import android.widget.TableRow;
@@ -23,9 +24,9 @@ import com.example.slagalica.R;
 public class SkockoFragment extends Fragment {
 
     private TableLayout tableAttempts;
-    private TextView[][] attemptCells = new TextView[6][4];
     private LinearLayout[] feedbackContainers = new LinearLayout[6];
-
+    private ImageView[][] attemptCells = new ImageView[6][4];
+    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore;
     private int currentRow = 0;
     private int currentCol = 0;
     private CountDownTimer timer;
@@ -38,6 +39,11 @@ public class SkockoFragment extends Fragment {
 
         tableAttempts = v.findViewById(R.id.tableAttempts);
         tvTimer = v.findViewById(R.id.tvTimerSkocko);
+
+        tvLeftName = v.findViewById(R.id.tvLeftName);
+        tvRightName = v.findViewById(R.id.tvRightName);
+        tvLeftScore = v.findViewById(R.id.tvLeftScore);
+        tvRightScore = v.findViewById(R.id.tvRightScore);
 
         setupGrid();
         setupInputButtons(v);
@@ -58,22 +64,16 @@ public class SkockoFragment extends Fragment {
 
         for (int i = 0; i < 6; i++) {
             TableRow row = new TableRow(getContext());
-            row.setLayoutParams(new TableLayout.LayoutParams(
-                    TableLayout.LayoutParams.MATCH_PARENT, 0, 1.0f));
+            row.setLayoutParams(new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1.0f));
             row.setGravity(Gravity.CENTER);
-            row.setPadding(0, margin, 0, margin);
 
             for (int j = 0; j < 4; j++) {
-                TextView cell = new TextView(getContext());
+                ImageView cell = new ImageView(getContext());
                 TableRow.LayoutParams lp = new TableRow.LayoutParams(cellSize, cellSize);
                 lp.setMargins(margin, 0, margin, 0);
                 cell.setLayoutParams(lp);
-
-                cell.setBackgroundColor(Color.parseColor("#124E54"));
-                cell.setTextColor(Color.WHITE);
-                cell.setGravity(Gravity.CENTER);
-                cell.setTextSize(20);
-                cell.setTypeface(null, android.graphics.Typeface.BOLD);
+                cell.setPadding(8, 8, 8, 8);
+                cell.setBackgroundColor(Color.parseColor("#888888")); // Pozadina polja
 
                 attemptCells[i][j] = cell;
                 row.addView(cell);
@@ -119,26 +119,28 @@ public class SkockoFragment extends Fragment {
     }
 
     private void setupInputButtons(View v) {
-        int[] btnIds = {R.id.btnSkocko, R.id.btnKvadrat, R.id.btnKrug, R.id.btnSrce, R.id.btnTrougao, R.id.btnZvezda};
-        for (int id : btnIds) {
-            Button b = v.findViewById(id);
-            if (b != null) {
-                b.setOnClickListener(view -> addSymbol(b.getText().toString()));
-            }
-        }
+        // Mapiranje dugmeta na sliku
+        v.findViewById(R.id.btnSkocko).setOnClickListener(view -> addSymbol(R.drawable.ic_skocko));
+        v.findViewById(R.id.btnKvadrat).setOnClickListener(view -> addSymbol(R.drawable.ic_kvadrat));
+        v.findViewById(R.id.btnKrug).setOnClickListener(view -> addSymbol(R.drawable.ic_krug));
+        v.findViewById(R.id.btnSrce).setOnClickListener(view -> addSymbol(R.drawable.ic_srce));
+        v.findViewById(R.id.btnTrougao).setOnClickListener(view -> addSymbol(R.drawable.ic_trougao));
+        v.findViewById(R.id.btnZvezda).setOnClickListener(view -> addSymbol(R.drawable.ic_zvezda));
     }
 
-    private void addSymbol(String symbol) {
+    private void addSymbol(int drawableResId) {
         if (currentRow < 6 && currentCol < 4) {
-            attemptCells[currentRow][currentCol].setText(symbol);
+            attemptCells[currentRow][currentCol].setImageResource(drawableResId);
+            // Čuvamo koji je znak unet (trebaće ti za logiku kasnije, npr. pomoću tag-a)
+            attemptCells[currentRow][currentCol].setTag(drawableResId);
             currentCol++;
         }
     }
-
     private void deleteSymbol() {
         if (currentCol > 0) {
             currentCol--;
-            attemptCells[currentRow][currentCol].setText("");
+            attemptCells[currentRow][currentCol].setImageDrawable(null);
+            attemptCells[currentRow][currentCol].setTag(null);
         }
     }
 
