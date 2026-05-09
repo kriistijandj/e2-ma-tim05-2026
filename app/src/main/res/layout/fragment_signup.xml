@@ -30,11 +30,11 @@
             <!-- Title -->
             <TextView
                 style="@style/LoginTitle"
-                android:text="Create Account"/>
+                android:text="@string/kreirajnalog"/>
 
             <TextView
                 style="@style/LoginSubtitle"
-                android:text="Sign up to get started"
+                android:text="@string/kreirajda"
                 android:layout_marginTop="4dp"
                 android:layout_marginBottom="24dp"/>
 
@@ -66,7 +66,7 @@
             <EditText
                 android:id="@+id/etPassword"
                 style="@style/RoundedEditText"
-                android:hint="Password"
+                android:hint="@string/lozinka"
                 android:inputType="textPassword"
                 android:layout_marginBottom="12dp"/>
 
@@ -74,7 +74,7 @@
             <EditText
                 android:id="@+id/etRepeatPassword"
                 style="@style/RoundedEditText"
-                android:hint="Repeat Password"
+                android:hint="@string/ponovi"
                 android:inputType="textPassword"
                 android:layout_marginBottom="24dp"/>
 
@@ -82,7 +82,7 @@
             <Button
                 android:id="@+id/btnSignup"
                 style="@style/AuthButton"
-                android:text="@string/signup"/>
+                android:text="@string/prijavise"/>
 
             <!-- Login link -->
             <LinearLayout
@@ -95,7 +95,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/has_account"
+                    android:text="@string/imatenalog"
                     android:textColor="@color/textGray"
                     android:layout_marginEnd="10dp"/>
 
@@ -103,7 +103,7 @@
                     android:id="@+id/tvLogin"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/login2"
+                    android:text="@string/ulogujse"
                     android:textStyle="bold"
                     android:textColor="@color/primary"
                     android:clickable="true"
