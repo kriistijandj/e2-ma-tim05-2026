@@ -47,7 +47,7 @@
                         android:id="@+id/tvLeftName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Player 1"
+                        android:text="Igrač 1"
                         android:textStyle="bold"
                         android:textColor="@color/textDark" />
 
@@ -102,7 +102,7 @@
                         android:id="@+id/tvRightName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Player 2"
+                        android:text="Igrač 2"
                         android:textStyle="bold"
                         android:textColor="@color/textDark"
                         android:gravity="end" />
@@ -218,7 +218,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="POTVRDI" />
+                    android:text="@string/potvrdi" />
 
                 <Button
                     android:id="@+id/btnStop2"
@@ -226,7 +226,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="SLEDEĆI" />
+                    android:text="@string/sledeci" />
 
             </LinearLayout>
 
