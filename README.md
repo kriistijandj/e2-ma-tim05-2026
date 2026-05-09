@@ -20,6 +20,23 @@ Projekat implementira kompletan tok igranja, sistem naloga, rangiranja, statisti
 - [Autori](#-autor)
 
 ---
+## 🚀 Instalacija i pokretanje
+
+### ✅ Preduslovi
+- Android Studio
+- Java JDK 17
+- Android emulator ili fizički uređaj
+
+### 📦 Kloniranje repozitorijuma
+```bash
+git clone <repository-url>
+```
+Otvorite projekat u Android Studio okruženju.
+Sačekajte da se završi Gradle Sync i preuzimanje svih zavisnosti.
+### Pokretanje
+ - Izaberite virtualni uređaj (Emulator) ili povežite fizički Android telefon.
+ - Pritisnite dugme Run 'app' (Shift + F10).
+---
 
 ## 📱 Opis projekta
 
@@ -107,13 +124,4 @@ Aplikacija podržava **kompletan ciklus od 6 igara**:
 
 ---
 
-## 🚀 Instalacija i pokretanje
 
-### ✅ Preduslovi
-- Android Studio
-- Java JDK 17
-- Android emulator ili fizički uređaj
-
-### 📦 Kloniranje repozitorijuma
-```bash
-git clone <repository-url>
