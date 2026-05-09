@@ -1,60 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    tools:context=".fragments.NotificationFragment">
+    android:orientation="vertical"
+    android:background="@color/AuthBackground"
+    android:padding="16dp">
 
-    <LinearLayout
-        android:orientation="vertical"
+    <TextView
+        style="@style/LoginTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Obaveštenja"
+        android:layout_marginBottom="16dp"
+        android:textColor="@color/white"/>
+
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/search_text"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content"
+        android:background="@drawable/edittext_bg"
+        android:layout_marginBottom="12dp"
+        app:queryHint="Pretraži..."
+        app:iconifiedByDefault="false"/>
 
-        <!-- Filter -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:layout_marginBottom="12dp">
+
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
             <Button
                 android:id="@+id/btnAll"
-                android:text="@string/sve"
+                style="@style/NotificationFilterBtn"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
+                android:layout_height="40dp"
+                android:text="Sve"
+                android:textSize="12sp"
+                android:layout_marginEnd="8dp"/>
+
             <Button
                 android:id="@+id/btnRead"
-                android:text="@string/procitane"
+                style="@style/NotificationFilterBtn"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
+                android:layout_height="40dp"
+                android:text="Pročitane"
+                android:textSize="12sp"
+                android:layout_marginEnd="8dp"/>
 
             <Button
                 android:id="@+id/btnUnread"
-                android:text="@string/neprocitane"
+                style="@style/NotificationFilterBtn"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
+                android:layout_height="40dp"
+                android:text="Nepročitate"
+                android:textSize="12sp"/>
         </LinearLayout>
+    </HorizontalScrollView>
 
-        <!-- Lista -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_margin="10dp"
-            tools:listitem="@layout/item_notification" />
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        tools:listitem="@layout/item_notification" />
 
-        <androidx.appcompat.widget.SearchView
-            android:id="@+id/search_text"
-            android:layout_width="110dp"
-            android:layout_height="145dp"
-            android:layout_marginStart="10dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginEnd="10dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:queryHint="Search" />
-
-
-    </LinearLayout>
-
-</FrameLayout>
+</LinearLayout>

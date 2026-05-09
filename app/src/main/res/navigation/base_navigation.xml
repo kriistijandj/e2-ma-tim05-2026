@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/base_navigation"
+    app:startDestination="@id/nav_login"
+    >
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.example.slagalica.fragments.HomeFragment"
+        android:label="Home" />
+
+    <fragment
+        android:id="@+id/nav_notifications"
+        android:name="com.example.slagalica.fragments.NotificationFragment"
+        android:label="Notifications"
+        tools:layout="@layout/fragment_notification" />
+
+    <fragment
+        android:id="@+id/nav_profile"
+        android:name="com.example.slagalica.fragments.ProfileFragment"
+        android:label="Profile"
+        tools:layout="@layout/fragment_profile"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
+    <fragment
+        android:id="@+id/nav_logout"
+        android:name="com.example.slagalica.fragments.ProfileFragment"
+        android:label="Profile"
+        tools:layout="@layout/fragment_profile"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
+    <fragment
+        android:id="@+id/nav_game"
+        android:name="com.example.slagalica.fragments.GameFragment"
+        android:label="Game"
+        tools:layout="@layout/fragment_game"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
+    <fragment
+        android:id="@+id/nav_gameSkocko"
+        android:name="com.example.slagalica.games.SkockoFragment"
+        android:label="Skočko"
+        tools:layout="@layout/fragment_skocko"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true"
+        />
+
+    <fragment
+        android:id="@+id/nav_login"
+        android:name="com.example.slagalica.fragments.LoginFragment"
+        android:label="Login"
+        tools:layout="@layout/fragment_login"
+        />
+
+    <fragment
+        android:id="@+id/nav_signup"
+        android:name="com.example.slagalica.fragments.SignupFragment"
+        android:label="Signup"
+        tools:layout="@layout/fragment_signup"
+        />
+
+    <fragment
+        android:id="@+id/nav_mojbroj"
+        android:name="com.example.slagalica.games.MojBrojFragment"
+        android:label="Moj broj"
+        tools:layout="@layout/fragment_moj_broj"
+        />
+
+    <fragment
+        android:id="@+id/nav_korak"
+        android:name="com.example.slagalica.games.KorakPoKorakFragment"
+        android:label="Korak po korak"
+        tools:layout="@layout/fragment_korak_po_korak"
+        />
+
+    <fragment
+        android:id="@+id/nav_gameSpojnice"
+        android:name="com.example.slagalica.fragments.SpojniceFragment"
+        android:label="Spojnice"
+        tools:layout="@layout/fragment_spojnice"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
+    <fragment
+        android:id="@+id/nav_gameKoZnaZna"
+        android:name="com.example.slagalica.fragments.KoZnaZnaFragment"
+        android:label="Ko zna zna"
+        tools:layout="@layout/fragment_ko_zna_zna"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
+    <fragment
+        android:id="@+id/nav_gameAsocijacije"
+        android:name="com.example.slagalica.games.AsocijacijeFragment"
+        android:label="Asocijacije"
+        tools:layout="@layout/fragment_asocijacije"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
+</navigation>

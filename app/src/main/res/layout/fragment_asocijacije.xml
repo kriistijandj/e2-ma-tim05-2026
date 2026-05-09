@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@color/AuthBackground">
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_marginBottom="10dp"
+        android:layout_marginTop="5dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="@color/cardBackground">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="10dp">
+
+            <LinearLayout
+                android:id="@+id/leftPlayer"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/timerCircle">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_profile"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="8dp">
+                    <TextView
+                        android:id="@+id/tvLeftName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Igrač 1"
+                        android:textStyle="bold"
+                        android:textColor="@color/textDark"/>
+                    <TextView
+                        android:id="@+id/tvLeftScore"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Bodovi: 0"
+                        android:textSize="12sp"
+                        android:textColor="@color/textGray"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/timerCircle"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/circle_background"
+                    app:tint="@color/secondary"/>
+
+                <TextView
+                    android:id="@+id/tvTimer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="120"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:textColor="@color/textDark"/>
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/rightPlayer"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical|end"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@id/timerCircle">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="8dp"
+                    android:gravity="end">
+                    <TextView
+                        android:id="@+id/tvRightName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Igrač 2"
+                        android:textStyle="bold"
+                        android:textColor="@color/textDark"/>
+                    <TextView
+                        android:id="@+id/tvRightScore"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Bodovi: 0"
+                        android:textSize="12sp"
+                        android:textColor="@color/textGray"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_profile"/>
+            </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.cardview.widget.CardView>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
+            <Button android:id="@+id/a1" style="@style/AssocBtn" android:text="A1"/>
+            <Button android:id="@+id/a2" style="@style/AssocBtn" android:text="A2"/>
+            <Button android:id="@+id/a3" style="@style/AssocBtn" android:text="A3"/>
+            <Button android:id="@+id/a4" style="@style/AssocBtn" android:text="A4"/>
+            <Button android:id="@+id/colA" style="@style/AssocSolutionBtn" android:text="REŠENJE A"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
+            <Button android:id="@+id/b1" style="@style/AssocBtn" android:text="B1"/>
+            <Button android:id="@+id/b2" style="@style/AssocBtn" android:text="B2"/>
+            <Button android:id="@+id/b3" style="@style/AssocBtn" android:text="B3"/>
+            <Button android:id="@+id/b4" style="@style/AssocBtn" android:text="B4"/>
+            <Button android:id="@+id/colB" style="@style/AssocSolutionBtn" android:text="REŠENJE B"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/etGuess"
+        style="@style/RoundedEditText"
+        android:hint="Unesi rešenje..."
+        android:layout_marginVertical="8dp"
+        android:gravity="center"/>
+
+    <Button
+        android:id="@+id/btnFinal"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:text="KONAČNO REŠENJE"
+        android:backgroundTint="@color/primaryDark"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:elevation="4dp"/>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:layout_marginTop="8dp">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
+            <Button android:id="@+id/colC" style="@style/AssocSolutionBtn" android:text="REŠENJE C"/>
+            <Button android:id="@+id/c4" style="@style/AssocBtn" android:text="C4"/>
+            <Button android:id="@+id/c3" style="@style/AssocBtn" android:text="C3"/>
+            <Button android:id="@+id/c2" style="@style/AssocBtn" android:text="C2"/>
+            <Button android:id="@+id/c1" style="@style/AssocBtn" android:text="C1"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
+            <Button android:id="@+id/colD" style="@style/AssocSolutionBtn" android:text="REŠENJE D"/>
+            <Button android:id="@+id/d4" style="@style/AssocBtn" android:text="D4"/>
+            <Button android:id="@+id/d3" style="@style/AssocBtn" android:text="D3"/>
+            <Button android:id="@+id/d2" style="@style/AssocBtn" android:text="D2"/>
+            <Button android:id="@+id/d1" style="@style/AssocBtn" android:text="D1"/>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

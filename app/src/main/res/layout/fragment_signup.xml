@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/AuthBackground"
+    tools:context=".fragments.SignupFragment">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardSignup"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="24dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/cardBackground"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <!-- Title -->
+            <TextView
+                style="@style/LoginTitle"
+                android:text="@string/kreirajnalog"/>
+
+            <TextView
+                style="@style/LoginSubtitle"
+                android:text="@string/kreirajda"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="24dp"/>
+
+            <!-- Email -->
+            <EditText
+                android:id="@+id/etEmail"
+                style="@style/RoundedEditText"
+                android:hint="Email"
+                android:inputType="textEmailAddress"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Username -->
+            <EditText
+                android:id="@+id/etUsername"
+                style="@style/RoundedEditText"
+                android:hint="Username"
+                android:inputType="text"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Region -->
+            <EditText
+                android:id="@+id/etRegion"
+                style="@style/RoundedEditText"
+                android:hint="Region"
+                android:inputType="text"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Password -->
+            <EditText
+                android:id="@+id/etPassword"
+                style="@style/RoundedEditText"
+                android:hint="@string/lozinka"
+                android:inputType="textPassword"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Repeat Password -->
+            <EditText
+                android:id="@+id/etRepeatPassword"
+                style="@style/RoundedEditText"
+                android:hint="@string/ponovi"
+                android:inputType="textPassword"
+                android:layout_marginBottom="24dp"/>
+
+            <!-- Signup Button -->
+            <Button
+                android:id="@+id/btnSignup"
+                style="@style/AuthButton"
+                android:text="@string/prijavise"/>
+
+            <!-- Login link -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_gravity="center"
+                android:layout_marginTop="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/imatenalog"
+                    android:textColor="@color/textGray"
+                    android:layout_marginEnd="10dp"/>
+
+                <TextView
+                    android:id="@+id/tvLogin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ulogujse"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary"
+                    android:clickable="true"
+                    android:focusable="true"/>
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

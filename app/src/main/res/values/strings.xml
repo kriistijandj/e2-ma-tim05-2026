@@ -5,4 +5,44 @@
     <string name="sve">Sve</string>
     <string name="procitane">Pročitane</string>
     <string name="neprocitane">Nepročitane</string>
+    <string name="notif">Notifikacije</string>
+    <string name="logout">Odjava</string>
+    <string name="profile">Profil</string>
+    <string name="home">Home</string>
+    <string name="navigation_drawer_open">Navigation Drawer Open</string>
+    <string name="navigation_drawer_close">Navigation Drawer Close</string>
+    <string name="slagalica">Slagalica</string>
+    <string name="welcome_back">Welcome Back</string>
+    <string name="login_continue">Login to continue</string>
+
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Password</string>
+
+    <string name="login">LOGIN</string>
+    <string name="no_account">Don\'t have an account?</string>
+    <string name="signup2">Sign up</string>
+
+    <string name="signup">SIGNUP</string>
+    <string name="has_account">Already have an account?</string>
+    <string name="login2">Log in</string>
+
+    <string name="stop">STOP / POTVRDI</string>
+    <string name="potvrdi">POTVRDI</string>
+    <string name="sledeci">SLEDEĆI KORAK</string>
+
+    <string name="dobrodosli">DOBRODOŠLI</string>
+    <string name="ulogujseda">Ulogujte se da biste nastavili</string>
+    <string name="beznaloga">Nemate nalog?</string>
+    <string name="prijavise">PRIJAVI SE</string>
+    <string name="ulogujse">ULOGUJ SE</string>
+    <string name="lozinka">Lozinka</string>
+
+    <string name="kreirajnalog">Kreiraj nalog</string>
+    <string name="kreirajda">Kreirajte nalog da biste počeli</string>
+    <string name="ponovi">Ponovite lozinku</string>
+    <string name="imatenalog">Već imate nalog?</string>
+
+
+
+
 </resources>

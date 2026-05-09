@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ========================= -->
+    <!-- Existing Styles -->
+    <!-- ========================= -->
+
+    <style name="AssocField">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_columnWeight">1</item>
+        <item name="android:text">\?</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="AssocBtn">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">2dp</item>
+        <item name="android:padding">4dp</item> <item name="android:textAllCaps">true</item>
+        <item name="android:textSize">12sp</item> <item name="android:gravity">center</item>
+        <item name="android:backgroundTint">@color/primary</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="AssocSolutionBtn">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="backgroundTint">@color/secondary</item> </style>
+    <style name="GameMenuCard">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">100dp</item> <item name="android:layout_columnWeight">1</item>
+        <item name="android:layout_margin">8dp</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardElevation">6dp</item>
+        <item name="cardBackgroundColor">@color/cardBackground</item>
+        <item name="android:foreground">?attr/selectableItemBackground</item>
+    </style>
+
+    <style name="GameMenuContent">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">center</item>
+        <item name="android:padding">12dp</item>
+    </style>
+
+    <style name="GameMenuText">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/textDark</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:gravity">center</item>
+    </style>
+    <style name="NotificationFilterBtn">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">36dp</item>
+        <item name="android:backgroundTint">@color/white</item>
+        <item name="android:textColor">@color/primaryDark</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">18dp</item>
+    </style>
+
+    <!-- ========================= -->
+    <!-- Login Screen Styles -->
+    <!-- ========================= -->
+
+    <!-- Large title -->
+    <style name="LoginTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/textDark</item>
+    </style>
+
+    <style name="LoginSubtitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/textGray</item>
+    </style>
+
+    <!-- Rounded EditText -->
+    <style name="RoundedEditText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">55dp</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:background">@drawable/edittext_bg</item>
+    </style>
+
+    <style name="PrimaryButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">55dp</item>
+
+        <item name="android:textColor">@android:color/white</item>
+
+        <item name="backgroundTint">@color/primary</item>
+        <item name="cornerRadius">18dp</item>
+    </style>
+
+    <style name="AuthButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">55dp</item>
+
+        <item name="android:textColor">@android:color/white</item>
+
+        <item name="backgroundTint">@color/secondary</item>
+        <item name="cornerRadius">18dp</item>
+    </style>
+
+    <style name="GameButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+
+        <item name="android:layout_margin">4dp</item>
+        <item name="backgroundTint">@color/secondary</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="GridButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_columnWeight">1</item>
+        <item name="android:layout_margin">2dp</item>
+        <item name="backgroundTint">@color/secondary</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="StopButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="backgroundTint">@color/primaryDark</item>
+
+    </style>
+
+    <style name="GamePanelBox">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+
+        <item name="android:layout_margin">6dp</item>
+
+        <item name="android:padding">10dp</item>
+
+        <item name="android:background">@drawable/bg_panel_box</item>
+    </style>
+
+    <style name="HintTextView">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:gravity">center</item>
+        <item name="android:padding">10dp</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:background">@color/secondary</item>
+    </style>
+
+</resources>

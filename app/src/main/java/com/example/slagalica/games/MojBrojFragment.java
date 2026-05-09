@@ -2,11 +2,15 @@ package com.example.slagalica.games;
 
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
 
 import com.example.slagalica.R;
 
@@ -60,7 +64,41 @@ public class MojBrojFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_moj_broj, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        EditText etExpression = view.findViewById(R.id.etExpression);
+
+        View.OnClickListener insertListener = v -> {
+            Button btn = (Button) v;
+            etExpression.append(btn.getText().toString());
+        };
+
+        view.findViewById(R.id.btnNum1).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnNum2).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnNum3).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnNum4).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnNum5).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnNum6).setOnClickListener(insertListener);
+
+        view.findViewById(R.id.btnPlus).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnMinus).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnMul).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnDiv).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnOpen).setOnClickListener(insertListener);
+        view.findViewById(R.id.btnClose).setOnClickListener(insertListener);
+
+        view.findViewById(R.id.btnDelete).setOnClickListener(v -> {
+            String text = etExpression.getText().toString();
+
+            if (!text.isEmpty()) {
+                etExpression.setText(text.substring(0, text.length() - 1));
+                etExpression.setSelection(etExpression.getText().length());
+            }
+        });
     }
 }

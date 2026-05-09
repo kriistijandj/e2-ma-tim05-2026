@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/AuthBackground"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Izaberi igru"
+            style="@style/LoginTitle"
+            android:layout_gravity="center"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="30dp"/>
+
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="2"
+            android:alignmentMode="alignMargins"
+            android:columnOrderPreserved="false">
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardSkocko" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Skočko" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardMojBroj" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Moj broj" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardAsocijacije" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Asocijacije" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardKoZnaZna" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Ko zna zna" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardSpojnice" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Spojnice" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView android:id="@+id/cardKorak" style="@style/GameMenuCard">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Korak po korak" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </GridLayout>
+    </LinearLayout>
+</ScrollView>
