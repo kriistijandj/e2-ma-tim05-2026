@@ -332,15 +332,7 @@
                     android:textColor="@color/primaryDark"
                     android:layout_marginTop="8dp"/>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPotvrdi"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Potvrdi vezu"
-                    android:textAllCaps="false"
-                    app:backgroundTint="@color/primaryDark"
-                    app:cornerRadius="12dp"/>
+
 
             </LinearLayout>
 

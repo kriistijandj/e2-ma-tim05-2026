@@ -320,6 +320,14 @@ public class KoZnaZnaFragment extends Fragment {
         }
 
         updateScoreUI();
+        // Nakon 3 sekunde vrati na listu igara
+        rootView.postDelayed(() -> {
+            if (getView() != null) {
+                androidx.navigation.Navigation
+                        .findNavController(getView())
+                        .navigate(R.id.nav_game);
+            }
+        }, 3000);
     }
 
     // ==============================
