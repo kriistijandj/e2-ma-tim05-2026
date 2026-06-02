@@ -9,12 +9,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
 import com.google.android.material.button.MaterialButton;
-
-import java.util.Random;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 public class KoZnaZnaFragment extends Fragment {
 
@@ -38,7 +42,6 @@ public class KoZnaZnaFragment extends Fragment {
             "Koja je najduža rijeka na svijetu?",
             "U kojoj godini je počeo Drugi svjetski rat?"
     };
-
     private static final String[][] ANSWERS = {
             {"Berlin",  "Madrid",      "Pariz",   "Rim"},
             {"7",       "8",           "9",       "10"},
@@ -46,24 +49,22 @@ public class KoZnaZnaFragment extends Fragment {
             {"Amazon",  "Nil",         "Jangce",  "Misisipi"},
             {"1935",    "1937",        "1939",    "1941"}
     };
-
     private static final int[] CORRECT = {2, 1, 2, 1, 2};
 
+    // ====== FIREBASE ======
+    private DatabaseReference gameRef;
+    private String gameId;
+    private String myPlayerId;
+
     // ====== STANJE ======
-    private int  currentQuestion   = 0;
-    private int  scorePlayer1      = 0;
-    private int  scorePlayer2      = 0;
-    private int  player1AnswerIndex = -1; // field, ne lokalna varijabla!
-    private int  player2Choice      = -1;
-    private boolean player1Answered = false;
-    private boolean player2Answered = false;
-    private long player1AnswerTime  = -1;
-    private long player2AnswerTime  = -1;
-    private long questionStartTime  = 0;
+    private int  currentQuestion  = 0;
+    private int  scorePlayer1     = 0;
+    private int  scorePlayer2     = 0;
+    private boolean myAnswered    = false;
+    private long questionStartTime = 0;
 
     private CountDownTimer questionTimer;
-    private CountDownTimer player2Timer;
-    private final Random random = new Random();
+    private ValueEventListener answerListener;
 
     public KoZnaZnaFragment() {}
 
@@ -83,15 +84,20 @@ public class KoZnaZnaFragment extends Fragment {
         btnAnswerB = rootView.findViewById(R.id.btnAnswerB);
         btnAnswerC = rootView.findViewById(R.id.btnAnswerC);
         btnAnswerD = rootView.findViewById(R.id.btnAnswerD);
-
         answerButtons = new MaterialButton[]{btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD};
 
-        btnAnswerA.setOnClickListener(v -> onPlayer1Answer(0));
-        btnAnswerB.setOnClickListener(v -> onPlayer1Answer(1));
-        btnAnswerC.setOnClickListener(v -> onPlayer1Answer(2));
-        btnAnswerD.setOnClickListener(v -> onPlayer1Answer(3));
+        btnAnswerA.setOnClickListener(v -> submitAnswer(0));
+        btnAnswerB.setOnClickListener(v -> submitAnswer(1));
+        btnAnswerC.setOnClickListener(v -> submitAnswer(2));
+        btnAnswerD.setOnClickListener(v -> submitAnswer(3));
 
-        loadQuestion(currentQuestion);
+        // TODO: zamijeniti sa pravim matchmakingom
+        gameId     = "test_game_001";
+        myPlayerId = "player1"; // na drugom emulatoru promijeni u "player2"
+
+        gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
+
+        loadQuestion(0);
 
         return rootView;
     }
@@ -101,18 +107,13 @@ public class KoZnaZnaFragment extends Fragment {
     // ==============================
 
     private void loadQuestion(int idx) {
-        // Reset stanja za novo pitanje
-        player1AnswerIndex = -1;
-        player2Choice      = -1;
-        player1Answered    = false;
-        player2Answered    = false;
-        player1AnswerTime  = -1;
-        player2AnswerTime  = -1;
-        questionStartTime  = System.currentTimeMillis();
+        currentQuestion   = idx;
+        myAnswered        = false;
+        questionStartTime = System.currentTimeMillis();
 
         tvQuestionNumber.setText("Pitanje " + (idx + 1) + " / 5");
         tvQuestion.setText(QUESTIONS[idx]);
-        tvStatus.setText("");
+        tvStatus.setText("Čeka se odgovor...");
 
         btnAnswerA.setText("A)  " + ANSWERS[idx][0]);
         btnAnswerB.setText("B)  " + ANSWERS[idx][1]);
@@ -123,12 +124,17 @@ public class KoZnaZnaFragment extends Fragment {
         setButtonsEnabled(true);
         updateScoreUI();
 
+        // Samo player1 kontroliše tok pitanja
+        if ("player1".equals(myPlayerId)) {
+            gameRef.child("questionIndex").setValue(idx);
+        }
+
         startQuestionTimer();
-        startPlayer2Timer();
+        listenForBothAnswers(idx);
     }
 
     // ==============================
-    // TAJMER: 5 SEKUNDI PO PITANJU
+    // TAJMER: 5 SEKUNDI
     // ==============================
 
     private void startQuestionTimer() {
@@ -139,153 +145,137 @@ public class KoZnaZnaFragment extends Fragment {
             public void onTick(long millisUntilFinished) {
                 tvTimer.setText(String.valueOf(millisUntilFinished / 1000 + 1));
             }
-
             @Override
             public void onFinish() {
                 tvTimer.setText("0");
-                onQuestionEnd();
-            }
-        }.start();
-    }
-
-    // ==============================
-    // ISTEKLO VRIJEME — završi pitanje
-    // ==============================
-
-    private void onQuestionEnd() {
-        if (player2Timer != null) player2Timer.cancel();
-
-        // Ako igrač 2 nije stigao odgovoriti — smatra se da nije odgovorio
-        if (!player2Answered) {
-            player2Answered = true;
-            player2Choice   = -1; // nije odgovorio
-        }
-
-        // Ako igrač 1 nije stigao odgovoriti
-        if (!player1Answered) {
-            player1Answered    = true;
-            player1AnswerIndex = -1; // nije odgovorio
-        }
-
-        resolveQuestion();
-    }
-
-    // ==============================
-    // VIRTUALNI IGRAČ 2
-    // 70% šanse da odgovori tačno
-    // Odgovara između 500ms i 4500ms
-    // ==============================
-
-    private void startPlayer2Timer() {
-        if (player2Timer != null) player2Timer.cancel();
-
-        long delay = 500 + random.nextInt(4000);
-
-        // Odluči šta će bot odabrati
-        boolean willAnswerCorrectly = random.nextInt(100) < 67;
-        if (willAnswerCorrectly) {
-            player2Choice = CORRECT[currentQuestion];
-        } else {
-            int wrong;
-            do {
-                wrong = random.nextInt(4);
-            } while (wrong == CORRECT[currentQuestion]);
-            player2Choice = wrong;
-        }
-
-        player2Timer = new CountDownTimer(delay, delay) {
-            @Override
-            public void onTick(long millisUntilFinished) {}
-
-            @Override
-            public void onFinish() {
-                if (!player2Answered) {
-                    player2Answered   = true;
-                    player2AnswerTime = System.currentTimeMillis() - questionStartTime;
-                    checkBothAnswered();
+                if (!myAnswered) {
+                    submitAnswer(-1); // -1 = nije odgovorio
                 }
             }
         }.start();
     }
 
     // ==============================
-    // ODGOVOR IGRAČA 1
+    // IGRAČ KLIKNE ODGOVOR
     // ==============================
 
-    private void onPlayer1Answer(int answerIdx) {
-        if (player1Answered) return;
-
-        player1Answered    = true;
-        player1AnswerIndex = answerIdx;
-        player1AnswerTime  = System.currentTimeMillis() - questionStartTime;
-
-        // Vizualno označi odabir
-        setButtonTint(answerButtons[answerIdx],
-                answerIdx == CORRECT[currentQuestion] ? COLOR_CORRECT : COLOR_WRONG);
-
+    private void submitAnswer(int answerIdx) {
+        if (myAnswered) return;
+        myAnswered = true;
         setButtonsEnabled(false);
-        checkBothAnswered();
+
+        long answerTime = System.currentTimeMillis() - questionStartTime;
+
+        // Vizualno označi
+        if (answerIdx >= 0) {
+            setButtonTint(answerButtons[answerIdx],
+                    answerIdx == CORRECT[currentQuestion] ? COLOR_CORRECT : COLOR_WRONG);
+        }
+
+        // Upiši odgovor u Firebase
+        DatabaseReference answerRef = gameRef
+                .child("answers")
+                .child(String.valueOf(currentQuestion))
+                .child(myPlayerId);
+
+        answerRef.child("answerIndex").setValue(answerIdx);
+        answerRef.child("answerTime").setValue(answerTime);
     }
 
     // ==============================
-    // PROVJERA: da li su oba odgovorila
+    // SLUŠAJ KAD OBA IGRAČA ODGOVORE
     // ==============================
 
-    private void checkBothAnswered() {
-        if (!player1Answered || !player2Answered) return;
+    private void listenForBothAnswers(int questionIdx) {
+        if (answerListener != null) {
+            gameRef.child("answers").child(String.valueOf(questionIdx))
+                    .removeEventListener(answerListener);
+        }
 
-        if (questionTimer != null) questionTimer.cancel();
-        if (player2Timer  != null) player2Timer.cancel();
+        DatabaseReference questionAnswersRef = gameRef
+                .child("answers")
+                .child(String.valueOf(questionIdx));
 
-        resolveQuestion();
-    }
+        answerListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                boolean hasPlayer1 = snapshot.hasChild("player1");
+                boolean hasPlayer2 = snapshot.hasChild("player2");
 
-    // ==============================
-    // RJEŠAVANJE PITANJA — logika po specifikaciji
-    // ==============================
+                if (hasPlayer1 && hasPlayer2) {
+                    if (questionTimer != null) questionTimer.cancel();
 
-    private void resolveQuestion() {
-        boolean p1Correct = (player1AnswerIndex == CORRECT[currentQuestion]);
-        boolean p2Correct = (player2Choice == CORRECT[currentQuestion]);
+                    Integer p1AnswerRaw = snapshot.child("player1")
+                            .child("answerIndex").getValue(Integer.class);
+                    Integer p2AnswerRaw = snapshot.child("player2")
+                            .child("answerIndex").getValue(Integer.class);
+                    Long p1TimeRaw = snapshot.child("player1")
+                            .child("answerTime").getValue(Long.class);
+                    Long p2TimeRaw = snapshot.child("player2")
+                            .child("answerTime").getValue(Long.class);
 
-        if (p1Correct && p2Correct) {
-            // Oba tačno — bodove dobija brži
-            if (player1AnswerTime <= player2AnswerTime) {
-                scorePlayer1 += 10;
-                tvStatus.setText("✓ Oba tačno — ti si brži! +10");
-            } else {
-                scorePlayer2 += 10;
-                tvStatus.setText("✓ Oba tačno — bot brži! Bot +10");
+                    // Null safety
+                    int p1Answer = p1AnswerRaw != null ? p1AnswerRaw : -1;
+                    int p2Answer = p2AnswerRaw != null ? p2AnswerRaw : -1;
+                    long p1Time  = p1TimeRaw  != null ? p1TimeRaw  : 9999;
+                    long p2Time  = p2TimeRaw  != null ? p2TimeRaw  : 9999;
+
+                    resolveQuestion(p1Answer, p2Answer, p1Time, p2Time);
+
+                    questionAnswersRef.removeEventListener(this);
+                }
             }
 
-        } else if (p1Correct && !p2Correct) {
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+
+        questionAnswersRef.addValueEventListener(answerListener);
+    }
+
+    // ==============================
+    // RAZRIJEŠI PITANJE
+    // ==============================
+
+    private void resolveQuestion(int p1Answer, int p2Answer, long p1Time, long p2Time) {
+        boolean p1Correct = (p1Answer == CORRECT[currentQuestion]);
+        boolean p2Correct = (p2Answer == CORRECT[currentQuestion]);
+
+        // Pokaži tačan odgovor
+        setButtonTint(answerButtons[CORRECT[currentQuestion]], COLOR_CORRECT);
+
+        if (p1Correct && p2Correct) {
+            if (p1Time <= p2Time) {
+                scorePlayer1 += 10;
+                tvStatus.setText("✓ Oba tačno — Igrač 1 brži! +10");
+            } else {
+                scorePlayer2 += 10;
+                tvStatus.setText("✓ Oba tačno — Igrač 2 brži! +10");
+            }
+        } else if (p1Correct) {
             scorePlayer1 += 10;
-            if (player2Choice != -1) scorePlayer2 -= 5;
-            tvStatus.setText("✓ Tačno! +10 bodova");
-
-        } else if (!p1Correct && p2Correct) {
+            if (p2Answer != -1) scorePlayer2 -= 5;
+            tvStatus.setText("✓ Igrač 1 tačno! +10");
+        } else if (p2Correct) {
             scorePlayer2 += 10;
-            if (player1AnswerIndex != -1) scorePlayer1 -= 5;
-            tvStatus.setText("✗ Bot odgovorio tačno. Bot +10");
-
+            if (p1Answer != -1) scorePlayer1 -= 5;
+            tvStatus.setText("✓ Igrač 2 tačno! +10");
         } else {
-            // Niko nije tačno
-            if (player1AnswerIndex != -1) scorePlayer1 -= 5;
-            if (player2Choice != -1)      scorePlayer2 -= 5;
-
-            if (player1AnswerIndex == -1 && player2Choice == -1) {
-                tvStatus.setText("Niko nije odgovorio — prelazimo dalje");
+            if (p1Answer != -1) scorePlayer1 -= 5;
+            if (p2Answer != -1) scorePlayer2 -= 5;
+            if (p1Answer == -1 && p2Answer == -1) {
+                tvStatus.setText("Niko nije odgovorio.");
             } else {
                 tvStatus.setText("✗ Netačno! -5 bodova");
             }
         }
 
-        // Uvijek pokaži tačan odgovor
-        setButtonTint(answerButtons[CORRECT[currentQuestion]], COLOR_CORRECT);
+        // Ažuriraj bodove u Firebase
+        gameRef.child("scores").child("player1").setValue(scorePlayer1);
+        gameRef.child("scores").child("player2").setValue(scorePlayer2);
 
         updateScoreUI();
 
-        // Pauza 1.5s pa na sljedeće pitanje
         rootView.postDelayed(this::nextQuestion, 1500);
     }
 
@@ -304,23 +294,33 @@ public class KoZnaZnaFragment extends Fragment {
 
     private void endGame() {
         if (questionTimer != null) questionTimer.cancel();
-        if (player2Timer  != null) player2Timer.cancel();
-
         setButtonsEnabled(false);
+
+        gameRef.child("status").setValue("finished");
+
         tvQuestionNumber.setText("Kraj igre!");
         tvTimer.setText("—");
-        tvQuestion.setText("Igra je završena!");
+        tvQuestion.setText("Igra završena!");
+
+        String p1Label = "player1".equals(myPlayerId) ? "Ti" : "Protivnik";
+        String p2Label = "player2".equals(myPlayerId) ? "Ti" : "Protivnik";
 
         if (scorePlayer1 > scorePlayer2) {
-            tvStatus.setText("🏆 Pobijedio si!  " + scorePlayer1 + " : " + scorePlayer2);
+            tvStatus.setText("🏆 " + p1Label + " pobijedio!\n\n"
+                    + p1Label + ": " + scorePlayer1 + "\n"
+                    + p2Label + ": " + scorePlayer2);
         } else if (scorePlayer2 > scorePlayer1) {
-            tvStatus.setText("Bot pobijedio.  " + scorePlayer1 + " : " + scorePlayer2);
+            tvStatus.setText("🏆 " + p2Label + " pobijedio!\n\n"
+                    + p1Label + ": " + scorePlayer1 + "\n"
+                    + p2Label + ": " + scorePlayer2);
         } else {
-            tvStatus.setText("Neriješeno!  " + scorePlayer1 + " : " + scorePlayer2);
+            tvStatus.setText("Neriješeno!\n\n"
+                    + p1Label + ": " + scorePlayer1 + "\n"
+                    + p2Label + ": " + scorePlayer2);
         }
 
         updateScoreUI();
-        // Nakon 3 sekunde vrati na listu igara
+
         rootView.postDelayed(() -> {
             if (getView() != null) {
                 androidx.navigation.Navigation
@@ -351,14 +351,22 @@ public class KoZnaZnaFragment extends Fragment {
     }
 
     private void updateScoreUI() {
-        tvScorePlayer1.setText("Bodovi: " + scorePlayer1);
-        tvScorePlayer2.setText("Bodovi: " + scorePlayer2);
+        if ("player1".equals(myPlayerId)) {
+            tvScorePlayer1.setText("Ti: " + scorePlayer1);
+            tvScorePlayer2.setText("Protivnik: " + scorePlayer2);
+        } else {
+            tvScorePlayer1.setText("Protivnik: " + scorePlayer1);
+            tvScorePlayer2.setText("Ti: " + scorePlayer2);
+        }
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         if (questionTimer != null) questionTimer.cancel();
-        if (player2Timer  != null) player2Timer.cancel();
+        if (answerListener != null) {
+            gameRef.child("answers").child(String.valueOf(currentQuestion))
+                    .removeEventListener(answerListener);
+        }
     }
 }
