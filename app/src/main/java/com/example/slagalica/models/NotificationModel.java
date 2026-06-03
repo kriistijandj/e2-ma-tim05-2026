@@ -18,6 +18,7 @@ public class NotificationModel {
             this.timestamp = timestamp;
             this.isRead = isRead;
             this.type = type;
+
         }
 
     public String getId() {
