@@ -32,7 +32,6 @@ public class NotificationFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_notification, container, false);
-
         initData();
         initViews(view);
         setupFilters(view);
@@ -48,13 +47,6 @@ public class NotificationFragment extends Fragment {
         filteredList = new ArrayList<>(fullList);
         adapter = new NotificationAdapter(filteredList);
         recyclerView.setAdapter(adapter);
-    }
-
-    private void initData() {
-        fullList = new ArrayList<>();
-        fullList.add(new NotificationModel("Chat", "Marko: Aj igraj", "2 min", false, NotificationType.CHAT));
-        fullList.add(new NotificationModel("Rang", "Osvojio si 1. mesto", "10 min", true, NotificationType.RANK));
-        fullList.add(new NotificationModel("Nagrada", "Dobio si 5 tokena", "1h", false, NotificationType.REWARD));
     }
 
     private void setupFilters(View v) {
@@ -86,7 +78,20 @@ public class NotificationFragment extends Fragment {
             }
         });
     }
+    private void initData() {
+        fullList = new ArrayList<>();
 
+        fullList.add(
+                new NotificationModel(
+                        "1",
+                        "Chat",
+                        "Marko: Aj igraj",
+                        System.currentTimeMillis(),
+                        false,
+                        NotificationType.CHAT
+                )
+        );
+    }
     private void updateList(List<NotificationModel> newList) {
         filteredList.clear();
         filteredList.addAll(newList);

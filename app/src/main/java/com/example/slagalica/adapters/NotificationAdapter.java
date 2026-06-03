@@ -10,7 +10,9 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
-
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import com.example.slagalica.R;
 import com.example.slagalica.models.NotificationModel;
 
@@ -52,7 +54,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
         holder.title.setText(notif.getTitle());
         holder.message.setText(notif.getMessage());
-        holder.time.setText(notif.getTime());
+        SimpleDateFormat sdf =
+                new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+
+        holder.time.setText(
+                sdf.format(new Date(notif.getTimestamp()))
+        );
 
         // Logika za bele oblačiće (Pročitano vs Nepročitano)
         if (!notif.isRead()) {
@@ -82,7 +89,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         holder.itemView.setOnClickListener(v -> {
             if (!notif.isRead()) {
                 notif.setRead(true);
-                notifyItemChanged(position);
+                int adapterPosition = holder.getAdapterPosition();
+
+                if (adapterPosition != RecyclerView.NO_POSITION) {
+                    notif.setRead(true);
+                    notifyItemChanged(adapterPosition);
+                }
             }
         });
     }

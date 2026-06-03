@@ -2,21 +2,53 @@ package com.example.slagalica.models;
 
 public class NotificationModel {
 
+        private String id;
         private String title;
         private String message;
-        private String time;
+        private long timestamp;
         private boolean isRead;
         private NotificationType type;
+        public NotificationModel() {
+        }
 
-        public NotificationModel(String title, String message, String time, boolean isRead, NotificationType type) {
+        public NotificationModel(String id,String title, String message, long timestamp, boolean isRead, NotificationType type) {
+            this.id=id;
             this.title = title;
             this.message = message;
-            this.time = time;
+            this.timestamp = timestamp;
             this.isRead = isRead;
             this.type = type;
         }
 
-        public String getTitle() {
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public void setType(NotificationType type) {
+        this.type = type;
+    }
+
+    public String getTitle() {
             return title;
         }
 
@@ -24,9 +56,7 @@ public class NotificationModel {
             return message;
         }
 
-        public String getTime() {
-            return time;
-        }
+
 
         public boolean isRead() {
             return isRead;
