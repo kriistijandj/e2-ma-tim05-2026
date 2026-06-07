@@ -143,6 +143,8 @@ public class HomeActivity extends AppCompatActivity {
             manager.createNotificationChannel(rank);
             manager.createNotificationChannel(reward);
             manager.createNotificationChannel(other);
+
+            android.util.Log.d("FIREBASE_NOTIF", "Kanali su uspešno registrovani u HomeActivity!");
         }
     }
 

@@ -12,7 +12,7 @@ import com.example.slagalica.R;
 
 public class NotificationHelper {
 
-    public  void showNotification(
+    public  static void showNotification(
             Context context,
             String channelId,
             int id,
@@ -21,12 +21,12 @@ public class NotificationHelper {
 
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(context, channelId)
-                        .setSmallIcon(R.drawable.ic_skocko)
+                        .setSmallIcon(R.mipmap.ic_launcher)
                         .setContentTitle(title)
                         .setContentText(message)
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setAutoCancel(true);
-
+        android.util.Log.d("TEST_NOTIF", "Channel: " + channelId);
         NotificationManagerCompat manager =
                 NotificationManagerCompat.from(context);
 
@@ -34,7 +34,7 @@ public class NotificationHelper {
                 context,
                 Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-
+            android.util.Log.e("TEST_NOTIF", "NEMA DOZVOLE");
             return;
         }
         manager.notify(id, builder.build());
