@@ -13,8 +13,13 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.slagalica.R;
 import com.example.slagalica.models.NotificationModel;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.ViewHolder> {
 
@@ -22,6 +27,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
     public NotificationAdapter(List<NotificationModel> list) {
         this.modelList = list;
+    }
+
+    // Bezbedna metoda za ažuriranje liste iz Fragmenta bez direktnog čišćenja referenci
+    public void updateData(List<NotificationModel> newList) {
+        this.modelList = newList;
+        notifyDataSetChanged();
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -40,7 +51,6 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // Inflate-ujemo beli oblačić
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_notification, parent, false);
         return new ViewHolder(view);
@@ -52,37 +62,61 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
         holder.title.setText(notif.getTitle());
         holder.message.setText(notif.getMessage());
-        holder.time.setText(notif.getTime());
 
-        // Logika za bele oblačiće (Pročitano vs Nepročitano)
-        if (!notif.isRead()) {
-            // Nepročitano: Podebljan tekst i puna vidljivost
+        SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+        holder.time.setText(sdf.format(new Date(notif.getTimestamp())));
+
+        // Podešavanje ikonica na osnovu tipa notifikacije (Zahtev a.)
+        if (holder.icon != null && notif.getType() != null) {
+            switch (notif.getType()) {
+                case "CHAT":
+                    holder.icon.setImageResource(R.drawable.avatar); // Ubaci svoje resurse
+                    break;
+                case "RANKING":
+                    holder.icon.setImageResource(R.drawable.ic_skocko);
+                    break;
+                case "REWARDS":
+                    holder.icon.setImageResource(R.drawable.ic_srce);
+                    break;
+                default:
+                    holder.icon.setImageResource(R.drawable.ic_skocko); // Ostalo
+                    break;
+            }
+        }
+
+        // Vizuelni stil (Pročitano vs Nepročitano)
+        if (!notif.getIsRead()) {
             holder.title.setTypeface(null, Typeface.BOLD);
             holder.title.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.textDark));
             holder.message.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.textDark));
             holder.itemView.setAlpha(1.0f);
-
-            // Ako imaš ikonu, možemo joj dati jaču boju
-            if (holder.icon != null) {
-                holder.icon.setAlpha(1.0f);
-            }
+            if (holder.icon != null) holder.icon.setAlpha(1.0f);
         } else {
-            // Pročitano: Običan tekst i blago izbledelo (da se vidi razlika)
             holder.title.setTypeface(null, Typeface.NORMAL);
             holder.title.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.textGray));
             holder.message.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.textGray));
-            holder.itemView.setAlpha(0.8f); // Ceo oblačić malo izbledi
-
-            if (holder.icon != null) {
-                holder.icon.setAlpha(0.5f);
-            }
+            holder.itemView.setAlpha(0.6f); // Malo više izbledelo radi jasnijeg kontrasta
+            if (holder.icon != null) holder.icon.setAlpha(0.4f);
         }
 
-        // Klik na oblačić označava poruku kao pročitanu
+        // Klik na notifikaciju menja stanje u Firestore bazi (Zahtev c.)
         holder.itemView.setOnClickListener(v -> {
-            if (!notif.isRead()) {
-                notif.setRead(true);
-                notifyItemChanged(position);
+            if (!notif.getIsRead()) {
+                String currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                        FirebaseAuth.getInstance().getCurrentUser().getUid() : "test_user_id";
+
+                if (notif.getId() != null) {
+                    // Ažuriramo direktno u bazi polje isRead na true
+                    FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(currentUserId)
+                            .collection("notifications")
+                            .document(notif.getId())
+                            .update("isRead", true);
+
+                    // Pošto u Fragmentu imamo SnapshotListener, on će sam detektovati
+                    // ovu promenu u bazi i osvežiti interfejs automatski!
+                }
             }
         });
     }
