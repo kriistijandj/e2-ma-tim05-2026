@@ -1,4 +1,4 @@
-package com.example.slagalica.models;
+package com.example.slagalica.models.skocko;
 
 import java.util.ArrayList;
 import java.util.List;
