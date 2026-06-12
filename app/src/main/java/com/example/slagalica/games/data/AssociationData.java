@@ -62,7 +62,7 @@ public class AssociationData {
                 "Olimpijada" // Konačno rešenje za drugu rundu
         );
 
-        return new AssociationGame(new Round[]{r1, r2}, new Player("Igrač 1"), new Player("Igrač 2"));
+        return new AssociationGame(new Round[]{r1, r2}, new Player(), new Player());
     }
 
     private static Column cloneColumn(Column c) {
