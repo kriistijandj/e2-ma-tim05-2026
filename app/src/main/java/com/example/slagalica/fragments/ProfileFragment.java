@@ -21,7 +21,7 @@ public class ProfileFragment extends Fragment {
     private TextView tvTotalGames, tvWinLoss;
     private TextView tvKoZnaZnaStat, tvMojBrojStat, tvKorakStat;
     private TextView tvAsocijacijeStat, tvSkockoStat, tvSpojniceStat;
-    private Button btnChangeAvatar, btnLogout;
+    private Button btnChangeAvatar, btnLogout, btnChangePassword;
 
     public ProfileFragment() {}
 
@@ -50,6 +50,7 @@ public class ProfileFragment extends Fragment {
         tvSpojniceStat   = view.findViewById(R.id.tvSpojniceStat);
         btnChangeAvatar  = view.findViewById(R.id.btnChangeAvatar);
         btnLogout        = view.findViewById(R.id.btnLogout);
+        btnChangePassword = view.findViewById(R.id.btnChangePassword);
 
         // Primjer podataka – zamijeniti sa Firebase podacima
         loadMockData();
@@ -62,6 +63,10 @@ public class ProfileFragment extends Fragment {
             // TODO: Firebase signOut()
             Toast.makeText(getContext(), "Odjava...", Toast.LENGTH_SHORT).show();
         });
+
+        btnChangePassword.setOnClickListener(v ->
+                Navigation.findNavController(view).navigate(R.id.nav_changePassword)
+        );
 
         return view;
     }

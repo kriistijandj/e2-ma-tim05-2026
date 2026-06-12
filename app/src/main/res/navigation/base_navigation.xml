@@ -102,4 +102,12 @@
         app:popUpTo="@+id/nav_home"
         app:popUpToInclusive="true" />
 
+    <fragment
+        android:id="@+id/nav_changePassword"
+        android:name="com.example.slagalica.fragments.ChangePassword"
+        android:label="Promena lozinke"
+        tools:layout="@layout/fragment_change_password"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
 </navigation>
