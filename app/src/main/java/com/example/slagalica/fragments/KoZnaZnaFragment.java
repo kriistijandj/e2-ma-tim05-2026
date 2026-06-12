@@ -1,19 +1,18 @@
 package com.example.slagalica.fragments;
 
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
-import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -32,12 +31,11 @@ public class KoZnaZnaFragment extends Fragment {
     private View rootView;
     private TextView tvQuestionNumber, tvTimer, tvQuestion, tvStatus;
     private TextView tvScorePlayer1, tvScorePlayer2;
-    private MaterialButton btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD;
-    private MaterialButton[] answerButtons;
+    private Button btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD;
 
     // ====== BOJE ======
-    private static final int COLOR_DEFAULT = Color.parseColor("#F2AF14");
-    private static final int COLOR_CORRECT = Color.parseColor("#4CAF50");
+    private static final int COLOR_DEFAULT = Color.parseColor("#90A4AE");
+    private static final int COLOR_CORRECT = Color.parseColor("#388E3C");
     private static final int COLOR_WRONG   = Color.parseColor("#D32F2F");
 
     // ====== PITANJA ======
@@ -49,11 +47,11 @@ public class KoZnaZnaFragment extends Fragment {
             "U kojoj godini je počeo Drugi svjetski rat?"
     };
     private static final String[][] ANSWERS = {
-            {"Berlin",  "Madrid",      "Pariz",   "Rim"},
-            {"7",       "8",           "9",       "10"},
-            {"Tolstoj", "Dostojevski", "Šekspir", "Homer"},
-            {"Amazon",  "Nil",         "Jangce",  "Misisipi"},
-            {"1935",    "1937",        "1939",    "1941"}
+            {"A) Berlin", "B) Madrid", "C) Pariz",   "D) Rim"},
+            {"A) 7",      "B) 8",      "C) 9",        "D) 10"},
+            {"A) Tolstoj","B) Dostojevski","C) Šekspir","D) Homer"},
+            {"A) Amazon", "B) Nil",     "C) Jangce",  "D) Misisipi"},
+            {"A) 1935",   "B) 1937",    "C) 1939",    "D) 1941"}
     };
     private static final int[] CORRECT = {2, 1, 2, 1, 2};
 
@@ -61,60 +59,89 @@ public class KoZnaZnaFragment extends Fragment {
     private DatabaseReference gameRef;
     private String gameId;
     private String myPlayerId;
+    private ValueEventListener questionListener;
 
     // ====== STANJE ======
     private int     currentQuestion   = 0;
     private int     scorePlayer1      = 0;
     private int     scorePlayer2      = 0;
     private boolean myAnswered        = false;
+    private boolean questionResolved  = false;
     private long    questionStartTime = 0;
 
-    // ====== STATISTIKA (prati se lokalno tokom partije) ======
+    // ====== STATISTIKA ======
     private int myCorrectAnswers = 0;
     private int myWrongAnswers   = 0;
 
     private CountDownTimer questionTimer;
-    private ValueEventListener answerListener;
 
     public KoZnaZnaFragment() {}
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        rootView = inflater.inflate(R.layout.fragment_ko_zna_zna, container, false);
+        View view = inflater.inflate(R.layout.fragment_ko_zna_zna, container, false);
+        rootView = view;
 
-        tvQuestionNumber = rootView.findViewById(R.id.tvQuestionNumber);
-        tvTimer          = rootView.findViewById(R.id.tvTimer);
-        tvQuestion       = rootView.findViewById(R.id.tvQuestion);
-        tvStatus         = rootView.findViewById(R.id.tvStatus);
-        tvScorePlayer1   = rootView.findViewById(R.id.tvScorePlayer1);
-        tvScorePlayer2   = rootView.findViewById(R.id.tvScorePlayer2);
+        tvQuestionNumber = view.findViewById(R.id.tvQuestionNumber);
+        tvTimer          = view.findViewById(R.id.tvTimer);
+        tvQuestion       = view.findViewById(R.id.tvQuestion);
+        tvStatus         = view.findViewById(R.id.tvStatus);
+        tvScorePlayer1   = view.findViewById(R.id.tvScorePlayer1);
+        tvScorePlayer2   = view.findViewById(R.id.tvScorePlayer2);
 
-        btnAnswerA = rootView.findViewById(R.id.btnAnswerA);
-        btnAnswerB = rootView.findViewById(R.id.btnAnswerB);
-        btnAnswerC = rootView.findViewById(R.id.btnAnswerC);
-        btnAnswerD = rootView.findViewById(R.id.btnAnswerD);
-        answerButtons = new MaterialButton[]{btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD};
+        btnAnswerA = view.findViewById(R.id.btnAnswerA);
+        btnAnswerB = view.findViewById(R.id.btnAnswerB);
+        btnAnswerC = view.findViewById(R.id.btnAnswerC);
+        btnAnswerD = view.findViewById(R.id.btnAnswerD);
 
         btnAnswerA.setOnClickListener(v -> submitAnswer(0));
         btnAnswerB.setOnClickListener(v -> submitAnswer(1));
         btnAnswerC.setOnClickListener(v -> submitAnswer(2));
         btnAnswerD.setOnClickListener(v -> submitAnswer(3));
 
-        // Čitamo ROOM_ID i PLAYER_ROLE iz GameFragment lobija
-        gameId     = "test_game_001";
+        // Čitaj argumente iz GameFragment lobija
+        gameId     = "room_koznaZna_001";
         myPlayerId = "player1";
 
         if (getArguments() != null) {
-            gameId     = getArguments().getString("ROOM_ID",     "test_game_001");
+            gameId     = getArguments().getString("ROOM_ID",     "room_koznaZna_001");
             myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
         }
 
         gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
 
-        loadQuestion(0);
+        // Player1 briše staro stanje i inicijalizuje igru
+        if ("player1".equals(myPlayerId)) {
+            gameRef.removeValue((error, ref) -> loadQuestion(0));
+        } else {
+            // Player2 čeka da player1 postavi pitanje
+            waitForQuestion();
+        }
 
-        return rootView;
+        return view;
+    }
+
+    // ==============================
+    // PLAYER2 ČEKA PRVO PITANJE
+    // ==============================
+
+    private void waitForQuestion() {
+        tvStatus.setText("Čekanje...");
+        setAllButtonsEnabled(false);
+
+        gameRef.child("currentQuestion").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Integer idx = snapshot.getValue(Integer.class);
+                if (idx != null) {
+                    gameRef.child("currentQuestion").removeEventListener(this);
+                    loadQuestion(idx);
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        });
     }
 
     // ==============================
@@ -122,25 +149,29 @@ public class KoZnaZnaFragment extends Fragment {
     // ==============================
 
     private void loadQuestion(int idx) {
-        currentQuestion   = idx;
-        myAnswered        = false;
+        currentQuestion  = idx;
+        myAnswered       = false;
+        questionResolved = false;
         questionStartTime = System.currentTimeMillis();
 
         tvQuestionNumber.setText("Pitanje " + (idx + 1) + " / 5");
         tvQuestion.setText(QUESTIONS[idx]);
         tvStatus.setText("Čeka se odgovor...");
 
-        btnAnswerA.setText("A)  " + ANSWERS[idx][0]);
-        btnAnswerB.setText("B)  " + ANSWERS[idx][1]);
-        btnAnswerC.setText("C)  " + ANSWERS[idx][2]);
-        btnAnswerD.setText("D)  " + ANSWERS[idx][3]);
+        btnAnswerA.setText(ANSWERS[idx][0]);
+        btnAnswerB.setText(ANSWERS[idx][1]);
+        btnAnswerC.setText(ANSWERS[idx][2]);
+        btnAnswerD.setText(ANSWERS[idx][3]);
 
-        resetButtonTints();
-        setButtonsEnabled(true);
+        resetButtonColors();
+        setAllButtonsEnabled(true);
         updateScoreUI();
 
+        // Player1 upisuje indeks pitanja u Firebase
         if ("player1".equals(myPlayerId)) {
-            gameRef.child("questionIndex").setValue(idx);
+            gameRef.child("currentQuestion").setValue(idx);
+            // Briši stare odgovore za ovo pitanje
+            gameRef.child("answers").child(String.valueOf(idx)).removeValue();
         }
 
         startQuestionTimer();
@@ -156,15 +187,13 @@ public class KoZnaZnaFragment extends Fragment {
 
         questionTimer = new CountDownTimer(5000, 1000) {
             @Override
-            public void onTick(long millisUntilFinished) {
-                tvTimer.setText(String.valueOf(millisUntilFinished / 1000 + 1));
+            public void onTick(long ms) {
+                tvTimer.setText(String.valueOf(ms / 1000 + 1));
             }
             @Override
             public void onFinish() {
                 tvTimer.setText("0");
-                if (!myAnswered) {
-                    submitAnswer(-1);
-                }
+                if (!myAnswered) submitAnswer(-1);
             }
         }.start();
     }
@@ -176,79 +205,73 @@ public class KoZnaZnaFragment extends Fragment {
     private void submitAnswer(int answerIdx) {
         if (myAnswered) return;
         myAnswered = true;
-        setButtonsEnabled(false);
+        setAllButtonsEnabled(false);
 
         long answerTime = System.currentTimeMillis() - questionStartTime;
 
+        // Vizualno odmah pokaži odgovor
+        Button[] buttons = {btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD};
         if (answerIdx >= 0) {
             boolean correct = (answerIdx == CORRECT[currentQuestion]);
-            setButtonTint(answerButtons[answerIdx], correct ? COLOR_CORRECT : COLOR_WRONG);
-
-            // Brojimo lokalno za statistiku
+            buttons[answerIdx].setBackgroundColor(correct ? COLOR_CORRECT : COLOR_WRONG);
             if (correct) myCorrectAnswers++;
             else         myWrongAnswers++;
         } else {
-            // Nije odgovorio – računa se kao netačno
             myWrongAnswers++;
         }
 
-        DatabaseReference answerRef = gameRef
-                .child("answers")
-                .child(String.valueOf(currentQuestion))
-                .child(myPlayerId);
-
-        answerRef.child("answerIndex").setValue(answerIdx);
-        answerRef.child("answerTime").setValue(answerTime);
+        // Upiši u Firebase
+        gameRef.child("answers").child(String.valueOf(currentQuestion))
+                .child(myPlayerId).child("answerIndex").setValue(answerIdx);
+        gameRef.child("answers").child(String.valueOf(currentQuestion))
+                .child(myPlayerId).child("answerTime").setValue(answerTime);
     }
 
     // ==============================
-    // SLUŠAJ KAD OBA IGRAČA ODGOVORE
+    // SLUŠAJ KAD OBA ODGOVORE
     // ==============================
 
     private void listenForBothAnswers(int questionIdx) {
-        if (answerListener != null) {
+        if (questionListener != null) {
             gameRef.child("answers").child(String.valueOf(questionIdx))
-                    .removeEventListener(answerListener);
+                    .removeEventListener(questionListener);
+            questionListener = null;
         }
 
-        DatabaseReference questionAnswersRef = gameRef
-                .child("answers")
+        DatabaseReference answersRef = gameRef.child("answers")
                 .child(String.valueOf(questionIdx));
 
-        answerListener = new ValueEventListener() {
+        questionListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                boolean hasPlayer1 = snapshot.hasChild("player1");
-                boolean hasPlayer2 = snapshot.hasChild("player2");
+                if (questionResolved) return;
+                if (!snapshot.hasChild("player1") || !snapshot.hasChild("player2")) return;
 
-                if (hasPlayer1 && hasPlayer2) {
-                    if (questionTimer != null) questionTimer.cancel();
+                questionResolved = true;
+                if (questionTimer != null) questionTimer.cancel();
 
-                    Integer p1AnswerRaw = snapshot.child("player1")
-                            .child("answerIndex").getValue(Integer.class);
-                    Integer p2AnswerRaw = snapshot.child("player2")
-                            .child("answerIndex").getValue(Integer.class);
-                    Long p1TimeRaw = snapshot.child("player1")
-                            .child("answerTime").getValue(Long.class);
-                    Long p2TimeRaw = snapshot.child("player2")
-                            .child("answerTime").getValue(Long.class);
+                // Ukloni listener odmah
+                answersRef.removeEventListener(this);
+                questionListener = null;
 
-                    int p1Answer = p1AnswerRaw != null ? p1AnswerRaw : -1;
-                    int p2Answer = p2AnswerRaw != null ? p2AnswerRaw : -1;
-                    long p1Time  = p1TimeRaw   != null ? p1TimeRaw  : 9999;
-                    long p2Time  = p2TimeRaw   != null ? p2TimeRaw  : 9999;
+                Integer p1Ans  = snapshot.child("player1").child("answerIndex").getValue(Integer.class);
+                Integer p2Ans  = snapshot.child("player2").child("answerIndex").getValue(Integer.class);
+                Long    p1Time = snapshot.child("player1").child("answerTime").getValue(Long.class);
+                Long    p2Time = snapshot.child("player2").child("answerTime").getValue(Long.class);
 
-                    resolveQuestion(p1Answer, p2Answer, p1Time, p2Time);
+                int  p1Answer = p1Ans  != null ? p1Ans  : -1;
+                int  p2Answer = p2Ans  != null ? p2Ans  : -1;
+                long p1T      = p1Time != null ? p1Time : 9999;
+                long p2T      = p2Time != null ? p2Time : 9999;
 
-                    questionAnswersRef.removeEventListener(this);
-                }
+                resolveQuestion(p1Answer, p2Answer, p1T, p2T);
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {}
         };
 
-        questionAnswersRef.addValueEventListener(answerListener);
+        answersRef.addValueEventListener(questionListener);
     }
 
     // ==============================
@@ -256,10 +279,20 @@ public class KoZnaZnaFragment extends Fragment {
     // ==============================
 
     private void resolveQuestion(int p1Answer, int p2Answer, long p1Time, long p2Time) {
+        Button[] buttons = {btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD};
+
+        // Pokaži tačan odgovor
+        buttons[CORRECT[currentQuestion]].setBackgroundColor(COLOR_CORRECT);
+
+        // Pokaži i protivnikov odgovor
+        String opponent = "player1".equals(myPlayerId) ? "player2" : "player1";
+        int oppAnswer = "player1".equals(myPlayerId) ? p2Answer : p1Answer;
+        if (oppAnswer >= 0 && oppAnswer != CORRECT[currentQuestion]) {
+            buttons[oppAnswer].setBackgroundColor(COLOR_WRONG);
+        }
+
         boolean p1Correct = (p1Answer == CORRECT[currentQuestion]);
         boolean p2Correct = (p2Answer == CORRECT[currentQuestion]);
-
-        setButtonTint(answerButtons[CORRECT[currentQuestion]], COLOR_CORRECT);
 
         if (p1Correct && p2Correct) {
             if (p1Time <= p2Time) {
@@ -280,15 +313,15 @@ public class KoZnaZnaFragment extends Fragment {
         } else {
             if (p1Answer != -1) scorePlayer1 -= 5;
             if (p2Answer != -1) scorePlayer2 -= 5;
-            if (p1Answer == -1 && p2Answer == -1) {
-                tvStatus.setText("Niko nije odgovorio.");
-            } else {
-                tvStatus.setText("✗ Netačno! -5 bodova");
-            }
+            tvStatus.setText(p1Answer == -1 && p2Answer == -1
+                    ? "Niko nije odgovorio." : "✗ Netačno!");
         }
 
-        gameRef.child("scores").child("player1").setValue(scorePlayer1);
-        gameRef.child("scores").child("player2").setValue(scorePlayer2);
+        // Samo player1 upisuje skorove
+        if ("player1".equals(myPlayerId)) {
+            gameRef.child("scores").child("player1").setValue(scorePlayer1);
+            gameRef.child("scores").child("player2").setValue(scorePlayer2);
+        }
 
         updateScoreUI();
 
@@ -305,14 +338,16 @@ public class KoZnaZnaFragment extends Fragment {
     }
 
     // ==============================
-    // KRAJ IGRE – upisuje statistiku
+    // KRAJ IGRE
     // ==============================
 
     private void endGame() {
         if (questionTimer != null) questionTimer.cancel();
-        setButtonsEnabled(false);
+        setAllButtonsEnabled(false);
 
-        gameRef.child("status").setValue("finished");
+        if ("player1".equals(myPlayerId)) {
+            gameRef.child("status").setValue("finished");
+        }
 
         tvQuestionNumber.setText("Kraj igre!");
         tvTimer.setText("—");
@@ -320,35 +355,24 @@ public class KoZnaZnaFragment extends Fragment {
 
         String p1Label = "player1".equals(myPlayerId) ? "Ti" : "Protivnik";
         String p2Label = "player2".equals(myPlayerId) ? "Ti" : "Protivnik";
+        int myScore    = "player1".equals(myPlayerId) ? scorePlayer1 : scorePlayer2;
+        int oppScore   = "player1".equals(myPlayerId) ? scorePlayer2 : scorePlayer1;
+        boolean iWon   = myScore > oppScore;
 
-        int myScore  = "player1".equals(myPlayerId) ? scorePlayer1 : scorePlayer2;
-        int oppScore = "player1".equals(myPlayerId) ? scorePlayer2 : scorePlayer1;
-        boolean iWon = myScore > oppScore;
-
-        if (scorePlayer1 > scorePlayer2) {
-            tvStatus.setText("🏆 " + p1Label + " pobijedio!\n\n"
-                    + p1Label + ": " + scorePlayer1 + "\n"
-                    + p2Label + ": " + scorePlayer2);
-        } else if (scorePlayer2 > scorePlayer1) {
-            tvStatus.setText("🏆 " + p2Label + " pobijedio!\n\n"
-                    + p1Label + ": " + scorePlayer1 + "\n"
-                    + p2Label + ": " + scorePlayer2);
-        } else {
-            tvStatus.setText("Neriješeno!\n\n"
-                    + p1Label + ": " + scorePlayer1 + "\n"
-                    + p2Label + ": " + scorePlayer2);
-        }
+        if (scorePlayer1 > scorePlayer2)
+            tvStatus.setText("🏆 " + p1Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+        else if (scorePlayer2 > scorePlayer1)
+            tvStatus.setText("🏆 " + p2Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+        else
+            tvStatus.setText("Neriješeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
 
         updateScoreUI();
 
-        // ── Upis statistike u Firestore ───────────────────────────────────
+        // Upis statistike u Firestore
         String uid = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
-                : null;
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
 
         if (uid != null) {
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
-
             Map<String, Object> updates = new HashMap<>();
             updates.put("stats.koznaZna.correct",  FieldValue.increment(myCorrectAnswers));
             updates.put("stats.koznaZna.wrong",    FieldValue.increment(myWrongAnswers));
@@ -357,47 +381,38 @@ public class KoZnaZnaFragment extends Fragment {
             updates.put("stats.global.totalGames", FieldValue.increment(1));
             updates.put("stats.global.wins",       FieldValue.increment(iWon ? 1 : 0));
             updates.put("stats.global.losses",     FieldValue.increment(iWon ? 0 : 1));
-
-            db.collection("users").document(uid).update(updates);
+            FirebaseFirestore.getInstance().collection("users").document(uid).update(updates);
         }
-        // ─────────────────────────────────────────────────────────────────
 
         rootView.postDelayed(() -> {
-            if (getView() != null) {
-                androidx.navigation.Navigation
-                        .findNavController(getView())
-                        .navigate(R.id.nav_game);
-            }
+            if (getView() != null)
+                androidx.navigation.Navigation.findNavController(getView()).navigate(R.id.nav_game);
         }, 3000);
     }
 
-    // ==============================
-    // HELPERI
-    // ==============================
+    // ====== HELPERI ======
 
-    private void setButtonTint(MaterialButton btn, int color) {
-        btn.setBackgroundTintList(ColorStateList.valueOf(color));
+    private void resetButtonColors() {
+        btnAnswerA.setBackgroundColor(COLOR_DEFAULT);
+        btnAnswerB.setBackgroundColor(COLOR_DEFAULT);
+        btnAnswerC.setBackgroundColor(COLOR_DEFAULT);
+        btnAnswerD.setBackgroundColor(COLOR_DEFAULT);
     }
 
-    private void resetButtonTints() {
-        for (MaterialButton btn : answerButtons) {
-            setButtonTint(btn, COLOR_DEFAULT);
-        }
-    }
-
-    private void setButtonsEnabled(boolean enabled) {
-        for (MaterialButton btn : answerButtons) {
-            btn.setEnabled(enabled);
-        }
+    private void setAllButtonsEnabled(boolean enabled) {
+        btnAnswerA.setEnabled(enabled);
+        btnAnswerB.setEnabled(enabled);
+        btnAnswerC.setEnabled(enabled);
+        btnAnswerD.setEnabled(enabled);
     }
 
     private void updateScoreUI() {
         if ("player1".equals(myPlayerId)) {
-            tvScorePlayer1.setText("Ti: " + scorePlayer1);
-            tvScorePlayer2.setText("Protivnik: " + scorePlayer2);
+            tvScorePlayer1.setText(String.valueOf(scorePlayer1));
+            tvScorePlayer2.setText(String.valueOf(scorePlayer2));
         } else {
-            tvScorePlayer1.setText("Protivnik: " + scorePlayer1);
-            tvScorePlayer2.setText("Ti: " + scorePlayer2);
+            tvScorePlayer1.setText(String.valueOf(scorePlayer2));
+            tvScorePlayer2.setText(String.valueOf(scorePlayer1));
         }
     }
 
@@ -405,9 +420,9 @@ public class KoZnaZnaFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         if (questionTimer != null) questionTimer.cancel();
-        if (answerListener != null) {
+        if (questionListener != null) {
             gameRef.child("answers").child(String.valueOf(currentQuestion))
-                    .removeEventListener(answerListener);
+                    .removeEventListener(questionListener);
         }
     }
 }
