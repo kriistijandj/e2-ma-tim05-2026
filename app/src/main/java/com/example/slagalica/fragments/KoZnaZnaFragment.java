@@ -14,11 +14,17 @@ import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class KoZnaZnaFragment extends Fragment {
 
@@ -57,11 +63,15 @@ public class KoZnaZnaFragment extends Fragment {
     private String myPlayerId;
 
     // ====== STANJE ======
-    private int  currentQuestion  = 0;
-    private int  scorePlayer1     = 0;
-    private int  scorePlayer2     = 0;
-    private boolean myAnswered    = false;
-    private long questionStartTime = 0;
+    private int     currentQuestion   = 0;
+    private int     scorePlayer1      = 0;
+    private int     scorePlayer2      = 0;
+    private boolean myAnswered        = false;
+    private long    questionStartTime = 0;
+
+    // ====== STATISTIKA (prati se lokalno tokom partije) ======
+    private int myCorrectAnswers = 0;
+    private int myWrongAnswers   = 0;
 
     private CountDownTimer questionTimer;
     private ValueEventListener answerListener;
@@ -91,9 +101,14 @@ public class KoZnaZnaFragment extends Fragment {
         btnAnswerC.setOnClickListener(v -> submitAnswer(2));
         btnAnswerD.setOnClickListener(v -> submitAnswer(3));
 
-        // TODO: zamijeniti sa pravim matchmakingom
+        // Čitamo ROOM_ID i PLAYER_ROLE iz GameFragment lobija
         gameId     = "test_game_001";
-        myPlayerId = "player1"; // na drugom emulatoru promijeni u "player2"
+        myPlayerId = "player1";
+
+        if (getArguments() != null) {
+            gameId     = getArguments().getString("ROOM_ID",     "test_game_001");
+            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+        }
 
         gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
 
@@ -124,7 +139,6 @@ public class KoZnaZnaFragment extends Fragment {
         setButtonsEnabled(true);
         updateScoreUI();
 
-        // Samo player1 kontroliše tok pitanja
         if ("player1".equals(myPlayerId)) {
             gameRef.child("questionIndex").setValue(idx);
         }
@@ -149,7 +163,7 @@ public class KoZnaZnaFragment extends Fragment {
             public void onFinish() {
                 tvTimer.setText("0");
                 if (!myAnswered) {
-                    submitAnswer(-1); // -1 = nije odgovorio
+                    submitAnswer(-1);
                 }
             }
         }.start();
@@ -166,13 +180,18 @@ public class KoZnaZnaFragment extends Fragment {
 
         long answerTime = System.currentTimeMillis() - questionStartTime;
 
-        // Vizualno označi
         if (answerIdx >= 0) {
-            setButtonTint(answerButtons[answerIdx],
-                    answerIdx == CORRECT[currentQuestion] ? COLOR_CORRECT : COLOR_WRONG);
+            boolean correct = (answerIdx == CORRECT[currentQuestion]);
+            setButtonTint(answerButtons[answerIdx], correct ? COLOR_CORRECT : COLOR_WRONG);
+
+            // Brojimo lokalno za statistiku
+            if (correct) myCorrectAnswers++;
+            else         myWrongAnswers++;
+        } else {
+            // Nije odgovorio – računa se kao netačno
+            myWrongAnswers++;
         }
 
-        // Upiši odgovor u Firebase
         DatabaseReference answerRef = gameRef
                 .child("answers")
                 .child(String.valueOf(currentQuestion))
@@ -214,11 +233,10 @@ public class KoZnaZnaFragment extends Fragment {
                     Long p2TimeRaw = snapshot.child("player2")
                             .child("answerTime").getValue(Long.class);
 
-                    // Null safety
                     int p1Answer = p1AnswerRaw != null ? p1AnswerRaw : -1;
                     int p2Answer = p2AnswerRaw != null ? p2AnswerRaw : -1;
-                    long p1Time  = p1TimeRaw  != null ? p1TimeRaw  : 9999;
-                    long p2Time  = p2TimeRaw  != null ? p2TimeRaw  : 9999;
+                    long p1Time  = p1TimeRaw   != null ? p1TimeRaw  : 9999;
+                    long p2Time  = p2TimeRaw   != null ? p2TimeRaw  : 9999;
 
                     resolveQuestion(p1Answer, p2Answer, p1Time, p2Time);
 
@@ -241,7 +259,6 @@ public class KoZnaZnaFragment extends Fragment {
         boolean p1Correct = (p1Answer == CORRECT[currentQuestion]);
         boolean p2Correct = (p2Answer == CORRECT[currentQuestion]);
 
-        // Pokaži tačan odgovor
         setButtonTint(answerButtons[CORRECT[currentQuestion]], COLOR_CORRECT);
 
         if (p1Correct && p2Correct) {
@@ -270,7 +287,6 @@ public class KoZnaZnaFragment extends Fragment {
             }
         }
 
-        // Ažuriraj bodove u Firebase
         gameRef.child("scores").child("player1").setValue(scorePlayer1);
         gameRef.child("scores").child("player2").setValue(scorePlayer2);
 
@@ -289,7 +305,7 @@ public class KoZnaZnaFragment extends Fragment {
     }
 
     // ==============================
-    // KRAJ IGRE
+    // KRAJ IGRE – upisuje statistiku
     // ==============================
 
     private void endGame() {
@@ -304,6 +320,10 @@ public class KoZnaZnaFragment extends Fragment {
 
         String p1Label = "player1".equals(myPlayerId) ? "Ti" : "Protivnik";
         String p2Label = "player2".equals(myPlayerId) ? "Ti" : "Protivnik";
+
+        int myScore  = "player1".equals(myPlayerId) ? scorePlayer1 : scorePlayer2;
+        int oppScore = "player1".equals(myPlayerId) ? scorePlayer2 : scorePlayer1;
+        boolean iWon = myScore > oppScore;
 
         if (scorePlayer1 > scorePlayer2) {
             tvStatus.setText("🏆 " + p1Label + " pobijedio!\n\n"
@@ -320,6 +340,27 @@ public class KoZnaZnaFragment extends Fragment {
         }
 
         updateScoreUI();
+
+        // ── Upis statistike u Firestore ───────────────────────────────────
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : null;
+
+        if (uid != null) {
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("stats.koznaZna.correct",  FieldValue.increment(myCorrectAnswers));
+            updates.put("stats.koznaZna.wrong",    FieldValue.increment(myWrongAnswers));
+            updates.put("stats.koznaZna.wins",     FieldValue.increment(iWon ? 1 : 0));
+            updates.put("stats.koznaZna.losses",   FieldValue.increment(iWon ? 0 : 1));
+            updates.put("stats.global.totalGames", FieldValue.increment(1));
+            updates.put("stats.global.wins",       FieldValue.increment(iWon ? 1 : 0));
+            updates.put("stats.global.losses",     FieldValue.increment(iWon ? 0 : 1));
+
+            db.collection("users").document(uid).update(updates);
+        }
+        // ─────────────────────────────────────────────────────────────────
 
         rootView.postDelayed(() -> {
             if (getView() != null) {

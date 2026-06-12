@@ -16,11 +16,17 @@ import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SpojniceFragment extends Fragment {
 
@@ -44,7 +50,7 @@ public class SpojniceFragment extends Fragment {
     };
     private static final String[][] RIGHT_TERMS = {
             {"Kao dva sveta", "Tri put sam video Tita", "Ona spava", "Šta ima novo", "Nebo"},
-            {"Relativnost",   "Struja",                  "Radijum",   "Gravitacija",  "Evolucija"}
+            {"Relativnost",   "Struja",                 "Radijum",   "Gravitacija",  "Evolucija"}
     };
     private static final String[] KRITERIJUMI = {
             "Poveži izvođače sa njihovim pesmama",
@@ -76,6 +82,10 @@ public class SpojniceFragment extends Fragment {
     private boolean[] leftUsed  = new boolean[5];
     private boolean[] rightUsed = new boolean[5];
 
+    // ====== STATISTIKA (prati se lokalno tokom partije) ======
+    private int myConnectedCorrect = 0;  // broj tačno spojenih pojmova
+    private int myConnectedTotal   = 0;  // ukupno pokušanih veza
+
     private CountDownTimer roundTimer;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -105,9 +115,14 @@ public class SpojniceFragment extends Fragment {
         rightButtons[3] = view.findViewById(R.id.btnRight4);
         rightButtons[4] = view.findViewById(R.id.btnRight5);
 
-        // TODO: zamijeniti sa pravim matchmakingom
+        // Čitamo ROOM_ID i PLAYER_ROLE iz GameFragment lobija
         gameId     = "test_game_spojnice_001";
-        myPlayerId = "player1"; // na drugom emulatoru promijeni u "player2"
+        myPlayerId = "player1";
+
+        if (getArguments() != null) {
+            gameId     = getArguments().getString("ROOM_ID",     "test_game_spojnice_001");
+            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+        }
 
         gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
 
@@ -119,13 +134,11 @@ public class SpojniceFragment extends Fragment {
 
     // ==============================
     // POKRETANJE RUNDE
-    // Runda 0: player1 igra aktivan, player2 fixing
-    // Runda 1: player2 igra aktivan, player1 fixing
     // ==============================
 
     private void startRound(int round) {
-        currentRound  = round;
-        currentPhase  = PHASE_ACTIVE;
+        currentRound       = round;
+        currentPhase       = PHASE_ACTIVE;
         selectedLeftIndex  = -1;
         selectedRightIndex = -1;
         handler.removeCallbacksAndMessages(null);
@@ -135,7 +148,6 @@ public class SpojniceFragment extends Fragment {
             rightUsed[i] = false;
         }
 
-        // Player1 resetuje Firebase stanje za rundu
         if ("player1".equals(myPlayerId)) {
             gameRef.child("rounds").child(String.valueOf(round))
                     .child("connections").removeValue();
@@ -257,6 +269,14 @@ public class SpojniceFragment extends Fragment {
         selectedLeftIndex  = -1;
         selectedRightIndex = -1;
 
+        // Brojimo za statistiku – svaka veza koju JA napravim
+        if (isMyTurnActive(currentRound) || isMyTurnFixing(currentRound)) {
+            myConnectedTotal++;
+            if (CORRECT_MAPPING[leftIdx] == rightIdx) {
+                myConnectedCorrect++;
+            }
+        }
+
         gameRef.child("rounds")
                 .child(String.valueOf(currentRound))
                 .child("connections")
@@ -280,7 +300,6 @@ public class SpojniceFragment extends Fragment {
                     .child("connections").removeEventListener(connectionsListener);
         }
 
-        // Reset bodova za novu rundu
         scorePlayer1 = 0;
         scorePlayer2 = 0;
 
@@ -291,7 +310,6 @@ public class SpojniceFragment extends Fragment {
         connectionsListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                // Reset lokalnog stanja
                 for (int i = 0; i < 5; i++) {
                     leftUsed[i]  = false;
                     rightUsed[i] = false;
@@ -299,15 +317,13 @@ public class SpojniceFragment extends Fragment {
                     setButtonTint(rightButtons[i], COLOR_DEFAULT);
                 }
 
-                // Ponovo postavi boje za sve veze
-                // Reset bodova svaki put da ne dupliramo
                 int p1Score = 0;
                 int p2Score = 0;
 
                 for (DataSnapshot connSnap : snapshot.getChildren()) {
-                    int leftIdx  = Integer.parseInt(connSnap.getKey());
+                    int leftIdx      = Integer.parseInt(connSnap.getKey());
                     Integer rightIdx = connSnap.child("rightIdx").getValue(Integer.class);
-                    String madeBy   = connSnap.child("madeBy").getValue(String.class);
+                    String madeBy    = connSnap.child("madeBy").getValue(String.class);
 
                     if (rightIdx == null) continue;
 
@@ -331,7 +347,6 @@ public class SpojniceFragment extends Fragment {
                 scorePlayer2 = p2Score;
                 updateScoreUI();
 
-                // Provjeri da li je aktivni igrač spojio sve slobodne
                 boolean anyFree = false;
                 for (boolean u : leftUsed) if (!u) { anyFree = true; break; }
 
@@ -405,7 +420,6 @@ public class SpojniceFragment extends Fragment {
         }
         hasIssues = tempHasIssues;
 
-        // Provjeri i netačne
         gameRef.child("rounds").child(String.valueOf(round))
                 .child("connections")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -424,7 +438,6 @@ public class SpojniceFragment extends Fragment {
 
                         boolean hasFreeOrWrong = hasIssues || anyWrong;
 
-                        // Resetuj netačne veze iz Firebase
                         if (anyWrong) {
                             for (DataSnapshot connSnap : snapshot.getChildren()) {
                                 Integer rightIdx = connSnap.child("rightIdx")
@@ -501,7 +514,7 @@ public class SpojniceFragment extends Fragment {
     }
 
     // ==============================
-    // KRAJ IGRE
+    // KRAJ IGRE – upisuje statistiku
     // ==============================
 
     private void endGame() {
@@ -520,6 +533,10 @@ public class SpojniceFragment extends Fragment {
         String p1Label = "player1".equals(myPlayerId) ? "Ti" : "Protivnik";
         String p2Label = "player2".equals(myPlayerId) ? "Ti" : "Protivnik";
 
+        int myScore  = "player1".equals(myPlayerId) ? scorePlayer1 : scorePlayer2;
+        int oppScore = "player1".equals(myPlayerId) ? scorePlayer2 : scorePlayer1;
+        boolean iWon = myScore > oppScore;
+
         String rezultat;
         if (scorePlayer1 > scorePlayer2) {
             rezultat = "🏆 " + p1Label + " pobijedio!\n\n"
@@ -537,6 +554,27 @@ public class SpojniceFragment extends Fragment {
 
         tvStatus.setText(rezultat);
         updateScoreUI();
+
+        // ── Upis statistike u Firestore ───────────────────────────────────
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : null;
+
+        if (uid != null) {
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("stats.spojnice.connected",    FieldValue.increment(myConnectedCorrect));
+            updates.put("stats.spojnice.total",        FieldValue.increment(myConnectedTotal));
+            updates.put("stats.spojnice.wins",         FieldValue.increment(iWon ? 1 : 0));
+            updates.put("stats.spojnice.losses",       FieldValue.increment(iWon ? 0 : 1));
+            updates.put("stats.global.totalGames",     FieldValue.increment(1));
+            updates.put("stats.global.wins",           FieldValue.increment(iWon ? 1 : 0));
+            updates.put("stats.global.losses",         FieldValue.increment(iWon ? 0 : 1));
+
+            db.collection("users").document(uid).update(updates);
+        }
+        // ─────────────────────────────────────────────────────────────────
 
         handler.postDelayed(() -> {
             if (getView() != null) {

@@ -11,9 +11,14 @@ import com.example.slagalica.models.skocko.SkockoFeedback;
 import com.example.slagalica.models.skocko.SkockoGameState;
 import com.example.slagalica.models.skocko.SkockoSymbol;
 import com.example.slagalica.repository.SkockoRepository;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SkockoViewModel extends ViewModel {
 
@@ -26,11 +31,15 @@ public class SkockoViewModel extends ViewModel {
     private CountDownTimer timer;
     private String myPlayerId; // "player1" ili "player2"
 
+    // ====== STATISTIKA (prati se lokalno tokom partije) ======
+    // Bilježimo u kom pokuša je pogođeno (1-6), ili 0 ako nije
+    private int myWinAttemptNumber = 0;   // koji pokušaj je bio pobjednički (0 = nije pogođeno)
+    private boolean myRoundWon     = false;
+
     public void init(String gameId, String myPlayerId) {
         this.myPlayerId = myPlayerId;
         this.repository = new SkockoRepository(gameId);
 
-        // Osluškujemo Firebase izmene
         this.repository.listenToGameState(state -> {
             gameState.setValue(state);
             handleTimerSync(state);
@@ -38,17 +47,15 @@ public class SkockoViewModel extends ViewModel {
     }
 
     public LiveData<SkockoGameState> getGameState() { return gameState; }
-    public LiveData<String> getTimerText() { return timerText; }
-    public String getMyPlayerId() { return myPlayerId; }
+    public LiveData<String> getTimerText()          { return timerText; }
+    public String getMyPlayerId()                   { return myPlayerId; }
 
     private void handleTimerSync(SkockoGameState state) {
-        // Ako je igra završena, gasimo tajmer
         if ("finished".equals(state.status)) {
             if (timer != null) timer.cancel();
             return;
         }
 
-        // Lokalno upravljanje tajmerom u zavisnosti od stanja (Samo za aktivnog igrača)
         boolean amIActive = (state.activePlayer == 1 && "player1".equals(myPlayerId)) ||
                 (state.activePlayer == 2 && "player2".equals(myPlayerId));
 
@@ -73,7 +80,6 @@ public class SkockoViewModel extends ViewModel {
             public void onTick(long millisUntilFinished) {
                 timerText.setValue((millisUntilFinished / 1000) + "s");
             }
-
             @Override
             public void onFinish() {
                 timerText.setValue("0s");
@@ -87,19 +93,14 @@ public class SkockoViewModel extends ViewModel {
         SkockoGameState state = gameState.getValue();
         if (state == null) return;
 
-        // SIGURNOSNA PROVERA: Samo aktivni igrač sme da upisuje istek vremena u Firebase!
-        // Ovo sprečava da oba telefona u istom milisekundom pošalju promenu i zbune bazu.
         int activePlayerNum = "player1".equals(myPlayerId) ? 1 : 2;
         if (state.activePlayer != activePlayerNum) return;
 
         if (!state.isOpponentChance) {
-            // 1. Regularni igrač nije pogodio u 30s -> Prelazak na šansu protivnika (10 sekundi)
             state.isOpponentChance = true;
-            // Protivnik postaje aktivni igrač
             state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
             repository.updateGameState(state);
         } else {
-            // 2. Isteklo je 10 sekundi šanse za protivnika, a on nije uradio submit -> Kraj runde!
             endRoundLogic(state);
         }
     }
@@ -109,30 +110,67 @@ public class SkockoViewModel extends ViewModel {
             // --- PRELAZAK NA RUNDU 2 ---
             state.round = 2;
             state.rundaZapocinje = 2;
-            state.activePlayer = 2; // U drugoj rundi Player 2 igra prvi!
+            state.activePlayer = 2;
             state.isOpponentChance = false;
             state.attempts.clear();
 
-            // Generisanje novog rešenja za drugu rundu
             List<SkockoSymbol> newSol = skockoHelper.generateSolution();
             state.solution.clear();
             for (SkockoSymbol s : newSol) {
                 state.solution.add(s.name());
             }
+
         } else {
-            // --- KRAJ OBE RUNDE ---
+            // --- KRAJ OBE RUNDE – upisujemo statistiku ---
             state.status = "finished";
+
+            int myScore  = "player1".equals(myPlayerId) ? state.p1Score : state.p2Score;
+            int oppScore = "player1".equals(myPlayerId) ? state.p2Score : state.p1Score;
+            boolean iWon = myScore > oppScore;
+
+            saveSkockoStats(iWon);
         }
 
-        // Čuvanje novog stanja u bazi
         repository.updateGameState(state);
+    }
+
+    // ==============================
+    // UPIS STATISTIKE U FIRESTORE
+    // ==============================
+
+    private void saveSkockoStats(boolean iWon) {
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : null;
+
+        if (uid == null) return;
+
+        Map<String, Object> updates = new HashMap<>();
+
+        // Koji pokušaj je bio pobjednički
+        if (myRoundWon && myWinAttemptNumber >= 1 && myWinAttemptNumber <= 6) {
+            updates.put("stats.skocko.attempt" + myWinAttemptNumber,
+                    FieldValue.increment(1));
+        } else {
+            updates.put("stats.skocko.failed", FieldValue.increment(1));
+        }
+
+        updates.put("stats.skocko.wins",         FieldValue.increment(iWon ? 1 : 0));
+        updates.put("stats.skocko.losses",       FieldValue.increment(iWon ? 0 : 1));
+        updates.put("stats.global.totalGames",   FieldValue.increment(1));
+        updates.put("stats.global.wins",         FieldValue.increment(iWon ? 1 : 0));
+        updates.put("stats.global.losses",       FieldValue.increment(iWon ? 0 : 1));
+
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(uid)
+                .update(updates);
     }
 
     public void submitAttempt(List<SkockoSymbol> attemptSymbols) {
         SkockoGameState state = gameState.getValue();
         if (state == null) return;
 
-        // Pretvaramo rešenje iz baze u Enume radi provere u helperu
         List<SkockoSymbol> solutionSymbols = new ArrayList<>();
         for (String s : state.solution) {
             solutionSymbols.add(SkockoSymbol.valueOf(s));
@@ -140,12 +178,12 @@ public class SkockoViewModel extends ViewModel {
 
         SkockoFeedback feedback = skockoHelper.evaluate(solutionSymbols, attemptSymbols);
 
-        // Pakujemo simbole u stringove za bazu
         List<String> symbolStrings = new ArrayList<>();
         for (SkockoSymbol s : attemptSymbols) symbolStrings.add(s.name());
 
         int activePlayerNum = "player1".equals(myPlayerId) ? 1 : 2;
-        FirebaseAttempt newAttempt = new FirebaseAttempt(activePlayerNum, symbolStrings, feedback.getRed(), feedback.getYellow());
+        FirebaseAttempt newAttempt = new FirebaseAttempt(
+                activePlayerNum, symbolStrings, feedback.getRed(), feedback.getYellow());
         state.attempts.add(newAttempt);
 
         // Provera pogotka
@@ -161,19 +199,25 @@ public class SkockoViewModel extends ViewModel {
             }
 
             if (activePlayerNum == 1) state.p1Score += points;
-            else state.p2Score += points;
+            else                      state.p2Score += points;
+
+            // Bilježimo koji pokušaj je bio pobjednički (samo za lokalnog igrača)
+            if (activePlayerNum == ("player1".equals(myPlayerId) ? 1 : 2)) {
+                myRoundWon        = true;
+                myWinAttemptNumber = state.attempts.size(); // 1-indeksovano
+            }
 
             endRoundLogic(state);
             return;
         }
 
-        // Ako je bila šansa protivnika a promašio je, odmah se završava runda
+        // Šansa protivnika – promašio je, kraj runde
         if (state.isOpponentChance) {
             endRoundLogic(state);
             return;
         }
 
-        // Ako je iskorišćeno svih 6 pokušaja regularnog igrača, prelazi se na šansu protivnika
+        // Iskorišćeno svih 6 pokušaja – šansa protivnika
         if (state.attempts.size() == 6) {
             state.isOpponentChance = true;
             state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
@@ -182,8 +226,6 @@ public class SkockoViewModel extends ViewModel {
         repository.updateGameState(state);
     }
 
-
-    // Kada se npr. "player1" prvi put spoji, on može inicijalizovati čvor ako ne postoji
     public void setupInitialGameIfHost() {
         if ("player1".equals(myPlayerId)) {
             SkockoGameState initialState = new SkockoGameState();
