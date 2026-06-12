@@ -11,8 +11,13 @@ import com.example.slagalica.models.Column;
 import com.example.slagalica.models.Round;
 import com.example.slagalica.models.asocijacije.AsocijacijeGameState;
 import com.example.slagalica.repository.AsocijacijeRepository;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class AsocijacijeViewModel extends ViewModel {
 
@@ -23,8 +28,11 @@ public class AsocijacijeViewModel extends ViewModel {
     private CountDownTimer roundTimer;
     private String myPlayerId; // "player1" ili "player2"
 
-    // Lokalna kopija asocijacije (reči i rešenja) učitana iz AssociationData šablona
     private AssociationGame associationDataStatic;
+
+    // ====== STATISTIKA (prati se lokalno tokom partije) ======
+    private int mySolvedColumns  = 0;   // broj kolona koje je lokalni igrač riješio
+    private boolean myFinalSolved = false; // da li je lokalni igrač pogodio konačno rješenje
 
     public void init(String gameId, String myPlayerId) {
         this.myPlayerId = myPlayerId;
@@ -38,24 +46,19 @@ public class AsocijacijeViewModel extends ViewModel {
     }
 
     public LiveData<AsocijacijeGameState> getGameState() { return gameState; }
-    public LiveData<String> getTimerText() { return timerText; }
-    public String getMyPlayerId() { return myPlayerId; }
+    public LiveData<String> getTimerText()               { return timerText; }
+    public String getMyPlayerId()                        { return myPlayerId; }
 
-    // Vraća tekst za određeno polje ako je otvoreno
     public String getFieldText(int col, int row) {
         AsocijacijeGameState state = gameState.getValue();
         if (state == null || !state.openedFields.get(col).get(row)) return "";
-
-        // Mapiranje trenutne runde (1 ili 2 -> indeks 0 ili 1)
         int roundIdx = state.round - 1;
         return associationDataStatic.rounds[roundIdx].columns[col].fields[row];
     }
 
-    // Vraća rešenje kolone ako je rešena
     public String getColumnSolutionText(int col) {
         AsocijacijeGameState state = gameState.getValue();
         if (state == null) return "";
-
         String colKey = getColumnKey(col);
         if (Boolean.TRUE.equals(state.columnResolved.get(colKey))) {
             int roundIdx = state.round - 1;
@@ -64,7 +67,6 @@ public class AsocijacijeViewModel extends ViewModel {
         return "";
     }
 
-    // Vraća konačno rešenje ako je pogođeno
     public String getFinalSolutionText() {
         AsocijacijeGameState state = gameState.getValue();
         if (state == null || !state.finalResolved) return "";
@@ -83,7 +85,7 @@ public class AsocijacijeViewModel extends ViewModel {
 
         if (amIActive) {
             if (roundTimer == null) {
-                startTimer(120); // 2 minuta (120 sekundi) po specifikaciji
+                startTimer(120);
             }
         } else {
             if (roundTimer != null) {
@@ -101,7 +103,6 @@ public class AsocijacijeViewModel extends ViewModel {
             public void onTick(long millisUntilFinished) {
                 timerText.setValue((millisUntilFinished / 1000) + "s");
             }
-
             @Override
             public void onFinish() {
                 timerText.setValue("0s");
@@ -118,7 +119,6 @@ public class AsocijacijeViewModel extends ViewModel {
         int activePlayerNum = "player1".equals(myPlayerId) ? 1 : 2;
         if (state.activePlayer != activePlayerNum) return;
 
-        // Isteklo vreme runde -> prelazak na sledeću rundu ili kraj igre
         endRoundLogic(state);
     }
 
@@ -126,14 +126,9 @@ public class AsocijacijeViewModel extends ViewModel {
     public void openField(int col, int row) {
         AsocijacijeGameState state = gameState.getValue();
         if (state == null || state.isGuessOnlyMode) return;
+        if (state.openedFields.get(col).get(row)) return;
 
-        if (state.openedFields.get(col).get(row)) return; // Već otvoreno
-
-        // Otvori polje lokalno u stanju
         state.openedFields.get(col).set(row, true);
-
-        // Nakon otvaranja polja, igrač ima pravo da pogađa rešenje te kolone ili konačno rešenje.
-        // Potez mu se NE menja odmah, već ostaje aktivan dok ne pošalje netačan odgovor ili ne unese ništa.
         repository.updateGameState(state);
     }
 
@@ -149,9 +144,7 @@ public class AsocijacijeViewModel extends ViewModel {
         guess = guess.trim();
 
         if ("FINAL".equals(target)) {
-            // Pogađanje KONAČNOG rešenja
             if (currentRoundData.finalSolution.equalsIgnoreCase(guess)) {
-                // Tačno konačno rešenje! Računanje kompletne matematike bodova:
                 int scoreGained = 7;
 
                 for (int c = 0; c < 4; c++) {
@@ -159,11 +152,9 @@ public class AsocijacijeViewModel extends ViewModel {
                     Column columnData = currentRoundData.columns[c];
 
                     if (!Boolean.TRUE.equals(state.columnResolved.get(colKey))) {
-                        // Kolona nije bila rešena uopšte -> 6 bodova po specifikaciji
                         scoreGained += 6;
                         state.columnResolved.put(colKey, true);
                     } else {
-                        // Kolona je već bila rešena od ranije -> 2 boda + broj neotvorenih polja u njoj
                         int unopenedCount = 0;
                         for (int r = 0; r < 4; r++) {
                             if (!state.openedFields.get(c).get(r)) unopenedCount++;
@@ -171,51 +162,54 @@ public class AsocijacijeViewModel extends ViewModel {
                         scoreGained += (2 + unopenedCount);
                     }
 
-                    // Automatski otvaramo sva polja u svim kolonama jer je asocijacija kompletno rešena
                     for (int r = 0; r < 4; r++) state.openedFields.get(c).set(r, true);
                 }
 
                 state.finalResolved = true;
+
+                // Bilježimo za statistiku – lokalni igrač je pogodio konačno
+                if (activePlayerNum == ("player1".equals(myPlayerId) ? 1 : 2)) {
+                    myFinalSolved = true;
+                }
+
                 if (activePlayerNum == 1) state.p1Score += scoreGained;
-                else state.p2Score += scoreGained;
+                else                      state.p2Score += scoreGained;
 
                 endRoundLogic(state);
                 return true;
             } else {
-                // Netačno konačno rešenje -> menja se igrač, gasi se guess only mod
                 switchPlayer(state);
                 return false;
             }
         } else {
-            // Pogađanje rešenja određene KOLONE ("A", "B", "C", "D")
             int colIdx = getColumnIndex(target);
             Column columnData = currentRoundData.columns[colIdx];
 
-            if (Boolean.TRUE.equals(state.columnResolved.get(target))) return false; // Već rešena
+            if (Boolean.TRUE.equals(state.columnResolved.get(target))) return false;
 
             if (columnData.solution.equalsIgnoreCase(guess)) {
-                // Tačno rešenje kolone! Matematika: 2 boda + 1 bod za svako neotvoreno polje u toj koloni
                 int unopenedCount = 0;
                 for (int r = 0; r < 4; r++) {
                     if (!state.openedFields.get(colIdx).get(r)) unopenedCount++;
                 }
                 int scoreGained = 2 + unopenedCount;
 
-                // Označi kolonu kao rešenu
                 state.columnResolved.put(target, true);
 
-                // Automatski otvori sva skrivena polja te kolone
                 for (int r = 0; r < 4; r++) state.openedFields.get(colIdx).set(r, true);
 
                 if (activePlayerNum == 1) state.p1Score += scoreGained;
-                else state.p2Score += scoreGained;
+                else                      state.p2Score += scoreGained;
 
-                // PRAVILO 1: Igrač ostaje na potezu, ali ulazi u GuessOnly režim (ne može otvarati polja, samo pogađati dalje)
+                // Bilježimo za statistiku – lokalni igrač je riješio kolonu
+                if (activePlayerNum == ("player1".equals(myPlayerId) ? 1 : 2)) {
+                    mySolvedColumns++;
+                }
+
                 state.isGuessOnlyMode = true;
                 repository.updateGameState(state);
                 return true;
             } else {
-                // Netačno rešenje kolone -> gubi se potez
                 switchPlayer(state);
                 return false;
             }
@@ -223,21 +217,20 @@ public class AsocijacijeViewModel extends ViewModel {
     }
 
     private void switchPlayer(AsocijacijeGameState state) {
-        state.isGuessOnlyMode = false; // Reset režima pogađanja za sledećeg igrača
+        state.isGuessOnlyMode = false;
         state.activePlayer = (state.activePlayer == 1) ? 2 : 1;
         repository.updateGameState(state);
     }
 
     private void endRoundLogic(AsocijacijeGameState state) {
         if (state.round == 1) {
-            // Prelazak na drugu rundu
+            // --- PRELAZAK NA RUNDU 2 ---
             state.round = 2;
             state.rundaZapocinje = 2;
-            state.activePlayer = 2; // Runda 2 započinje Igrač 2
+            state.activePlayer = 2;
             state.isGuessOnlyMode = false;
             state.finalResolved = false;
 
-            // Ponovo zaključaj sva polja i kolone
             for (int c = 0; c < 4; c++) {
                 state.columnResolved.put(getColumnKey(c), false);
                 for (int r = 0; r < 4; r++) {
@@ -245,10 +238,49 @@ public class AsocijacijeViewModel extends ViewModel {
                 }
             }
         } else {
-            // Kraj obe runde asocijacija
+            // --- KRAJ OBE RUNDE – upisujemo statistiku ---
             state.status = "finished";
+
+            int myScore  = "player1".equals(myPlayerId) ? state.p1Score : state.p2Score;
+            int oppScore = "player1".equals(myPlayerId) ? state.p2Score : state.p1Score;
+            boolean iWon = myScore > oppScore;
+
+            saveAsocijacijeStats(iWon);
         }
+
         repository.updateGameState(state);
+    }
+
+    // ==============================
+    // UPIS STATISTIKE U FIRESTORE
+    // ==============================
+
+    private void saveAsocijacijeStats(boolean iWon) {
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : null;
+
+        if (uid == null) return;
+
+        // solved = kolone + konačno koje je lokalni igrač pogodio
+        int totalSolved   = mySolvedColumns + (myFinalSolved ? 1 : 0);
+        // unsolved = max mogući (4 kolone + 1 konačno = 5 po rundi, 2 runde = 10) minus što je riješio
+        int totalUnsolved = 10 - totalSolved;
+        if (totalUnsolved < 0) totalUnsolved = 0;
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("stats.asocijacije.solved",   FieldValue.increment(totalSolved));
+        updates.put("stats.asocijacije.unsolved", FieldValue.increment(totalUnsolved));
+        updates.put("stats.asocijacije.wins",     FieldValue.increment(iWon ? 1 : 0));
+        updates.put("stats.asocijacije.losses",   FieldValue.increment(iWon ? 0 : 1));
+        updates.put("stats.global.totalGames",    FieldValue.increment(1));
+        updates.put("stats.global.wins",          FieldValue.increment(iWon ? 1 : 0));
+        updates.put("stats.global.losses",        FieldValue.increment(iWon ? 0 : 1));
+
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(uid)
+                .update(updates);
     }
 
     public void setupInitialGameIfHost() {
@@ -270,7 +302,7 @@ public class AsocijacijeViewModel extends ViewModel {
             case "A": return 0;
             case "B": return 1;
             case "C": return 2;
-            default: return 3;
+            default:  return 3;
         }
     }
 
