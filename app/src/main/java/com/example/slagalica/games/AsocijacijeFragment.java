@@ -21,12 +21,14 @@ import com.example.slagalica.viewmodel.AsocijacijeViewModel;
 
 public class AsocijacijeFragment extends Fragment {
 
-    private Button[][] fields = new Button[4][4];
-    private Button[] columnSolutions = new Button[4];
+    private final Button[][] fields = new Button[4][4];
+    private final Button[] columnSolutions = new Button[4];
     private Button btnFinal;
     private EditText etGuess;
     private TextView tvTimer, tvLeftName, tvRightName, tvLeftScore, tvRightScore;
 
+    private boolean isClickPending = false;
+    private boolean hasOpenedFieldInThisTurn = false;
     private AsocijacijeViewModel viewModel;
 
     @Nullable
@@ -54,9 +56,15 @@ public class AsocijacijeFragment extends Fragment {
         // Inicijalizacija troslojne arhitekture (ViewModel)
         viewModel = new ViewModelProvider(this).get(AsocijacijeViewModel.class);
 
-        // Testni podaci (Kolegina soba)
+        // Podrazumevane vrednosti ako fragment startuje bez lobi sistema (npr. direktno iz koda)
         String gameId = "test_game_001";
-        String myPlayerId = "player1"; // Na fizičkom telefonu ručno promeni u "player2"
+        String myPlayerId = "player1";
+
+        // Prihvatanje sobe i uloge koje je dodelio lobi sistem iz GameFragment-a
+        if (getArguments() != null) {
+            gameId = getArguments().getString("ROOM_ID", "test_game_001");
+            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+        }
 
         viewModel.init(gameId, myPlayerId);
         viewModel.setupInitialGameIfHost();
@@ -91,6 +99,10 @@ public class AsocijacijeFragment extends Fragment {
 
             // Klik na pojedinačno polje (npr. A1, B3...)
             fields[col][i].setOnClickListener(view -> {
+                if (isClickPending) return;
+
+                isClickPending = true;
+                hasOpenedFieldInThisTurn = true;
                 viewModel.openField(col, rowIdx);
             });
         }
@@ -105,18 +117,26 @@ public class AsocijacijeFragment extends Fragment {
                 return;
             }
             String colLetter = (col == 0) ? "A" : (col == 1) ? "B" : (col == 2) ? "C" : "D";
+
+            isClickPending = true;
             boolean isCorrect = viewModel.submitGuess(colLetter, guess);
             if (isCorrect) Toast.makeText(getContext(), "Kolona " + colLetter + " je rešena!", Toast.LENGTH_SHORT).show();
             etGuess.setText("");
         });
     }
-
+    private int lastActivePlayer = -1;
     private void renderScreenFromState(AsocijacijeGameState state) {
         // 1. Ažuriranje rezultata i zaglavlja
+        isClickPending = false;
+        if (state.activePlayer != lastActivePlayer) {
+            hasOpenedFieldInThisTurn = false;
+            lastActivePlayer = state.activePlayer;
+        }
         tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ★" : ""));
         tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ★" : ""));
         tvLeftScore.setText("Bodovi: " + state.p1Score);
         tvRightScore.setText("Bodovi: " + state.p2Score);
+
 
         // Provera da li sam ja trenutno aktivni igrač
         boolean amIActive = (state.activePlayer == 1 && "player1".equals(viewModel.getMyPlayerId())) ||
@@ -142,7 +162,7 @@ public class AsocijacijeFragment extends Fragment {
                     fields[c][r].setTextColor(Color.WHITE);
 
                     // Onemogući klik ako nisam na potezu ILI ako sam u režimu gde smem samo pogađati rešenja
-                    fields[c][r].setEnabled(amIActive && !state.isGuessOnlyMode);
+                    fields[c][r].setEnabled(amIActive && !state.isGuessOnlyMode && !hasOpenedFieldInThisTurn);
                 }
             }
 
