@@ -68,6 +68,7 @@
         android:id="@+id/nav_mojbroj"
         android:name="com.example.slagalica.games.MojBrojFragment"
         android:label="Moj broj"
+        app:popUpTo="@+id/nav_home"
         tools:layout="@layout/fragment_moj_broj"
         />
 
@@ -75,6 +76,7 @@
         android:id="@+id/nav_korak"
         android:name="com.example.slagalica.games.KorakPoKorakFragment"
         android:label="Korak po korak"
+        app:popUpTo="@+id/nav_home"
         tools:layout="@layout/fragment_korak_po_korak"
         />
 
@@ -99,6 +101,14 @@
         android:name="com.example.slagalica.games.AsocijacijeFragment"
         android:label="Asocijacije"
         tools:layout="@layout/fragment_asocijacije"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="true" />
+
+    <fragment
+        android:id="@+id/nav_changePassword"
+        android:name="com.example.slagalica.fragments.ChangePassword"
+        android:label="Promena lozinke"
+        tools:layout="@layout/fragment_change_password"
         app:popUpTo="@+id/nav_home"
         app:popUpToInclusive="true" />
 

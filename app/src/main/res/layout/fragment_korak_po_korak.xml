@@ -7,7 +7,7 @@
     android:padding="12dp"
     android:background="@color/AuthBackground">
 
-    <!-- ================= TOP CARD ================= -->
+    <!-- ── Zaglavlje: igrači + tajmer ── -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="80dp"
@@ -24,7 +24,7 @@
             android:padding="10dp"
             android:gravity="center_vertical">
 
-            <!-- LEFT PLAYER -->
+            <!-- Igrač 1 -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
@@ -61,7 +61,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- TIMER -->
+            <!-- Tajmer -->
             <FrameLayout
                 android:layout_width="60dp"
                 android:layout_height="60dp">
@@ -77,13 +77,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="60"
+                    android:text="10"
                     android:textStyle="bold"
                     android:textSize="18sp"
                     android:textColor="@color/textDark" />
             </FrameLayout>
 
-            <!-- RIGHT PLAYER -->
+            <!-- Igrač 2 -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
@@ -126,7 +126,7 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- ================= HINT AREA ================= -->
+    <!-- ── Oblast sa nagoveštajima ── -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -135,7 +135,6 @@
         android:gravity="center"
         android:padding="12dp">
 
-        <!-- KORAK -->
         <TextView
             android:id="@+id/tvHintTitle"
             android:layout_width="wrap_content"
@@ -145,45 +144,42 @@
             android:layout_gravity="start"
             android:layout_marginBottom="12dp" />
 
-        <!-- JEDINI HINT (FIXED POSITION) -->
-        <TextView
-            android:id="@+id/tvHint1"
-            style="@style/HintTextView"
-            android:text="Hint 1" />
-
-        <TextView
-            android:id="@+id/tvHint2"
-            style="@style/HintTextView"
-            android:text="Hint 2" />
-
-        <TextView
-            android:id="@+id/tvHint3"
-            style="@style/HintTextView"
-            android:text="Hint 3" />
-
-        <TextView
-            android:id="@+id/tvHint4"
-            style="@style/HintTextView"
-            android:text="Hint 4" />
-
-        <TextView
-            android:id="@+id/tvHint5"
-            style="@style/HintTextView"
-            android:text="Hint 5" />
-
-        <TextView
-            android:id="@+id/tvHint6"
-            style="@style/HintTextView"
-            android:text="Hint 6" />
-
-        <TextView
-            android:id="@+id/tvHint7"
-            style="@style/HintTextView"
-            android:text="Hint 7" />
+        <TextView android:id="@+id/tvHint1" style="@style/HintTextView" android:text="Hint 1" />
+        <TextView android:id="@+id/tvHint2" style="@style/HintTextView" android:text="Hint 2" />
+        <TextView android:id="@+id/tvHint3" style="@style/HintTextView" android:text="Hint 3" />
+        <TextView android:id="@+id/tvHint4" style="@style/HintTextView" android:text="Hint 4" />
+        <TextView android:id="@+id/tvHint5" style="@style/HintTextView" android:text="Hint 5" />
+        <TextView android:id="@+id/tvHint6" style="@style/HintTextView" android:text="Hint 6" />
+        <TextView android:id="@+id/tvHint7" style="@style/HintTextView" android:text="Hint 7" />
 
     </LinearLayout>
 
-    <!-- ================= ANSWER CARD ================= -->
+    <!-- ── Prikaz rešenja (vidljivo tek kad runda završi) ── -->
+    <TextView
+        android:id="@+id/tvSolution"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp"
+        android:gravity="center"
+        android:textStyle="bold"
+        android:textSize="18sp"
+        android:textColor="@color/secondary"
+        android:visibility="gone"
+        android:text="" />
+
+    <!-- ── Status poruka – sada sa android:id ── -->
+    <TextView
+        android:id="@+id/tvStatusMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp"
+        android:gravity="center"
+        android:textStyle="italic"
+        android:textColor="@color/textGray"
+        android:visibility="gone"
+        android:text="" />
+
+    <!-- ── Unos odgovora ── -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -219,14 +215,6 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/potvrdi" />
-
-                <Button
-                    android:id="@+id/btnStop2"
-                    style="@style/StopButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/sledeci" />
 
             </LinearLayout>
 

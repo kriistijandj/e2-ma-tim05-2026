@@ -26,7 +26,7 @@
     <string name="has_account">Already have an account?</string>
     <string name="login2">Log in</string>
 
-    <string name="stop">STOP / POTVRDI</string>
+    <string name="stop">STOP</string>
     <string name="potvrdi">POTVRDI</string>
     <string name="sledeci">SLEDEĆI KORAK</string>
 
@@ -41,8 +41,6 @@
     <string name="kreirajda">Kreirajte nalog da biste počeli</string>
     <string name="ponovi">Ponovite lozinku</string>
     <string name="imatenalog">Već imate nalog?</string>
-
-
 
 
 </resources>
