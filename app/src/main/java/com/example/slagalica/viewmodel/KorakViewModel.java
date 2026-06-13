@@ -16,15 +16,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * ViewModel za "Korak po korak".
- *
- * Timer logika:
- *  - Svaka runda traje max 70s (7 koraka * 10s)
- *  - Svaka 10s otkriva se novi korak (revealedHints++)
- *  - Igrač može da pogodi u bilo kom trenutku
- *  - Ako ne pogodi u svojoj rundi -> isOpponentChance = true, protivnik ima 10s
- */
+
 public class KorakViewModel extends ViewModel {
 
     private KorakRepository repository;
@@ -33,12 +25,12 @@ public class KorakViewModel extends ViewModel {
     private final MutableLiveData<KorakGameState> gameState = new MutableLiveData<>();
     private final MutableLiveData<String> timerText = new MutableLiveData<>();
 
-    private CountDownTimer hintTimer;  // Tiker za otkrivanje koraka (10s interval)
-    private CountDownTimer opponentTimer; // Tiker za šansu protivnika (10s)
+    private CountDownTimer hintTimer;
+    private CountDownTimer opponentTimer;
     private String myPlayerId;
 
-    // Statistika: prati koji korak je bio aktivan kad je igrač pogodio (po rundi)
-    private final int[] myHintWhenSolved = {0, 0}; // [runda1, runda2] – 0 = nije pogodio
+
+    private final int[] myHintWhenSolved = {0, 0};
 
     public void init(String gameId, String playerId) {
         this.myPlayerId = playerId;
@@ -53,9 +45,7 @@ public class KorakViewModel extends ViewModel {
     public LiveData<String> getTimerText()         { return timerText; }
     public String getMyPlayerId()                  { return myPlayerId; }
 
-    /**
-     * Player1 (host) postavlja početno stanje.
-     */
+
     public void setupInitialGameIfHost() {
         if (!"player1".equals(myPlayerId)) return;
 
@@ -67,15 +57,7 @@ public class KorakViewModel extends ViewModel {
         repository.updateGameState(initial);
     }
 
-    // ================================
-    // KORISNIČKI DOGADJAJ – pogadjanje
-    // ================================
 
-    /**
-     * Igrač pokušava da odgovori.
-     * guess – tekst koji je igrač uneo
-     * Vraća: true = tačno, false = netačno
-     */
     public boolean submitGuess(String guess) {
         KorakGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return false;
@@ -86,7 +68,7 @@ public class KorakViewModel extends ViewModel {
         if (correct) {
             int points;
             if (state.isOpponentChance) {
-                points = 5; // Protivnik pogodio za 5 bodova
+                points = 5;
             } else {
                 points = helper.calculateScore(state.revealedHints);
             }
@@ -101,7 +83,7 @@ public class KorakViewModel extends ViewModel {
                 state.p2SolvedOnHint = state.revealedHints;
             }
 
-            // Statistika
+
             int roundIdx = state.round - 1;
             if (roundIdx >= 0 && roundIdx < 2) {
                 myHintWhenSolved[roundIdx] = state.revealedHints;
@@ -115,9 +97,7 @@ public class KorakViewModel extends ViewModel {
         return correct;
     }
 
-    // ================================
-    // TIMER LOGIKA
-    // ================================
+
 
     private void handleTimerSync(KorakGameState state) {
         if ("finished".equals(state.status)) {
@@ -134,25 +114,22 @@ public class KorakViewModel extends ViewModel {
         }
 
         if (state.isOpponentChance) {
-            // 10s za protivnika
+
             if (opponentTimer == null) {
                 startOpponentTimer();
             }
         } else {
-            // Glavni hint timer (svakih 10s novi korak)
+
             if (hintTimer == null && state.revealedHints < 7) {
                 startHintTimer(state);
             }
         }
     }
 
-    /**
-     * Pokreće timer koji svakih 10s otkriva novi korak.
-     * Ukupno 7 koraka, kreće od revealedHints.
-     */
+
     private void startHintTimer(KorakGameState initialState) {
         cancelHintTimer();
-        // 10 sekundi do sledeceg koraka
+
         hintTimer = new CountDownTimer(10_000, 1000) {
             @Override
             public void onTick(long ms) { timerText.setValue("Sledeći korak za: " + (ms / 1000) + "s"); }
@@ -172,14 +149,14 @@ public class KorakViewModel extends ViewModel {
         state.revealedHints++;
 
         if (state.revealedHints >= 7) {
-            // Svi koraci otvoreni, igrač nije pogodio -> šansa protivnika
+
             state.isOpponentChance = true;
             state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
         }
 
         repository.updateGameState(state);
 
-        // Nastavljamo timer samo ako još nije šansa protivnika
+
         if (!state.isOpponentChance) {
             startHintTimer(state);
         }
@@ -203,24 +180,18 @@ public class KorakViewModel extends ViewModel {
         if (state == null) return;
         if (!amIActive(state)) return;
 
-        // Protivnik nije pogodio u svojoj šansi – kraj runde
+
         endRoundLogic(state);
         repository.updateGameState(state);
     }
 
-    // Igrač (domaćin runde) nije pogodio ni u jednom koraku
-    // (ovo se poziva iz revealNextHint kada se otvore svi koraci)
-    // -> već se postavljeno isOpponentChance = true gore
 
-    // ================================
-    // KRAJ RUNDE / KRAJ IGRE
-    // ================================
 
     private void endRoundLogic(KorakGameState state) {
         cancelAllTimers();
 
         if (state.round == 1) {
-            // Prelazak na rundu 2
+
             KorakHelper.KorakQuestion q = helper.getRandomQuestion();
             state.round = 2;
             state.rundaZapocinje = 2;
@@ -231,7 +202,7 @@ public class KorakViewModel extends ViewModel {
             state.hints.clear();
             state.hints.addAll(q.hints);
         } else {
-            // Kraj igre
+
             state.status = "finished";
             int myScore  = "player1".equals(myPlayerId) ? state.p1Score : state.p2Score;
             int oppScore = "player1".equals(myPlayerId) ? state.p2Score : state.p1Score;
@@ -239,9 +210,7 @@ public class KorakViewModel extends ViewModel {
         }
     }
 
-    // ================================
-    // STATISTIKA
-    // ================================
+
 
     private void saveKorakStats(boolean iWon) {
         String uid = FirebaseAuth.getInstance().getCurrentUser() != null
@@ -273,9 +242,7 @@ public class KorakViewModel extends ViewModel {
                 .update(updates);
     }
 
-    // ================================
-    // POMOĆNE METODE
-    // ================================
+
 
     private boolean amIActive(KorakGameState state) {
         return (state.activePlayer == 1 && "player1".equals(myPlayerId))

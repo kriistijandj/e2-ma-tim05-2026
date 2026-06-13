@@ -27,27 +27,21 @@ import static android.content.Context.SENSOR_SERVICE;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Fragment za igru "Moj Broj" – multiplayer putem Firebase.
- *
- * Prima argumente:
- *   ROOM_ID    – ID sobe (npr. "room_mojbroj_001")
- *   PLAYER_ROLE – "player1" ili "player2"
- */
+
 public class MojBrojFragment extends Fragment implements SensorEventListener {
 
-    // ---- Views ----
-    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore;
+
+    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore, tvLeftNumber, tvRightNumber;
     private TextView tvTimer, tvTargetNumber;
     private Button btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6;
     private Button btnStop, btnDelete, btnPlus, btnMinus, btnMul, btnDiv, btnOpen, btnClose;
     private EditText etExpression;
     private TextView tvStatusMessage;
 
-    // ---- ViewModel ----
+
     private MojBrojViewModel viewModel;
 
-    // ---- Shake sensor ----
+
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private long lastShakeTime = 0;
@@ -89,9 +83,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
                 this::renderUiFromState);
     }
 
-    // ================================
-    // UI RENDERING
-    // ================================
+
 
     private void renderUiFromState(MojBrojGameState state) {
         if (state == null) return;
@@ -159,6 +151,27 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         } else {
             tvStatusMessage.setVisibility(View.GONE);
         }
+
+        boolean roundJustEnded =
+                (state.round == 2 && state.p2Submitted) ||
+                        (state.round == 1 && state.p1Submitted);
+
+        if ("finished".equals(state.status) || roundJustEnded) {
+
+            tvLeftNumber.setText(
+                    state.p1Result != -1 ? String.valueOf(state.p1Result) : "-"
+            );
+
+            tvRightNumber.setText(
+                    state.p2Result != -1 ? String.valueOf(state.p2Result) : "-"
+            );
+
+        } else {
+            tvLeftNumber.setText("???");
+            tvRightNumber.setText("???");
+        }
+
+
     }
 
     private void setInputEnabled(boolean enabled) {
@@ -178,12 +191,10 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         btnNum6.setEnabled(enabled);
     }
 
-    // ================================
-    // KEYBOARD SETUP
-    // ================================
+
 
     private void setupKeyboard(View view) {
-        // Operator dugmad – direktno upisuju u EditText
+
         View.OnClickListener insertOp = v -> etExpression.append(((Button) v).getText());
         btnPlus.setOnClickListener(insertOp);
         btnMinus.setOnClickListener(insertOp);
@@ -192,7 +203,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         btnOpen.setOnClickListener(insertOp);
         btnClose.setOnClickListener(insertOp);
 
-        // Broj dugmad – svako se može iskoristiti samo jednom
+
         List<Button> numButtons = Arrays.asList(btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6);
         for (Button btn : numButtons) {
             btn.setOnClickListener(v -> {
@@ -202,7 +213,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             });
         }
 
-        // Brisanje zadnjeg karaktera + reset svih broj dugmadi
+
         btnDelete.setOnClickListener(v -> {
             String t = etExpression.getText().toString();
             if (!t.isEmpty()) {
@@ -215,7 +226,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             }
         });
 
-        // Stop / Predaj dugme
+
         btnStop.setOnClickListener(v -> {
             MojBrojGameState state = viewModel.getGameState().getValue();
             if (state == null) return;
@@ -226,7 +237,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
                 String expr = etExpression.getText().toString().trim();
                 viewModel.submitExpression(expr);
                 etExpression.setText("");
-                // Reset broj dugmadi nakon predaje
+
                 for (Button btn : numButtons) {
                     btn.setEnabled(true);
                     btn.setAlpha(1.0f);
@@ -257,20 +268,17 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         btnNum4         = view.findViewById(R.id.btnNum4);
         btnNum5         = view.findViewById(R.id.btnNum5);
         btnNum6         = view.findViewById(R.id.btnNum6);
+        tvLeftNumber  = view.findViewById(R.id.tvLeftNumber);
+        tvRightNumber = view.findViewById(R.id.tvRightNumber);
 
-        // tvStatusMessage mora biti u layoutu – dodajemo programski ako ne postoji
+
         tvStatusMessage = view.findViewWithTag("tvStatusMessage");
         if (tvStatusMessage == null) {
-            // Fallback: reupravljamo tvTargetNumber2 za status (ne idealno, ali radi)
-            // U pravom projektu dodajte <TextView android:tag="tvStatusMessage" ... />
-            // u fragment_moj_broj.xml
+
             tvStatusMessage = new TextView(getContext());
         }
     }
 
-    // ================================
-    // SHAKE SENSOR
-    // ================================
 
     private void setupSensor() {
         sensorManager = (SensorManager) requireActivity().getSystemService(SENSOR_SERVICE);

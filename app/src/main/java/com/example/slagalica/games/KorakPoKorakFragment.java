@@ -21,13 +21,7 @@ import com.example.slagalica.viewmodel.KorakViewModel;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Fragment za igru "Korak po korak" – multiplayer putem Firebase.
- *
- * Prima argumente:
- *   ROOM_ID    – ID sobe (npr. "room_korak_001")
- *   PLAYER_ROLE – "player1" ili "player2"
- */
+
 public class KorakPoKorakFragment extends Fragment {
 
     // ---- Views ----
@@ -37,7 +31,7 @@ public class KorakPoKorakFragment extends Fragment {
     private EditText etAnswer;
     private Button btnPotvrdi;
 
-    // ---- ViewModel ----
+
     private KorakViewModel viewModel;
 
     @Nullable
@@ -65,14 +59,14 @@ public class KorakPoKorakFragment extends Fragment {
         viewModel.init(gameId, myRole);
         viewModel.setupInitialGameIfHost();
 
-        // Observeri
+
         viewModel.getTimerText().observe(getViewLifecycleOwner(),
                 t -> tvTimer.setText(t));
 
         viewModel.getGameState().observe(getViewLifecycleOwner(),
                 this::renderUiFromState);
 
-        // Dugme "Potvrdi" – igrač pogadja
+
         btnPotvrdi.setOnClickListener(v -> {
             String guess = etAnswer.getText().toString().trim();
             if (guess.isEmpty()) {
@@ -91,9 +85,7 @@ public class KorakPoKorakFragment extends Fragment {
 
     }
 
-    // ================================
-    // UI RENDERING
-    // ================================
+
 
     private void renderUiFromState(KorakGameState state) {
         if (state == null) return;
@@ -102,16 +94,16 @@ public class KorakPoKorakFragment extends Fragment {
         boolean iAmActive = ("player1".equals(myId) && state.activePlayer == 1)
                 || ("player2".equals(myId) && state.activePlayer == 2);
 
-        // Imena i bodovi
+
         tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ✎" : ""));
         tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ✎" : ""));
         tvLeftScore.setText("Bodovi: " + state.p1Score);
         tvRightScore.setText("Bodovi: " + state.p2Score);
 
-        // Naslov koraka
+
         tvHintTitle.setText("Korak " + state.revealedHints + "/7");
 
-        // Otkrivanje koraka – pokazujemo prvih revealedHints
+
         for (int i = 0; i < 7; i++) {
             if (i < hintViews.size()) {
                 TextView tv = hintViews.get(i);
@@ -124,12 +116,12 @@ public class KorakPoKorakFragment extends Fragment {
             }
         }
 
-        // Unos odgovora
+
         boolean canAnswer = iAmActive && "active".equals(state.status);
         etAnswer.setEnabled(canAnswer);
         btnPotvrdi.setEnabled(canAnswer);
 
-        // Status poruka
+
         if ("finished".equals(state.status)) {
             tvStatusMessage.setText("Igra završena! P1: " + state.p1Score
                     + " – P2: " + state.p2Score);
@@ -147,9 +139,7 @@ public class KorakPoKorakFragment extends Fragment {
         }
     }
 
-    // ================================
-    // VIEW BINDING
-    // ================================
+
 
     private void bindViews(View view) {
         tvLeftName     = view.findViewById(R.id.tvLeftName);
@@ -171,11 +161,9 @@ public class KorakPoKorakFragment extends Fragment {
                 (TextView) view.findViewById(R.id.tvHint7)
         );
 
-        // tvStatusMessage – koristimo tvHintTitle kao fallback ako nema posebnog view-a.
-        // Bolje: dodaj <TextView android:id="@+id/tvStatusMessage" ... /> u layout.
+
         tvStatusMessage = view.findViewWithTag("tvStatusMessage");
         if (tvStatusMessage == null) {
-            // Kreiramo programski (bez layouta nije idealno, ali ne ruši build)
             tvStatusMessage = new TextView(getContext());
         }
     }
