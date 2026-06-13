@@ -104,6 +104,9 @@ public class LoginFragment extends Fragment {
                 .getText().toString().trim();
 
         if (input.isEmpty() || password.isEmpty()) {
+            Toast.makeText(getContext(),
+                    "Potrebno je popuniti sva polja",
+                    Toast.LENGTH_LONG).show();
             return;
         }
 

@@ -204,6 +204,17 @@
         </androidx.cardview.widget.CardView>
     </LinearLayout>
 
+    <TextView
+        android:tag="tvStatusMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp"
+        android:gravity="center"
+        android:textStyle="italic"
+        android:textColor="@color/textGray"
+        android:visibility="gone"
+        android:text="" />
+
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -226,19 +237,19 @@
                 android:layout_height="wrap_content"
                 android:columnCount="4">
 
-                <Button style="@style/GridButton" android:id="@+id/btnNum1" android:text="1" />
-                <Button style="@style/GridButton" android:id="@+id/btnNum2" android:text="2" />
-                <Button style="@style/GridButton" android:id="@+id/btnNum3" android:text="3" />
-                <Button style="@style/GridButton" android:id="@+id/btnNum4" android:text="4" />
+                <Button style="@style/GridButton" android:id="@+id/btnNum1" android:text="\?" />
+                <Button style="@style/GridButton" android:id="@+id/btnNum2" android:text="\?" />
+                <Button style="@style/GridButton" android:id="@+id/btnNum3" android:text="\?" />
+                <Button style="@style/GridButton" android:id="@+id/btnNum4" android:text="\?" />
 
                 <Button style="@style/GridButton"
                     android:id="@+id/btnNum5"
-                    android:text="20"
+                    android:text="\?"
                     android:layout_columnSpan="2" />
 
                 <Button style="@style/GridButton"
                     android:id="@+id/btnNum6"
-                    android:text="75"
+                    android:text="\?"
                     android:layout_columnSpan="2" />
 
             </GridLayout>
@@ -311,7 +322,6 @@
                     android:text="⌫" />
 
             </LinearLayout>
-
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 

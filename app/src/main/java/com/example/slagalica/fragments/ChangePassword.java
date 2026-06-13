@@ -10,6 +10,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.EmailAuthProvider;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
+import android.widget.TextView;
+import android.widget.Toast;
+
 import com.example.slagalica.R;
 
 /**
@@ -68,9 +76,91 @@ public class ChangePassword extends Fragment {
         Button changePassword = view.findViewById(R.id.btnChangePassword);
 
         changePassword.setOnClickListener(v ->
-                Navigation.findNavController(view).navigate(R.id.nav_profile)
+                changePassword(view)
         );
 
         return view;
+    }
+
+    private void changePassword(View view) {
+
+        String oldPassword = ((TextView) view.findViewById(R.id.etOldPassword))
+                .getText().toString().trim();
+
+        String newPassword = ((TextView) view.findViewById(R.id.etNewPassword))
+                .getText().toString().trim();
+
+        String confirmPassword = ((TextView) view.findViewById(R.id.etConfirmPassword))
+                .getText().toString().trim();
+
+        if (oldPassword.isEmpty() ||
+                newPassword.isEmpty() ||
+                confirmPassword.isEmpty()) {
+
+            Toast.makeText(getContext(),
+                    "Popunite sva polja",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (!newPassword.equals(confirmPassword)) {
+
+            Toast.makeText(getContext(),
+                    "Nove lozinke se ne poklapaju",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (newPassword.length() < 6) {
+
+            Toast.makeText(getContext(),
+                    "Nova lozinka mora imati najmanje 6 karaktera",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+
+        if (user == null) {
+
+            Toast.makeText(getContext(),
+                    "Korisnik nije prijavljen",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String email = user.getEmail();
+
+        AuthCredential credential =
+                EmailAuthProvider.getCredential(email, oldPassword);
+
+        user.reauthenticate(credential)
+                .addOnSuccessListener(unused -> {
+
+                    user.updatePassword(newPassword)
+                            .addOnSuccessListener(unused2 -> {
+
+                                Toast.makeText(getContext(),
+                                        "Lozinka uspešno promenjena",
+                                        Toast.LENGTH_LONG).show();
+
+                                Navigation.findNavController(view)
+                                        .navigate(R.id.nav_profile);
+
+                            })
+                            .addOnFailureListener(e ->
+
+                                    Toast.makeText(getContext(),
+                                            "Greška: " + e.getMessage(),
+                                            Toast.LENGTH_LONG).show()
+                            );
+
+                })
+                .addOnFailureListener(e ->
+
+                        Toast.makeText(getContext(),
+                                "Stara lozinka nije tačna",
+                                Toast.LENGTH_LONG).show()
+                );
     }
 }
