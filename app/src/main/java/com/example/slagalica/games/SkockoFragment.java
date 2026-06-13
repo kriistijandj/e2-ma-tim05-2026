@@ -63,7 +63,12 @@ public class SkockoFragment extends Fragment {
 
         // Uzimamo podatke (Ovo posle menjate pravim matchmaking podacima)
         String gameId = "test_game_001";
-        String myPlayerId = "player1"; // Na drugom uređaju stavite "player2"
+        String myPlayerId = "player1";
+
+        if (getArguments() != null) {
+            gameId = getArguments().getString("ROOM_ID", "test_game_001");
+            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+        }
 
         viewModel.init(gameId, myPlayerId);
         viewModel.setupInitialGameIfHost();

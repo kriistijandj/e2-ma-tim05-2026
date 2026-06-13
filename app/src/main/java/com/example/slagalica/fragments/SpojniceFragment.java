@@ -4,8 +4,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,11 +14,17 @@ import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SpojniceFragment extends Fragment {
 
@@ -38,46 +42,54 @@ public class SpojniceFragment extends Fragment {
     private static final int COLOR_WRONG     = Color.parseColor("#D32F2F");
 
     // ====== PODACI ======
+    // Runda 0: izvođači i pjesme, Runda 1: naučnici i otkrića
     private static final String[][] LEFT_TERMS = {
             {"Riblja čorba", "Bajaga", "EKV", "Đ. Balašević", "Generacija 5"},
-            {"Einstein",     "Tesla",  "Curie", "Newton",      "Darwin"}
+            {"Einstein",     "Tesla",  "Curie", "Newton",     "Darwin"}
     };
     private static final String[][] RIGHT_TERMS = {
             {"Kao dva sveta", "Tri put sam video Tita", "Ona spava", "Šta ima novo", "Nebo"},
-            {"Relativnost",   "Struja",                  "Radijum",   "Gravitacija",  "Evolucija"}
+            {"Relativnost",   "Struja",                 "Radijum",   "Gravitacija", "Evolucija"}
     };
     private static final String[] KRITERIJUMI = {
             "Poveži izvođače sa njihovim pesmama",
             "Poveži naučnike sa njihovim otkrićima"
     };
+    // Tačno mapiranje: left[i] -> right[i] (0-4 su svi tačni po redu)
     private static final int[] CORRECT_MAPPING = {0, 1, 2, 3, 4};
-
-    // ====== FAZE ======
-    private static final int PHASE_ACTIVE = 0;
-    private static final int PHASE_FIXING = 1;
-    private static final int PHASE_DONE   = 2;
 
     // ====== FIREBASE ======
     private DatabaseReference gameRef;
     private String gameId;
     private String myPlayerId;
-    private ValueEventListener connectionsListener;
-    private ValueEventListener phaseListener;
+    private ValueEventListener roundStateListener;
 
     // ====== STANJE ======
-    private int currentRound  = 0;
-    private int currentPhase  = PHASE_ACTIVE;
-    private int scorePlayer1  = 0;
-    private int scorePlayer2  = 0;
+    // currentRound: 0 ili 1
+    // U rundi 0: player1 igra aktivan, player2 ispravlja
+    // U rundi 1: player2 igra aktivan, player1 ispravlja
+    private int currentRound = 0;
+
+    // Faza: "waiting" = čekamo da aktivan igrač završi
+    //       "fixing"  = fixing igrač ispravlja
+    //       "done"    = runda gotova
+    private String myPhase = "waiting";
+
+    private int scorePlayer1 = 0;
+    private int scorePlayer2 = 0;
 
     private int selectedLeftIndex  = -1;
     private int selectedRightIndex = -1;
 
-    private boolean[] leftUsed  = new boolean[5];
-    private boolean[] rightUsed = new boolean[5];
+    private boolean[] leftUsed    = new boolean[5];
+    private boolean[] rightUsed   = new boolean[5];
+    private int[]     connectedRight = new int[]{-1, -1, -1, -1, -1};
+
+    // ====== STATISTIKA ======
+    private int myConnectedCorrect = 0;
+    private int myConnectedTotal   = 0;
 
     private CountDownTimer roundTimer;
-    private final Handler handler = new Handler(Looper.getMainLooper());
 
     public SpojniceFragment() {}
 
@@ -105,46 +117,64 @@ public class SpojniceFragment extends Fragment {
         rightButtons[3] = view.findViewById(R.id.btnRight4);
         rightButtons[4] = view.findViewById(R.id.btnRight5);
 
-        // TODO: zamijeniti sa pravim matchmakingom
+        // Čitaj argumente iz GameFragment lobija
         gameId     = "test_game_spojnice_001";
-        myPlayerId = "player1"; // na drugom emulatoru promijeni u "player2"
+        myPlayerId = "player1";
+
+        if (getArguments() != null) {
+            gameId     = getArguments().getString("ROOM_ID",     "test_game_spojnice_001");
+            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+        }
 
         gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
 
         setupClickListeners();
-        startRound(0);
+
+        // Player1 inicijalizuje igru i briše staro stanje
+        if ("player1".equals(myPlayerId)) {
+            gameRef.removeValue((error, ref) -> startRound(0));
+        } else {
+            startRound(0);
+        }
 
         return view;
     }
 
     // ==============================
+    // DA LI SMIJE KLIKNUTI
+    // ==============================
+
+    private boolean canIClick() {
+        if ("active".equals(myPhase)) {
+            return (currentRound == 0 && "player1".equals(myPlayerId))
+                    || (currentRound == 1 && "player2".equals(myPlayerId));
+        }
+        if ("fixing".equals(myPhase)) {
+            return (currentRound == 0 && "player2".equals(myPlayerId))
+                    || (currentRound == 1 && "player1".equals(myPlayerId));
+        }
+        return false;
+    }
+
+    // ==============================
     // POKRETANJE RUNDE
-    // Runda 0: player1 igra aktivan, player2 fixing
-    // Runda 1: player2 igra aktivan, player1 fixing
     // ==============================
 
     private void startRound(int round) {
-        currentRound  = round;
-        currentPhase  = PHASE_ACTIVE;
+        currentRound      = round;
+        myPhase           = "active";
         selectedLeftIndex  = -1;
         selectedRightIndex = -1;
-        handler.removeCallbacksAndMessages(null);
 
         for (int i = 0; i < 5; i++) {
-            leftUsed[i]  = false;
-            rightUsed[i] = false;
-        }
-
-        // Player1 resetuje Firebase stanje za rundu
-        if ("player1".equals(myPlayerId)) {
-            gameRef.child("rounds").child(String.valueOf(round))
-                    .child("connections").removeValue();
-            gameRef.child("rounds").child(String.valueOf(round))
-                    .child("phase").setValue("active");
+            leftUsed[i]      = false;
+            rightUsed[i]     = false;
+            connectedRight[i] = -1;
         }
 
         tvRound.setText("Runda " + (round + 1) + " / 2");
         tvKriterijum.setText(KRITERIJUMI[round]);
+        tvTimer.setText("30");
 
         for (int i = 0; i < 5; i++) {
             leftButtons[i].setText(LEFT_TERMS[round][i]);
@@ -153,55 +183,66 @@ public class SpojniceFragment extends Fragment {
             setButtonTint(rightButtons[i], COLOR_DEFAULT);
         }
 
-        boolean iAmActive = isMyTurnActive(round);
-
-        if (iAmActive) {
-            tvStatus.setText("Ti igraš — 30 sekundi!");
-            setAllButtonsEnabled(true);
-        } else {
-            tvStatus.setText("Protivnik igra, čekaj...");
-            setAllButtonsEnabled(false);
-        }
-
-        startTimer(30, () -> {
-            if (isMyTurnActive(round)) {
-                signalActivePhaseEnd(round);
-            }
-        });
-
-        listenForConnections(round);
-        listenForPhaseChange(round);
-
         updateScoreUI();
+        updateStatusAndTimer();
+
+        // Slušaj stanje runde iz Firebase
+        listenForRoundState(round);
     }
 
-    private boolean isMyTurnActive(int round) {
-        if (round == 0) return "player1".equals(myPlayerId);
-        else            return "player2".equals(myPlayerId);
-    }
+    private void updateStatusAndTimer() {
+        boolean active = (currentRound == 0 && "player1".equals(myPlayerId))
+                || (currentRound == 1 && "player2".equals(myPlayerId));
+        boolean fixing = (currentRound == 0 && "player2".equals(myPlayerId))
+                || (currentRound == 1 && "player1".equals(myPlayerId));
 
-    private boolean isMyTurnFixing(int round) {
-        if (round == 0) return "player2".equals(myPlayerId);
-        else            return "player1".equals(myPlayerId);
+        if ("active".equals(myPhase)) {
+            if (active) {
+                tvStatus.setText("🎮 Igrač " + (currentRound == 0 ? "1" : "2")
+                        + " (Ti) igraš — poveži pojmove!");
+                startCountdown(30, this::onActiveTimerFinished);
+            } else {
+                tvStatus.setText("⏳ Igrač " + (currentRound == 0 ? "1" : "2")
+                        + " igra, čekaj...");
+                tvTimer.setText("—");
+            }
+        } else if ("fixing".equals(myPhase)) {
+            if (fixing) {
+                tvStatus.setText("🔧 Igrač " + (currentRound == 0 ? "2" : "1")
+                        + " (Ti) ispravlja!");
+                startCountdown(30, this::onFixingTimerFinished);
+            } else {
+                tvStatus.setText("⏳ Igrač " + (currentRound == 0 ? "2" : "1")
+                        + " ispravlja...");
+                tvTimer.setText("—");
+            }
+        }
     }
 
     // ==============================
     // TAJMER
     // ==============================
 
-    private void startTimer(int seconds, Runnable onFinish) {
+    private void startCountdown(int seconds, Runnable onFinish) {
         if (roundTimer != null) roundTimer.cancel();
         roundTimer = new CountDownTimer(seconds * 1000L, 1000) {
-            @Override
-            public void onTick(long millisUntilFinished) {
-                tvTimer.setText(String.valueOf(millisUntilFinished / 1000 + 1));
-            }
-            @Override
-            public void onFinish() {
+            @Override public void onTick(long ms) { tvTimer.setText(String.valueOf(ms / 1000 + 1)); }
+            @Override public void onFinish() {
                 tvTimer.setText("0");
                 onFinish.run();
             }
         }.start();
+    }
+
+    private void onActiveTimerFinished() {
+        // Aktivan igrač završio – šalje signal u Firebase
+        submitActivePhaseEnd();
+    }
+
+    private void onFixingTimerFinished() {
+        // Fixing igrač završio – šalje signal u Firebase
+        gameRef.child("rounds").child(String.valueOf(currentRound))
+                .child("phase").setValue("done");
     }
 
     // ==============================
@@ -217,170 +258,160 @@ public class SpojniceFragment extends Fragment {
     }
 
     private void onLeftClicked(int idx) {
+        if (!canIClick()) return;
         if (leftUsed[idx]) return;
 
         if (selectedLeftIndex == idx) {
             setButtonTint(leftButtons[idx], COLOR_DEFAULT);
             selectedLeftIndex = -1;
         } else {
-            if (selectedLeftIndex != -1) {
+            if (selectedLeftIndex != -1)
                 setButtonTint(leftButtons[selectedLeftIndex], COLOR_DEFAULT);
-            }
             selectedLeftIndex = idx;
             setButtonTint(leftButtons[idx], COLOR_SELECTED);
-
-            if (selectedRightIndex != -1) {
-                submitConnection(selectedLeftIndex, selectedRightIndex);
-            }
+            if (selectedRightIndex != -1)
+                makeConnection(selectedLeftIndex, selectedRightIndex);
         }
     }
 
     private void onRightClicked(int idx) {
+        if (!canIClick()) return;
         if (rightUsed[idx]) return;
 
         if (selectedLeftIndex != -1) {
-            submitConnection(selectedLeftIndex, idx);
+            makeConnection(selectedLeftIndex, idx);
         } else {
-            if (selectedRightIndex != -1) {
+            if (selectedRightIndex != -1)
                 setButtonTint(rightButtons[selectedRightIndex], COLOR_DEFAULT);
-            }
             selectedRightIndex = idx;
             setButtonTint(rightButtons[idx], COLOR_WAITING);
         }
     }
 
     // ==============================
-    // UPIŠI VEZU U FIREBASE
+    // NAPRAVI VEZU LOKALNO + UPIŠI U FIREBASE
     // ==============================
 
-    private void submitConnection(int leftIdx, int rightIdx) {
+    private void makeConnection(int leftIdx, int rightIdx) {
+        leftUsed[leftIdx]       = true;
+        rightUsed[rightIdx]     = true;
+        connectedRight[leftIdx] = rightIdx;
+
+        boolean correct = (CORRECT_MAPPING[leftIdx] == rightIdx);
+        setButtonTint(leftButtons[leftIdx],   correct ? COLOR_CONNECTED : COLOR_WRONG);
+        setButtonTint(rightButtons[rightIdx], correct ? COLOR_CONNECTED : COLOR_WRONG);
+
         selectedLeftIndex  = -1;
         selectedRightIndex = -1;
 
-        gameRef.child("rounds")
-                .child(String.valueOf(currentRound))
-                .child("connections")
-                .child(String.valueOf(leftIdx))
+        myConnectedTotal++;
+        if (correct) myConnectedCorrect++;
+
+        gameRef.child("rounds").child(String.valueOf(currentRound))
+                .child("connections").child(String.valueOf(leftIdx))
                 .child("rightIdx").setValue(rightIdx);
-
-        gameRef.child("rounds")
-                .child(String.valueOf(currentRound))
-                .child("connections")
-                .child(String.valueOf(leftIdx))
+        gameRef.child("rounds").child(String.valueOf(currentRound))
+                .child("connections").child(String.valueOf(leftIdx))
                 .child("madeBy").setValue(myPlayerId);
+
+        if (correct) {
+            if ("player1".equals(myPlayerId)) scorePlayer1 += 2;
+            else                              scorePlayer2 += 2;
+            updateScoreUI();
+        }
+
+        // Ako su svi spojeni u aktivnoj fazi – završi aktivnu fazu
+        if (allConnected() && "active".equals(myPhase)) {
+            if (roundTimer != null) roundTimer.cancel();
+            submitActivePhaseEnd();
+            return;
+        }
+
+        // Ako su svi slobodni spojeni u fixing fazi – odmah završi, ne čekaj tajmer
+        if ("fixing".equals(myPhase) && allConnected()) {
+            if (roundTimer != null) roundTimer.cancel();
+            tvTimer.setText("—");
+            gameRef.child("rounds").child(String.valueOf(currentRound))
+                    .child("phase").setValue("done");
+        }
+    }
+    private boolean allConnected() {
+        for (boolean u : leftUsed) if (!u) return false;
+        return true;
     }
 
     // ==============================
-    // SLUŠAJ VEZE IZ FIREBASE
+    // KRAJ AKTIVNE FAZE
     // ==============================
 
-    private void listenForConnections(int round) {
-        if (connectionsListener != null) {
-            gameRef.child("rounds").child(String.valueOf(round))
-                    .child("connections").removeEventListener(connectionsListener);
-        }
-
-        // Reset bodova za novu rundu
-        scorePlayer1 = 0;
-        scorePlayer2 = 0;
-
-        DatabaseReference connectionsRef = gameRef
-                .child("rounds").child(String.valueOf(round))
-                .child("connections");
-
-        connectionsListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                // Reset lokalnog stanja
-                for (int i = 0; i < 5; i++) {
-                    leftUsed[i]  = false;
-                    rightUsed[i] = false;
-                    setButtonTint(leftButtons[i],  COLOR_DEFAULT);
-                    setButtonTint(rightButtons[i], COLOR_DEFAULT);
-                }
-
-                // Ponovo postavi boje za sve veze
-                // Reset bodova svaki put da ne dupliramo
-                int p1Score = 0;
-                int p2Score = 0;
-
-                for (DataSnapshot connSnap : snapshot.getChildren()) {
-                    int leftIdx  = Integer.parseInt(connSnap.getKey());
-                    Integer rightIdx = connSnap.child("rightIdx").getValue(Integer.class);
-                    String madeBy   = connSnap.child("madeBy").getValue(String.class);
-
-                    if (rightIdx == null) continue;
-
-                    boolean correct = (CORRECT_MAPPING[leftIdx] == rightIdx);
-
-                    leftUsed[leftIdx]   = true;
-                    rightUsed[rightIdx] = true;
-
-                    setButtonTint(leftButtons[leftIdx],
-                            correct ? COLOR_CONNECTED : COLOR_WRONG);
-                    setButtonTint(rightButtons[rightIdx],
-                            correct ? COLOR_CONNECTED : COLOR_WRONG);
-
-                    if (correct) {
-                        if ("player1".equals(madeBy)) p1Score += 2;
-                        else                          p2Score += 2;
-                    }
-                }
-
-                scorePlayer1 = p1Score;
-                scorePlayer2 = p2Score;
-                updateScoreUI();
-
-                // Provjeri da li je aktivni igrač spojio sve slobodne
-                boolean anyFree = false;
-                for (boolean u : leftUsed) if (!u) { anyFree = true; break; }
-
-                if (!anyFree && currentPhase == PHASE_ACTIVE && isMyTurnActive(round)) {
-                    if (roundTimer != null) roundTimer.cancel();
-                    signalActivePhaseEnd(round);
-                }
-
-                if (!anyFree && currentPhase == PHASE_FIXING && isMyTurnFixing(round)) {
-                    if (roundTimer != null) roundTimer.cancel();
-                    gameRef.child("rounds").child(String.valueOf(round))
-                            .child("phase").setValue("done");
-                }
+    private void submitActivePhaseEnd() {
+        // Provjeri ima li netačnih veza, obriši ih
+        boolean anyWrong = false;
+        for (int i = 0; i < 5; i++) {
+            if (leftUsed[i] && connectedRight[i] != CORRECT_MAPPING[i]) {
+                anyWrong = true;
+                gameRef.child("rounds").child(String.valueOf(currentRound))
+                        .child("connections").child(String.valueOf(i)).removeValue();
+                leftUsed[i]      = false;
+                rightUsed[connectedRight[i]] = false;
+                connectedRight[i] = -1;
+                setButtonTint(leftButtons[i],          COLOR_DEFAULT);
+                setButtonTint(rightButtons[connectedRight[i] >= 0 ? connectedRight[i] : i], COLOR_DEFAULT);
             }
+        }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        };
+        boolean anyFree = false;
+        for (boolean u : leftUsed) if (!u) { anyFree = true; break; }
 
-        connectionsRef.addValueEventListener(connectionsListener);
+        String nextPhase = (anyFree || anyWrong) ? "fixing" : "done";
+        gameRef.child("rounds").child(String.valueOf(currentRound))
+                .child("phase").setValue(nextPhase);
     }
 
     // ==============================
-    // SLUŠAJ PROMJENU FAZE
+    // SLUŠAJ STANJE RUNDE IZ FIREBASE
+    // (oba igrača vide iste promjene)
     // ==============================
 
-    private void listenForPhaseChange(int round) {
-        if (phaseListener != null) {
+    private void listenForRoundState(int round) {
+        if (roundStateListener != null) {
             gameRef.child("rounds").child(String.valueOf(round))
-                    .child("phase").removeEventListener(phaseListener);
+                    .removeEventListener(roundStateListener);
         }
 
-        DatabaseReference phaseRef = gameRef
-                .child("rounds").child(String.valueOf(round))
-                .child("phase");
-
-        phaseListener = new ValueEventListener() {
+        roundStateListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String phase = snapshot.getValue(String.class);
+                String phase = snapshot.child("phase").getValue(String.class);
                 if (phase == null) return;
 
-                if ("fixing".equals(phase) && currentPhase == PHASE_ACTIVE) {
-                    currentPhase = PHASE_FIXING;
-                    if (roundTimer != null) roundTimer.cancel();
-                    startFixingPhase(round);
+                // Sinhronizuj veze protivnika na ekran
+                DataSnapshot connections = snapshot.child("connections");
+                for (DataSnapshot connSnap : connections.getChildren()) {
+                    int leftIdx      = Integer.parseInt(connSnap.getKey());
+                    Integer rightIdx = connSnap.child("rightIdx").getValue(Integer.class);
+                    String madeBy    = connSnap.child("madeBy").getValue(String.class);
 
-                } else if ("done".equals(phase) && currentPhase != PHASE_DONE) {
-                    currentPhase = PHASE_DONE;
+                    if (rightIdx == null) continue;
+                    if (madeBy != null && madeBy.equals(myPlayerId)) continue; // već prikazano lokalno
+
+                    boolean correct = (CORRECT_MAPPING[leftIdx] == rightIdx);
+                    leftUsed[leftIdx]    = true;
+                    rightUsed[rightIdx]  = true;
+                    connectedRight[leftIdx] = rightIdx;
+
+                    setButtonTint(leftButtons[leftIdx],   correct ? COLOR_CONNECTED : COLOR_WRONG);
+                    setButtonTint(rightButtons[rightIdx], correct ? COLOR_CONNECTED : COLOR_WRONG);
+                }
+
+                // Reaguj na promjenu faze
+                if ("fixing".equals(phase) && "active".equals(myPhase)) {
+                    myPhase = "fixing";
+                    if (roundTimer != null) roundTimer.cancel();
+                    updateStatusAndTimer();
+
+                } else if ("done".equals(phase) && !"done".equals(myPhase)) {
+                    myPhase = "done";
                     if (roundTimer != null) roundTimer.cancel();
                     onRoundDone(round);
                 }
@@ -390,82 +421,8 @@ public class SpojniceFragment extends Fragment {
             public void onCancelled(@NonNull DatabaseError error) {}
         };
 
-        phaseRef.addValueEventListener(phaseListener);
-    }
-
-    // ==============================
-    // SIGNAL: aktivna faza završena
-    // ==============================
-
-    private void signalActivePhaseEnd(int round) {
-        final boolean hasIssues;
-        boolean tempHasIssues = false;
-        for (int i = 0; i < 5; i++) {
-            if (!leftUsed[i]) { tempHasIssues = true; break; }
-        }
-        hasIssues = tempHasIssues;
-
-        // Provjeri i netačne
         gameRef.child("rounds").child(String.valueOf(round))
-                .child("connections")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        boolean anyWrong = false;
-                        for (DataSnapshot connSnap : snapshot.getChildren()) {
-                            Integer rightIdx = connSnap.child("rightIdx")
-                                    .getValue(Integer.class);
-                            int leftIdx = Integer.parseInt(connSnap.getKey());
-                            if (rightIdx != null && CORRECT_MAPPING[leftIdx] != rightIdx) {
-                                anyWrong = true;
-                                break;
-                            }
-                        }
-
-                        boolean hasFreeOrWrong = hasIssues || anyWrong;
-
-                        // Resetuj netačne veze iz Firebase
-                        if (anyWrong) {
-                            for (DataSnapshot connSnap : snapshot.getChildren()) {
-                                Integer rightIdx = connSnap.child("rightIdx")
-                                        .getValue(Integer.class);
-                                int leftIdx = Integer.parseInt(connSnap.getKey());
-                                if (rightIdx != null && CORRECT_MAPPING[leftIdx] != rightIdx) {
-                                    connSnap.getRef().removeValue();
-                                }
-                            }
-                        }
-
-                        String nextPhase = hasFreeOrWrong ? "fixing" : "done";
-                        gameRef.child("rounds").child(String.valueOf(round))
-                                .child("phase").setValue(nextPhase);
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {}
-                });
-    }
-
-    // ==============================
-    // FIXING FAZA
-    // ==============================
-
-    private void startFixingPhase(int round) {
-        if (isMyTurnFixing(round)) {
-            tvStatus.setText("Ti dobijaš šansu za netačne/nepovezane — 30s!");
-            for (int i = 0; i < 5; i++) {
-                leftButtons[i].setEnabled(!leftUsed[i]);
-                rightButtons[i].setEnabled(!rightUsed[i]);
-            }
-            startTimer(30, () ->
-                    gameRef.child("rounds").child(String.valueOf(round))
-                            .child("phase").setValue("done")
-            );
-        } else {
-            tvStatus.setText("Protivnik dobija šansu za nepovezane...");
-            setAllButtonsEnabled(false);
-            startTimer(30, () -> {});
-        }
+                .addValueEventListener(roundStateListener);
     }
 
     // ==============================
@@ -473,21 +430,14 @@ public class SpojniceFragment extends Fragment {
     // ==============================
 
     private void onRoundDone(int round) {
-        currentPhase = PHASE_DONE;
-        handler.removeCallbacksAndMessages(null);
-        if (roundTimer != null) roundTimer.cancel();
-
-        if (connectionsListener != null) {
+        if (roundStateListener != null) {
             gameRef.child("rounds").child(String.valueOf(round))
-                    .child("connections").removeEventListener(connectionsListener);
-        }
-        if (phaseListener != null) {
-            gameRef.child("rounds").child(String.valueOf(round))
-                    .child("phase").removeEventListener(phaseListener);
+                    .removeEventListener(roundStateListener);
+            roundStateListener = null;
         }
 
-        tvStatus.setText("Runda " + (round + 1) + " završena!");
-        setAllButtonsEnabled(false);
+        tvStatus.setText("✅ Runda " + (round + 1) + " završena!");
+        tvTimer.setText("—");
 
         if (getView() != null) {
             getView().postDelayed(() -> {
@@ -505,9 +455,7 @@ public class SpojniceFragment extends Fragment {
     // ==============================
 
     private void endGame() {
-        handler.removeCallbacksAndMessages(null);
         if (roundTimer != null) roundTimer.cancel();
-        setAllButtonsEnabled(false);
 
         gameRef.child("status").setValue("finished");
         gameRef.child("scores").child("player1").setValue(scorePlayer1);
@@ -519,44 +467,45 @@ public class SpojniceFragment extends Fragment {
 
         String p1Label = "player1".equals(myPlayerId) ? "Ti" : "Protivnik";
         String p2Label = "player2".equals(myPlayerId) ? "Ti" : "Protivnik";
+        int myScore    = "player1".equals(myPlayerId) ? scorePlayer1 : scorePlayer2;
+        int oppScore   = "player1".equals(myPlayerId) ? scorePlayer2 : scorePlayer1;
+        boolean iWon   = myScore > oppScore;
 
         String rezultat;
-        if (scorePlayer1 > scorePlayer2) {
-            rezultat = "🏆 " + p1Label + " pobijedio!\n\n"
-                    + p1Label + ": " + scorePlayer1 + " bod.\n"
-                    + p2Label + ": " + scorePlayer2 + " bod.";
-        } else if (scorePlayer2 > scorePlayer1) {
-            rezultat = "🏆 " + p2Label + " pobijedio!\n\n"
-                    + p1Label + ": " + scorePlayer1 + " bod.\n"
-                    + p2Label + ": " + scorePlayer2 + " bod.";
-        } else {
-            rezultat = "Neriješeno!\n\n"
-                    + p1Label + ": " + scorePlayer1 + " bod.\n"
-                    + p2Label + ": " + scorePlayer2 + " bod.";
-        }
+        if (scorePlayer1 > scorePlayer2)
+            rezultat = "🏆 " + p1Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2;
+        else if (scorePlayer2 > scorePlayer1)
+            rezultat = "🏆 " + p2Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2;
+        else
+            rezultat = "Neriješeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2;
 
         tvStatus.setText(rezultat);
         updateScoreUI();
 
-        handler.postDelayed(() -> {
-            if (getView() != null) {
-                androidx.navigation.Navigation
-                        .findNavController(getView())
-                        .navigate(R.id.nav_game);
-            }
-        }, 3000);
-    }
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
 
-    // ==============================
-    // HELPERI
-    // ==============================
+        if (uid != null) {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("stats.spojnice.connected",    FieldValue.increment(myConnectedCorrect));
+            updates.put("stats.spojnice.total",        FieldValue.increment(myConnectedTotal));
+            updates.put("stats.spojnice.wins",         FieldValue.increment(iWon ? 1 : 0));
+            updates.put("stats.spojnice.losses",       FieldValue.increment(iWon ? 0 : 1));
+            updates.put("stats.global.totalGames",     FieldValue.increment(1));
+            updates.put("stats.global.wins",           FieldValue.increment(iWon ? 1 : 0));
+            updates.put("stats.global.losses",         FieldValue.increment(iWon ? 0 : 1));
+            FirebaseFirestore.getInstance().collection("users").document(uid).update(updates);
+        }
 
-    private void setAllButtonsEnabled(boolean enabled) {
-        for (int i = 0; i < 5; i++) {
-            leftButtons[i].setEnabled(enabled);
-            rightButtons[i].setEnabled(enabled);
+        if (getView() != null) {
+            getView().postDelayed(() -> {
+                if (getView() != null)
+                    androidx.navigation.Navigation.findNavController(getView()).navigate(R.id.nav_game);
+            }, 3000);
         }
     }
+
+    // ====== HELPERI ======
 
     private void setButtonTint(MaterialButton btn, int color) {
         btn.setBackgroundTintList(ColorStateList.valueOf(color));
@@ -575,15 +524,10 @@ public class SpojniceFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        handler.removeCallbacksAndMessages(null);
         if (roundTimer != null) roundTimer.cancel();
-        if (connectionsListener != null) {
+        if (roundStateListener != null && gameRef != null) {
             gameRef.child("rounds").child(String.valueOf(currentRound))
-                    .child("connections").removeEventListener(connectionsListener);
-        }
-        if (phaseListener != null) {
-            gameRef.child("rounds").child(String.valueOf(currentRound))
-                    .child("phase").removeEventListener(phaseListener);
+                    .removeEventListener(roundStateListener);
         }
     }
 }
