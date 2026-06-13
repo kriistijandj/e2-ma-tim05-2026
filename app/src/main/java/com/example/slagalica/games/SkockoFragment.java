@@ -31,8 +31,8 @@ import java.util.List;
 public class SkockoFragment extends Fragment {
 
     private TableLayout tableAttempts;
-    private ImageView[][] cells = new ImageView[6][4];
-    private LinearLayout[] feedbackContainers = new LinearLayout[6];
+    private ImageView[][] cells = new ImageView[7][4];
+    private LinearLayout[] feedbackContainers = new LinearLayout[7];
 
     private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore, tvTimer;
 
@@ -40,6 +40,7 @@ public class SkockoFragment extends Fragment {
     private final List<SkockoSymbol> localAttempt = new ArrayList<>();
     private int currentCol = 0;
     private int activeRowInUi = 0;
+    private int lastRenderedRound = -1;
 
     @Nullable
     @Override
@@ -85,6 +86,14 @@ public class SkockoFragment extends Fragment {
     }
 
     private void renderUiFromState(SkockoGameState state) {
+        if (state == null) return;
+
+        //  AKO JE DOŠLO DO PROMENE RUNDE, POTPUNO RESETUJ LOKALNI UNOS I BROJAČ KOLONA!
+        if (state.round != lastRenderedRound) {
+            resetLocalAttempt(); // Ovo postavlja currentCol = 0 i puni listu sa null
+            lastRenderedRound = state.round;
+        }
+
         // Ažuriraj rezultate i imena
         String ja = viewModel.getMyPlayerId();
         tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ✎" : ""));
@@ -98,7 +107,7 @@ public class SkockoFragment extends Fragment {
         // Iscrtaj sve potvrđene pokušaje iz Firebase-a
         int i = 0;
         for (FirebaseAttempt attempt : state.attempts) {
-            if (i >= 6) break;
+            if (i >= 7) break;
             for (int j = 0; j < 4; j++) {
                 SkockoSymbol sym = SkockoSymbol.valueOf(attempt.symbols.get(j));
                 cells[i][j].setImageResource(sym.getDrawableId());
@@ -108,7 +117,7 @@ public class SkockoFragment extends Fragment {
         }
 
         // Određujemo u kom redu trenutni igrač kuca (ako je on na potezu)
-        activeRowInUi = state.isOpponentChance ? 5 : state.attempts.size();
+        activeRowInUi = state.isOpponentChance ? 6 : state.attempts.size();
 
         if ("finished".equals(state.status)) {
             Toast.makeText(getContext(), "Igra Skočko je završena!", Toast.LENGTH_LONG).show();
@@ -124,7 +133,7 @@ public class SkockoFragment extends Fragment {
                 (state.activePlayer == 2 && "player2".equals(viewModel.getMyPlayerId()));
         if (!amIActive) return;
 
-        if (currentCol >= 4 || activeRowInUi >= 6) return;
+        if (currentCol >= 4 || activeRowInUi >= 7) return;
 
         cells[activeRowInUi][currentCol].setImageResource(drawableId);
         localAttempt.set(currentCol, SkockoSymbol.fromDrawableId(drawableId));
@@ -155,7 +164,7 @@ public class SkockoFragment extends Fragment {
     }
 
     private void clearGridGraphics() {
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 7; i++) {
             feedbackContainers[i].removeAllViews();
             for (int j = 0; j < 4; j++) {
                 // Ako je to red u kom trenutno igrač kuca lokalno, ne briši mu unos usred kucanja
@@ -171,7 +180,7 @@ public class SkockoFragment extends Fragment {
         int margin = (int) (4 * d);
         int feedbackWidth = (int) (90 * d);
 
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 7; i++) {
             TableRow row = new TableRow(getContext());
             row.setGravity(Gravity.CENTER);
 

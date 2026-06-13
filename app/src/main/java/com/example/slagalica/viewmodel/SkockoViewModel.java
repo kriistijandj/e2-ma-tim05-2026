@@ -50,14 +50,36 @@ public class SkockoViewModel extends ViewModel {
     public LiveData<String> getTimerText()          { return timerText; }
     public String getMyPlayerId()                   { return myPlayerId; }
 
+    private int lastActivePlayerState = -1;
+    private boolean lastOpponentChanceState = false;
+    private int lastRoundState = -1;
+
     private void handleTimerSync(SkockoGameState state) {
         if ("finished".equals(state.status)) {
-            if (timer != null) timer.cancel();
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
             return;
         }
 
         boolean amIActive = (state.activePlayer == 1 && "player1".equals(myPlayerId)) ||
                 (state.activePlayer == 2 && "player2".equals(myPlayerId));
+
+        //Ako je došlo do promene igrača, runde ili režima igre, obavezno uništavamo stari tajmer!
+        if (state.activePlayer != lastActivePlayerState ||
+                state.isOpponentChance != lastOpponentChanceState ||
+                state.round != lastRoundState) {
+
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
+
+            lastActivePlayerState = state.activePlayer;
+            lastOpponentChanceState = state.isOpponentChance;
+            lastRoundState = state.round;
+        }
 
         if (amIActive) {
             if (timer == null) {
@@ -110,18 +132,23 @@ public class SkockoViewModel extends ViewModel {
             // --- PRELAZAK NA RUNDU 2 ---
             state.round = 2;
             state.rundaZapocinje = 2;
-            state.activePlayer = 2;
+            state.activePlayer = 2; // Rundu 2 započinje igrač 2 prema pravilu a.
             state.isOpponentChance = false;
             state.attempts.clear();
 
+            // Generisanje novog rešenja za drugu rundu
             List<SkockoSymbol> newSol = skockoHelper.generateSolution();
             state.solution.clear();
             for (SkockoSymbol s : newSol) {
                 state.solution.add(s.name());
             }
 
+            // RESETUJ LOKALNE PARAMETRE ZA NOVU RUNDU DA NE ZAKLJUČAJU KOD
+            myRoundWon = false;
+            myWinAttemptNumber = 0;
+
         } else {
-            // --- KRAJ OBE RUNDE – upisujemo statistiku ---
+            // --- KRAJ OBE RUNDE ---
             state.status = "finished";
 
             int myScore  = "player1".equals(myPlayerId) ? state.p1Score : state.p2Score;
@@ -169,11 +196,21 @@ public class SkockoViewModel extends ViewModel {
 
     public void submitAttempt(List<SkockoSymbol> attemptSymbols) {
         SkockoGameState state = gameState.getValue();
-        if (state == null) return;
+        //  Ako je igra završena ili stanje nije učitano, blokiraj slanje
+        if (state == null || "finished".equals(state.status)) return;
+
+        // Provera da li uopšte imam pravo da pošaljem (da li sam ja aktivan igrač)
+        int activePlayerNum = "player1".equals(myPlayerId) ? 1 : 2;
+        if (state.activePlayer != activePlayerNum) return;
 
         List<SkockoSymbol> solutionSymbols = new ArrayList<>();
         for (String s : state.solution) {
             solutionSymbols.add(SkockoSymbol.valueOf(s));
+        }
+
+        // Ako lista sadrži null vrednosti (prazna polja), nemoj slati u bazu
+        for (SkockoSymbol s : attemptSymbols) {
+            if (s == null) return;
         }
 
         SkockoFeedback feedback = skockoHelper.evaluate(solutionSymbols, attemptSymbols);
@@ -181,12 +218,11 @@ public class SkockoViewModel extends ViewModel {
         List<String> symbolStrings = new ArrayList<>();
         for (SkockoSymbol s : attemptSymbols) symbolStrings.add(s.name());
 
-        int activePlayerNum = "player1".equals(myPlayerId) ? 1 : 2;
         FirebaseAttempt newAttempt = new FirebaseAttempt(
                 activePlayerNum, symbolStrings, feedback.getRed(), feedback.getYellow());
         state.attempts.add(newAttempt);
 
-        // Provera pogotka
+        // Provera pogotka (4 crvena)
         if (feedback.getRed() == 4) {
             int points = 0;
             if (!state.isOpponentChance) {
@@ -201,23 +237,22 @@ public class SkockoViewModel extends ViewModel {
             if (activePlayerNum == 1) state.p1Score += points;
             else                      state.p2Score += points;
 
-            // Bilježimo koji pokušaj je bio pobjednički (samo za lokalnog igrača)
             if (activePlayerNum == ("player1".equals(myPlayerId) ? 1 : 2)) {
                 myRoundWon        = true;
-                myWinAttemptNumber = state.attempts.size(); // 1-indeksovano
+                myWinAttemptNumber = state.attempts.size();
             }
 
             endRoundLogic(state);
             return;
         }
 
-        // Šansa protivnika – promašio je, kraj runde
+        // Šansa protivnika – promašio je u svojih 10 sekundi, kraj runde!
         if (state.isOpponentChance) {
             endRoundLogic(state);
             return;
         }
 
-        // Iskorišćeno svih 6 pokušaja – šansa protivnika
+        // Iskorišćeno svih 6 pokušaja regularnog igrača – aktivira se šansa protivnika
         if (state.attempts.size() == 6) {
             state.isOpponentChance = true;
             state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
