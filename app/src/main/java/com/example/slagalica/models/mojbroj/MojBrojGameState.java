@@ -3,14 +3,13 @@ package com.example.slagalica.models.mojbroj;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class MojBrojGameState {
 
 
     public int round = 1;
 
 
-    public int activePlayer = 1;
+    public int stopPlayer = 1;
 
 
     public int targetNumber = 0;
@@ -26,20 +25,14 @@ public class MojBrojGameState {
 
 
     public String p1Expression = "";
-
-
     public String p2Expression = "";
 
 
     public int p1Result = -1;
-
-
     public int p2Result = -1;
 
 
     public boolean p1Submitted = false;
-
-
     public boolean p2Submitted = false;
 
 
@@ -49,6 +42,7 @@ public class MojBrojGameState {
 
     public String status = "active";
 
+    public boolean showingRoundResult = false;
 
     public MojBrojGameState() {}
 }

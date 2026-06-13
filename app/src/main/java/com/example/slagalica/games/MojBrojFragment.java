@@ -11,7 +11,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -27,20 +26,16 @@ import static android.content.Context.SENSOR_SERVICE;
 import java.util.Arrays;
 import java.util.List;
 
-
 public class MojBrojFragment extends Fragment implements SensorEventListener {
 
-
-    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore, tvLeftNumber, tvRightNumber;
-    private TextView tvTimer, tvTargetNumber;
+    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore;
+    private TextView tvLeftNumber, tvRightNumber;
+    private TextView tvTimer, tvTargetNumber, tvStatusMessage;
     private Button btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6;
     private Button btnStop, btnDelete, btnPlus, btnMinus, btnMul, btnDiv, btnOpen, btnClose;
     private EditText etExpression;
-    private TextView tvStatusMessage;
-
 
     private MojBrojViewModel viewModel;
-
 
     private SensorManager sensorManager;
     private Sensor accelerometer;
@@ -60,13 +55,13 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         super.onViewCreated(view, savedInstanceState);
 
         bindViews(view);
-        setupKeyboard(view);
+        setupKeyboard();
         setupSensor();
 
         viewModel = new ViewModelProvider(this).get(MojBrojViewModel.class);
 
-        String gameId    = "room_mojbroj_001";
-        String myRole    = "player1";
+        String gameId = "room_mojbroj_001";
+        String myRole = "player1";
         if (getArguments() != null) {
             gameId = getArguments().getString("ROOM_ID", gameId);
             myRole = getArguments().getString("PLAYER_ROLE", myRole);
@@ -75,7 +70,6 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         viewModel.init(gameId, myRole);
         viewModel.setupInitialGameIfHost();
 
-        // Observeri
         viewModel.getTimerText().observe(getViewLifecycleOwner(),
                 t -> tvTimer.setText(t));
 
@@ -83,31 +77,32 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
                 this::renderUiFromState);
     }
 
-
+    // ─── Renderovanje UI-ja ───────────────────────────────────────────────────
 
     private void renderUiFromState(MojBrojGameState state) {
         if (state == null) return;
 
         String myId = viewModel.getMyPlayerId();
+        boolean iAmPlayer1 = "player1".equals(myId);
+        boolean iAmStopPlayer = (state.stopPlayer == 1 && iAmPlayer1)
+                || (state.stopPlayer == 2 && !iAmPlayer1);
 
-        // Imena i bodovi
-        tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ✎" : ""));
-        tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ✎" : ""));
+        // ── Imena i bodovi
+        tvLeftName.setText("Igrač 1" + (state.stopPlayer == 1 ? " ✎" : ""));
+        tvRightName.setText("Igrač 2" + (state.stopPlayer == 2 ? " ✎" : ""));
         tvLeftScore.setText("Bodovi: " + state.p1Score);
         tvRightScore.setText("Bodovi: " + state.p2Score);
 
-        boolean iAmActive = ("player1".equals(myId) && state.activePlayer == 1)
-                || ("player2".equals(myId) && state.activePlayer == 2);
-
-        // Traženi broj
+        // ── Traženi broj
         if (state.targetRevealed) {
             tvTargetNumber.setText("Traženi broj: " + state.targetNumber);
         } else {
             tvTargetNumber.setText("Traženi broj: ???");
         }
 
-        // Dostupni brojevi (dugmadi)
-        if (state.numbersRevealed && state.availableNumbers.size() == 6) {
+        // ── Dostupni brojevi na dugmadima
+        if (state.numbersRevealed && state.availableNumbers != null
+                && state.availableNumbers.size() == 6) {
             btnNum1.setText(String.valueOf(state.availableNumbers.get(0)));
             btnNum2.setText(String.valueOf(state.availableNumbers.get(1)));
             btnNum3.setText(String.valueOf(state.availableNumbers.get(2)));
@@ -120,58 +115,87 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             btnNum5.setText("?"); btnNum6.setText("?");
         }
 
-        // Blokiraj unos ako nisam na potezu ili igra nije u fazi unosa
-        boolean canInput = iAmActive && state.targetRevealed && state.numbersRevealed
+        // ── Proveri da li je ovaj igrač već predao u ovoj rundi
+        boolean mySubmitted = iAmPlayer1 ? state.p1Submitted : state.p2Submitted;
+
+        // ── Kontrola unosa: mogu da unosim kad su brojevi otkriveni i još nisam predao
+        boolean canInput = state.numbersRevealed && !mySubmitted
                 && "active".equals(state.status);
         setInputEnabled(canInput);
 
-        // Prikaz "Stop" dugmeta
-        if (!state.targetRevealed) {
-            btnStop.setText("STOP (otkrij broj)");
-            btnStop.setEnabled(iAmActive);
-        } else if (!state.numbersRevealed) {
-            btnStop.setText("STOP (otkrij brojeve)");
-            btnStop.setEnabled(iAmActive);
-        } else if ("active".equals(state.status)) {
-            btnStop.setText("Predaj izraz");
-            btnStop.setEnabled(iAmActive);
-        } else {
+        // ── STOP dugme logika
+        if (!"active".equals(state.status)) {
+            // Igra završena
             btnStop.setText("---");
+            btnStop.setEnabled(false);
+        } else if (!state.targetRevealed) {
+            // Faza 1: stop za otkrivanje traženog broja – samo stopPlayer
+            btnStop.setText("STOP (otkrij broj)");
+            btnStop.setEnabled(iAmStopPlayer);
+        } else if (!state.numbersRevealed) {
+            // Faza 2: stop za otkrivanje dostupnih brojeva – samo stopPlayer
+            btnStop.setText("STOP (otkrij brojeve)");
+            btnStop.setEnabled(iAmStopPlayer);
+        } else if (!mySubmitted) {
+            // Faza igranja: predaja vlastitog izraza – oba igrača
+            btnStop.setText("Predaj izraz");
+            btnStop.setEnabled(true);
+        } else {
+            // Već predato – čeka se protivnik
+            btnStop.setText("Predato");
             btnStop.setEnabled(false);
         }
 
-        // Status poruka
-        if ("finished".equals(state.status)) {
-            String msg = "Igra završena! P1: " + state.p1Score + " – P2: " + state.p2Score;
-            tvStatusMessage.setText(msg);
+
+        boolean showResults = state.p1Submitted && state.p2Submitted;
+        if (showResults) {
+            tvLeftNumber.setText(formatResult(state.p1Result));
+            tvRightNumber.setText(formatResult(state.p2Result));
+        } else {
+
+            tvLeftNumber.setText(state.p1Submitted ? formatResult(state.p1Result) : "???");
+            tvRightNumber.setText(state.p2Submitted ? formatResult(state.p2Result) : "???");
+        }
+
+        if (state.showingRoundResult) {
+            tvStatusMessage.setText(
+                    "Runda 1 završena!\n" + "Prelazak na rundu 2..."
+            );
             tvStatusMessage.setVisibility(View.VISIBLE);
-        } else if (!iAmActive) {
-            tvStatusMessage.setText("Čekanje na protivnika...");
+            setInputEnabled(false);
+            btnStop.setEnabled(false);
+            return; // ne renderuj ostatak dok traje pauza
+        }
+
+
+        if ("finished".equals(state.status)) {
+            String winner;
+            if (state.p1Score > state.p2Score) winner = "Pobedio Igrač 1!";
+            else if (state.p2Score > state.p1Score) winner = "Pobedio Igrač 2!";
+            else winner = "Nerešeno!";
+            tvStatusMessage.setText("Igra završena! " + winner
+                    + " (P1: " + state.p1Score + " – P2: " + state.p2Score + ")");
+            tvStatusMessage.setVisibility(View.VISIBLE);
+        } else if (mySubmitted) {
+            tvStatusMessage.setText("Čeka se protivnik...");
+            tvStatusMessage.setVisibility(View.VISIBLE);
+        } else if (!state.numbersRevealed) {
+            if (iAmStopPlayer) {
+                tvStatusMessage.setText("Pritisni STOP da otkriješ " +
+                        (!state.targetRevealed ? "traženi broj" : "dostupne brojeve") + "!");
+            } else {
+                tvStatusMessage.setText("Čeka se da protivnik stopira...");
+            }
             tvStatusMessage.setVisibility(View.VISIBLE);
         } else {
             tvStatusMessage.setVisibility(View.GONE);
         }
-
-        boolean roundJustEnded =
-                (state.round == 2 && state.p2Submitted) ||
-                        (state.round == 1 && state.p1Submitted);
-
-        if ("finished".equals(state.status) || roundJustEnded) {
-
-            tvLeftNumber.setText(
-                    state.p1Result != -1 ? String.valueOf(state.p1Result) : "-"
-            );
-
-            tvRightNumber.setText(
-                    state.p2Result != -1 ? String.valueOf(state.p2Result) : "-"
-            );
-
-        } else {
-            tvLeftNumber.setText("???");
-            tvRightNumber.setText("???");
-        }
+    }
 
 
+    private String formatResult(int result) {
+        if (result == -1 || result == Integer.MIN_VALUE) return "—";
+        return String.valueOf(result);
     }
 
     private void setInputEnabled(boolean enabled) {
@@ -193,7 +217,9 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
 
 
 
-    private void setupKeyboard(View view) {
+    private void setupKeyboard() {
+        List<Button> numButtons = Arrays.asList(
+                btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6);
 
         View.OnClickListener insertOp = v -> etExpression.append(((Button) v).getText());
         btnPlus.setOnClickListener(insertOp);
@@ -203,8 +229,6 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         btnOpen.setOnClickListener(insertOp);
         btnClose.setOnClickListener(insertOp);
 
-
-        List<Button> numButtons = Arrays.asList(btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6);
         for (Button btn : numButtons) {
             btn.setOnClickListener(v -> {
                 etExpression.append(btn.getText());
@@ -213,31 +237,37 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             });
         }
 
-
         btnDelete.setOnClickListener(v -> {
             String t = etExpression.getText().toString();
             if (!t.isEmpty()) {
                 etExpression.setText(t.substring(0, t.length() - 1));
                 etExpression.setSelection(etExpression.getText().length());
             }
+            // Resetuj dostupnost broj-dugmadi (pojednostavljeno – sve upalimo)
             for (Button btn : numButtons) {
-                btn.setEnabled(true);
-                btn.setAlpha(1.0f);
+                MojBrojGameState state = viewModel.getGameState().getValue();
+                boolean mySubmitted = state != null && (
+                        "player1".equals(viewModel.getMyPlayerId())
+                                ? state.p1Submitted : state.p2Submitted);
+                if (!mySubmitted) {
+                    btn.setEnabled(true);
+                    btn.setAlpha(1.0f);
+                }
             }
         });
-
 
         btnStop.setOnClickListener(v -> {
             MojBrojGameState state = viewModel.getGameState().getValue();
             if (state == null) return;
 
             if (!state.targetRevealed || !state.numbersRevealed) {
+                // Faza stopiranja
                 viewModel.onStopPressed();
             } else {
+                // Faza predaje izraza
                 String expr = etExpression.getText().toString().trim();
                 viewModel.submitExpression(expr);
                 etExpression.setText("");
-
                 for (Button btn : numButtons) {
                     btn.setEnabled(true);
                     btn.setAlpha(1.0f);
@@ -247,38 +277,34 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
     }
 
     private void bindViews(View view) {
-        tvLeftName      = view.findViewById(R.id.tvLeftName);
-        tvRightName     = view.findViewById(R.id.tvRightName);
-        tvLeftScore     = view.findViewById(R.id.tvLeftScore);
-        tvRightScore    = view.findViewById(R.id.tvRightScore);
-        tvTimer         = view.findViewById(R.id.tvTimer);
-        tvTargetNumber  = view.findViewById(R.id.tvTargetNumber2);
-        etExpression    = view.findViewById(R.id.etExpression);
-        btnStop         = view.findViewById(R.id.btnStop);
-        btnDelete       = view.findViewById(R.id.btnDelete);
-        btnPlus         = view.findViewById(R.id.btnPlus);
-        btnMinus        = view.findViewById(R.id.btnMinus);
-        btnMul          = view.findViewById(R.id.btnMul);
-        btnDiv          = view.findViewById(R.id.btnDiv);
-        btnOpen         = view.findViewById(R.id.btnOpen);
-        btnClose        = view.findViewById(R.id.btnClose);
-        btnNum1         = view.findViewById(R.id.btnNum1);
-        btnNum2         = view.findViewById(R.id.btnNum2);
-        btnNum3         = view.findViewById(R.id.btnNum3);
-        btnNum4         = view.findViewById(R.id.btnNum4);
-        btnNum5         = view.findViewById(R.id.btnNum5);
-        btnNum6         = view.findViewById(R.id.btnNum6);
-        tvLeftNumber  = view.findViewById(R.id.tvLeftNumber);
-        tvRightNumber = view.findViewById(R.id.tvRightNumber);
-
-
-        tvStatusMessage = view.findViewWithTag("tvStatusMessage");
-        if (tvStatusMessage == null) {
-
-            tvStatusMessage = new TextView(getContext());
-        }
+        tvLeftName     = view.findViewById(R.id.tvLeftName);
+        tvRightName    = view.findViewById(R.id.tvRightName);
+        tvLeftScore    = view.findViewById(R.id.tvLeftScore);
+        tvRightScore   = view.findViewById(R.id.tvRightScore);
+        tvTimer        = view.findViewById(R.id.tvTimer);
+        tvTargetNumber = view.findViewById(R.id.tvTargetNumber2);
+        etExpression   = view.findViewById(R.id.etExpression);
+        btnStop        = view.findViewById(R.id.btnStop);
+        btnDelete      = view.findViewById(R.id.btnDelete);
+        btnPlus        = view.findViewById(R.id.btnPlus);
+        btnMinus       = view.findViewById(R.id.btnMinus);
+        btnMul         = view.findViewById(R.id.btnMul);
+        btnDiv         = view.findViewById(R.id.btnDiv);
+        btnOpen        = view.findViewById(R.id.btnOpen);
+        btnClose       = view.findViewById(R.id.btnClose);
+        btnNum1        = view.findViewById(R.id.btnNum1);
+        btnNum2        = view.findViewById(R.id.btnNum2);
+        btnNum3        = view.findViewById(R.id.btnNum3);
+        btnNum4        = view.findViewById(R.id.btnNum4);
+        btnNum5        = view.findViewById(R.id.btnNum5);
+        btnNum6        = view.findViewById(R.id.btnNum6);
+        tvLeftNumber   = view.findViewById(R.id.tvLeftNumber);
+        tvRightNumber  = view.findViewById(R.id.tvRightNumber);
+        // Sada ispravno – bindujemo po ID-u (ne više po tagu)
+        tvStatusMessage = view.findViewById(R.id.tvStatusMessage);
     }
 
+    // ─── Shake senzor ─────────────────────────────────────────────────────────
 
     private void setupSensor() {
         sensorManager = (SensorManager) requireActivity().getSystemService(SENSOR_SERVICE);
@@ -316,8 +342,12 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             long now = System.currentTimeMillis();
             if (now - lastShakeTime > SHAKE_SLOP_TIME_MS) {
                 lastShakeTime = now;
-                // Shake = isto kao klik na Stop
-                viewModel.onStopPressed();
+                // Shake radi samo u fazi stopiranja (pre nego što su brojevi otkriveni)
+                MojBrojGameState state = viewModel.getGameState().getValue();
+                if (state != null && (!state.targetRevealed || !state.numbersRevealed)) {
+                    viewModel.onStopPressed();
+                }
+                // U fazi igranja shake ne radi ništa (po specifikaciji shake = stop dugme)
             }
         }
     }

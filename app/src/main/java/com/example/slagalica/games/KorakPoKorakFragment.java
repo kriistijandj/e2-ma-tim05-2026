@@ -21,16 +21,14 @@ import com.example.slagalica.viewmodel.KorakViewModel;
 import java.util.Arrays;
 import java.util.List;
 
-
 public class KorakPoKorakFragment extends Fragment {
 
-    // ---- Views ----
+    // ── Views ──
     private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore;
-    private TextView tvTimer, tvHintTitle, tvStatusMessage;
+    private TextView tvTimer, tvHintTitle, tvStatusMessage, tvSolution;
     private List<TextView> hintViews;
     private EditText etAnswer;
     private Button btnPotvrdi;
-
 
     private KorakViewModel viewModel;
 
@@ -59,13 +57,11 @@ public class KorakPoKorakFragment extends Fragment {
         viewModel.init(gameId, myRole);
         viewModel.setupInitialGameIfHost();
 
-
         viewModel.getTimerText().observe(getViewLifecycleOwner(),
                 t -> tvTimer.setText(t));
 
         viewModel.getGameState().observe(getViewLifecycleOwner(),
                 this::renderUiFromState);
-
 
         btnPotvrdi.setOnClickListener(v -> {
             String guess = etAnswer.getText().toString().trim();
@@ -76,13 +72,11 @@ public class KorakPoKorakFragment extends Fragment {
             boolean correct = viewModel.submitGuess(guess);
             if (correct) {
                 Toast.makeText(getContext(), "Tačno! ✓", Toast.LENGTH_SHORT).show();
-                etAnswer.setText("");
             } else {
                 Toast.makeText(getContext(), "Netačno. Pokušaj ponovo!", Toast.LENGTH_SHORT).show();
-                etAnswer.setText("");
             }
+            etAnswer.setText("");
         });
-
     }
 
 
@@ -117,23 +111,58 @@ public class KorakPoKorakFragment extends Fragment {
         }
 
 
-        boolean canAnswer = iAmActive && "active".equals(state.status);
-        etAnswer.setEnabled(canAnswer);
-        btnPotvrdi.setEnabled(canAnswer);
+        if (state.revealedAnswer != null && !state.revealedAnswer.isEmpty()) {
+            tvSolution.setText("Rešenje: " + state.revealedAnswer);
+            tvSolution.setVisibility(View.VISIBLE);
+        } else {
+            tvSolution.setVisibility(View.GONE);
+        }
 
-
-        if ("finished".equals(state.status)) {
-            tvStatusMessage.setText("Igra završena! P1: " + state.p1Score
-                    + " – P2: " + state.p2Score);
+        if (state.showingRoundResult) {
+            tvSolution.setText("Rešenje: " + state.revealedAnswer);
+            tvSolution.setVisibility(View.VISIBLE);
+            tvStatusMessage.setText("Prelazak na rundu 2...");
             tvStatusMessage.setVisibility(View.VISIBLE);
             etAnswer.setEnabled(false);
             btnPotvrdi.setEnabled(false);
+            return;
+        }
+
+
+        boolean canAnswer = iAmActive && "active".equals(state.status)
+                && (state.revealedAnswer == null || state.revealedAnswer.isEmpty());
+        etAnswer.setEnabled(canAnswer);
+        btnPotvrdi.setEnabled(canAnswer);
+
+        // ── Status poruka
+        if ("finished".equals(state.status)) {
+            String winner;
+            if (state.p1Score > state.p2Score) winner = "Pobedio Igrač 1!";
+            else if (state.p2Score > state.p1Score) winner = "Pobedio Igrač 2!";
+            else winner = "Nerešeno!";
+            tvStatusMessage.setText("Igra završena! " + winner
+                    + " (P1: " + state.p1Score + " – P2: " + state.p2Score + ")");
+            tvStatusMessage.setVisibility(View.VISIBLE);
+            etAnswer.setEnabled(false);
+            btnPotvrdi.setEnabled(false);
+
         } else if (state.isOpponentChance && iAmActive) {
-            tvStatusMessage.setText("Protivnik nije pogodio – tvoja šansa! (10s)");
+            tvStatusMessage.setText("Protivnik nije pogodio – tvoja šansa! (10s za 5 bodova)");
             tvStatusMessage.setVisibility(View.VISIBLE);
-        } else if (!iAmActive) {
-            tvStatusMessage.setText("Protivnik igra, čekaj...");
+
+        } else if (state.lastHintShowing && iAmActive) {
+            // Svih 7 koraka otkriveno, igrač ima još 10s
+            tvStatusMessage.setText("Poslednji korak otvoren – pogodi dok imaš vremena!");
             tvStatusMessage.setVisibility(View.VISIBLE);
+
+        } else if (!iAmActive && "active".equals(state.status)) {
+            if (state.isOpponentChance) {
+                tvStatusMessage.setText("Protivnik ima svoju šansu...");
+            } else {
+                tvStatusMessage.setText("Protivnik igra, čekaj...");
+            }
+            tvStatusMessage.setVisibility(View.VISIBLE);
+
         } else {
             tvStatusMessage.setVisibility(View.GONE);
         }
@@ -150,6 +179,9 @@ public class KorakPoKorakFragment extends Fragment {
         tvHintTitle    = view.findViewById(R.id.tvHintTitle);
         etAnswer       = view.findViewById(R.id.etAnswer);
         btnPotvrdi     = view.findViewById(R.id.btnStop);
+        // Ispravno – po ID-u (ne više po tagu)
+        tvStatusMessage = view.findViewById(R.id.tvStatusMessage);
+        tvSolution      = view.findViewById(R.id.tvSolution);
 
         hintViews = Arrays.asList(
                 (TextView) view.findViewById(R.id.tvHint1),
@@ -160,11 +192,5 @@ public class KorakPoKorakFragment extends Fragment {
                 (TextView) view.findViewById(R.id.tvHint6),
                 (TextView) view.findViewById(R.id.tvHint7)
         );
-
-
-        tvStatusMessage = view.findViewWithTag("tvStatusMessage");
-        if (tvStatusMessage == null) {
-            tvStatusMessage = new TextView(getContext());
-        }
     }
 }
