@@ -28,14 +28,15 @@ public class MojBrojViewModel extends ViewModel {
     private CountDownTimer timer;
     private String myPlayerId;
 
+    // Faze tajmera – čuvaju se odvojeno od timera da cancelTimer() ne gubi fazu
+    private static final int PHASE_NONE    = 0;
+    private static final int PHASE_TARGET  = 1;
+    private static final int PHASE_NUMBERS = 2;
+    private static final int PHASE_PLAY    = 3;
 
-    private static final int PHASE_TARGET  = 1; // 5s za otkrivanje targetNumber
-    private static final int PHASE_NUMBERS = 2; // 5s za otkrivanje brojeva
-    private static final int PHASE_PLAY    = 3; // 60s za unos izraza
-    private int currentTimerPhase = PHASE_TARGET;
+    private int currentTimerPhase = PHASE_NONE;
 
-
-    private boolean myRoundSolved = false;
+    // Statistika za čuvanje
     private int myRoundsPlayed = 0;
     private int myRoundsSolved = 0;
 
@@ -59,6 +60,7 @@ public class MojBrojViewModel extends ViewModel {
         MojBrojGameState initial = new MojBrojGameState();
         initial.targetNumber = helper.generateTargetNumber();
         initial.availableNumbers = helper.generateAvailableNumbers();
+        initial.stopPlayer = 1;
         repository.updateGameState(initial);
     }
 
@@ -66,8 +68,7 @@ public class MojBrojViewModel extends ViewModel {
     public void onStopPressed() {
         MojBrojGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return;
-
-        if (!amIActive(state)) return;
+        if (!amIStopPlayer(state)) return;
 
         if (!state.targetRevealed) {
             state.targetRevealed = true;
@@ -76,14 +77,16 @@ public class MojBrojViewModel extends ViewModel {
             state.numbersRevealed = true;
             repository.updateGameState(state);
         }
-
     }
 
 
     public void submitExpression(String expression) {
         MojBrojGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return;
-        if (!amIActive(state)) return;
+        if (!state.numbersRevealed) return;
+
+        if ("player1".equals(myPlayerId) && state.p1Submitted) return;
+        if ("player2".equals(myPlayerId) && state.p2Submitted) return;
 
         int result = helper.evaluate(expression);
 
@@ -97,167 +100,233 @@ public class MojBrojViewModel extends ViewModel {
             state.p2Submitted = true;
         }
 
-
         myRoundsPlayed++;
-        if (result == state.targetNumber) {
-            myRoundSolved = true;
-            myRoundsSolved++;
-        }
+        if (result == state.targetNumber) myRoundsSolved++;
+
+        // Zaustavi lokalni tajmer – predali smo, više nam ne treba
+        stopTimer();
 
         advanceIfNeeded(state);
     }
 
 
 
+
     private void handleTimerSync(MojBrojGameState state) {
+
+        // Dok se prikazuju rezultati runde – nema tajmera
+        if (state.showingRoundResult) {
+            stopTimer();
+            timerText.setValue("Prikazuju se rezultati...");
+            return;
+        }
+
         if ("finished".equals(state.status)) {
-            cancelTimer();
+            stopTimer();
+            timerText.setValue("Igra završena");
             return;
         }
-
-        boolean active = amIActive(state);
-
-        if (!active) {
-            cancelTimer();
-            timerText.setValue("Čeka se protivnik...");
-            return;
-        }
-
 
         if (!state.targetRevealed) {
-            if (currentTimerPhase != PHASE_TARGET || timer == null) {
-                currentTimerPhase = PHASE_TARGET;
-                startTimer(5);
+            if (amIStopPlayer(state)) {
+                startTimerPhase(PHASE_TARGET, 5);
+            } else {
+                stopTimer();
+                timerText.setValue("Čeka se stop...");
             }
         } else if (!state.numbersRevealed) {
-            if (currentTimerPhase != PHASE_NUMBERS || timer == null) {
-                currentTimerPhase = PHASE_NUMBERS;
-                startTimer(5);
+            if (amIStopPlayer(state)) {
+                startTimerPhase(PHASE_NUMBERS, 5);
+            } else {
+                stopTimer();
+                timerText.setValue("Čeka se stop...");
             }
         } else {
-            if (currentTimerPhase != PHASE_PLAY || timer == null) {
-                currentTimerPhase = PHASE_PLAY;
-                startTimer(60);
+            boolean mySubmitted = "player1".equals(myPlayerId)
+                    ? state.p1Submitted : state.p2Submitted;
+            if (!mySubmitted) {
+                startTimerPhase(PHASE_PLAY, 60);
+            } else {
+                // Predao sam – ugasi moj tajmer, čekam protivnika
+                stopTimer();
+                timerText.setValue("Predato – čeka se...");
             }
         }
     }
 
-    private void startTimer(int seconds) {
-        cancelTimer();
+
+    private void startTimerPhase(int phase, int seconds) {
+        if (currentTimerPhase == phase && timer != null) {
+            // Isti tajmer već teče, ne dirajmo ga
+            return;
+        }
+
+
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+
+        currentTimerPhase = phase;  // setuj PRE nego što timer krene
+
         timer = new CountDownTimer(seconds * 1000L, 1000) {
             @Override
-            public void onTick(long ms) { timerText.setValue((ms / 1000) + "s"); }
+            public void onTick(long ms) {
+                timerText.setValue((ms / 1000) + "s");
+            }
             @Override
             public void onFinish() {
-                timerText.setValue("0s");
                 timer = null;
-                handleTimeOut();
+                // currentTimerPhase OSTAJE postavljen na fazu koja je istekla
+                // da handleTimeOut() zna šta da uradi
+                int expiredPhase = currentTimerPhase;
+                currentTimerPhase = PHASE_NONE;
+                handleTimeOut(expiredPhase);
             }
         }.start();
     }
 
-    private void cancelTimer() {
-        if (timer != null) { timer.cancel(); timer = null; }
+
+    private void stopTimer() {
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+        currentTimerPhase = PHASE_NONE;
     }
 
-    private void handleTimeOut() {
+    private void handleTimeOut(int expiredPhase) {
         MojBrojGameState state = gameState.getValue();
         if (state == null) return;
-        if (!amIActive(state)) return;
 
-        switch (currentTimerPhase) {
+        switch (expiredPhase) {
             case PHASE_TARGET:
-                state.targetRevealed = true;
-                repository.updateGameState(state);
-                break;
-            case PHASE_NUMBERS:
-                state.numbersRevealed = true;
-                repository.updateGameState(state);
-                break;
-            case PHASE_PLAY:
-                // Igrač nije uneo ništa – šalje prazan izraz (rezultat -1 = nije igrao)
-                if ("player1".equals(myPlayerId) && !state.p1Submitted) {
-                    state.p1Submitted = true;
-                    state.p1Result = -1;
-                    myRoundsPlayed++;
-                } else if ("player2".equals(myPlayerId) && !state.p2Submitted) {
-                    state.p2Submitted = true;
-                    state.p2Result = -1;
-                    myRoundsPlayed++;
+                if (amIStopPlayer(state) && !state.targetRevealed) {
+                    state.targetRevealed = true;
+                    repository.updateGameState(state);
                 }
-                advanceIfNeeded(state);
+                break;
+
+            case PHASE_NUMBERS:
+                if (amIStopPlayer(state) && !state.numbersRevealed) {
+                    state.numbersRevealed = true;
+                    repository.updateGameState(state);
+                }
+                break;
+
+            case PHASE_PLAY:
+                // Automatska predaja – kao da je igrač kliknuo "Predaj" sa praznim izrazom
+                boolean mySubmitted = "player1".equals(myPlayerId)
+                        ? state.p1Submitted : state.p2Submitted;
+                if (!mySubmitted) {
+                    if ("player1".equals(myPlayerId)) {
+                        state.p1Submitted = true;
+                        state.p1Result = Integer.MIN_VALUE;
+                    } else {
+                        state.p2Submitted = true;
+                        state.p2Result = Integer.MIN_VALUE;
+                    }
+                    myRoundsPlayed++;
+                    advanceIfNeeded(state);
+                }
                 break;
         }
     }
+
 
 
 
     private void advanceIfNeeded(MojBrojGameState state) {
+        boolean bothSubmitted = state.p1Submitted && state.p2Submitted;
+        if (!bothSubmitted) {
+            // Samo jedan je predao – sačuvaj i čekaj drugog
+            repository.updateGameState(state);
+            return;
+        }
+
+        // Oba su predala – dodeli poene za ovu rundu
+        awardRoundPoints(state);
+
         if (state.round == 1) {
-            // Runda 1 – player1 igra; završava se kad player1 preda
-            if (state.p1Submitted) {
-                awardRound1Points(state);
-                goToRound2(state);
+            // Postavi flag za prikaz rezultata
+            state.showingRoundResult = true;
+            repository.updateGameState(state);
+
+            // Samo player1 pokreće countdown i prelaz na rundu 2
+            // (player2 samo čeka novi state iz baze)
+            if ("player1".equals(myPlayerId)) {
+                new CountDownTimer(5000, 1000) {
+                    @Override
+                    public void onTick(long ms) {
+                        timerText.setValue("Sledeća runda za: " + (ms / 1000) + "s");
+                    }
+                    @Override
+                    public void onFinish() {
+                        // Uzmi najsvežiji state iz LiveData
+                        MojBrojGameState fresh = gameState.getValue();
+                        if (fresh == null) return;
+                        goToRound2(fresh);
+                        repository.updateGameState(fresh);
+                    }
+                }.start();
             }
         } else {
-            // Runda 2 – player2 igra; završava se kad player2 preda
-            if (state.p2Submitted) {
-                awardRound2Points(state);
-                finishGame(state);
-            }
+            // Runda 2 završena – kraj igre
+            finishGame(state);
+            repository.updateGameState(state);
         }
-        repository.updateGameState(state);
     }
 
 
-    private void awardRound1Points(MojBrojGameState state) {
+    private void awardRoundPoints(MojBrojGameState state) {
         int target = state.targetNumber;
-        int r1 = state.p1Result; // player1 igrao u rundi 1
-
-        if (r1 == target) {
-            state.p1Score += 10;
-        }
-
-    }
-
-    private void awardRound2Points(MojBrojGameState state) {
-        int target = state.targetNumber;
+        int r1 = state.p1Result;
         int r2 = state.p2Result;
 
-        if (r2 == target) {
-            state.p2Score += 10;
-        }
+        boolean p1Hit = (r1 == target);
+        boolean p2Hit = (r2 == target);
 
+        if (p1Hit) state.p1Score += 10;
+        if (p2Hit) state.p2Score += 10;
 
-        if (state.p1Result != target && state.p2Result != target) {
-            int d1 = helper.distanceFromTarget(state.p1Result, target);
-            int d2 = helper.distanceFromTarget(state.p2Result, target);
+        if (!p1Hit && !p2Hit) {
+            int d1 = helper.distanceFromTarget(r1, target);
+            int d2 = helper.distanceFromTarget(r2, target);
 
             if (d1 == Integer.MAX_VALUE && d2 == Integer.MAX_VALUE) {
-
+                // Niko nije uneo ništa
+            } else if (d1 == Integer.MAX_VALUE) {
+                state.p2Score += 5;
+            } else if (d2 == Integer.MAX_VALUE) {
+                state.p1Score += 5;
             } else if (d1 < d2) {
                 state.p1Score += 5;
             } else if (d2 < d1) {
                 state.p2Score += 5;
-            } else if (d1 == d2 && d1 != Integer.MAX_VALUE) {
-
-                state.p1Score += 5;
+            } else {
+                // Ista razlika → stopPlayer dobija poene
+                if (state.stopPlayer == 1) state.p1Score += 5;
+                else state.p2Score += 5;
             }
         }
     }
 
     private void goToRound2(MojBrojGameState state) {
+        state.showingRoundResult = false;   // ← obavezno, inače ostaje zauvek true
         state.round = 2;
-        state.activePlayer = 2;
+        state.stopPlayer = 2;
 
         state.targetNumber = helper.generateTargetNumber();
         state.availableNumbers = helper.generateAvailableNumbers();
+
         state.targetRevealed = false;
         state.numbersRevealed = false;
+        state.p1Submitted = false;
         state.p2Submitted = false;
-
-
-        currentTimerPhase = PHASE_TARGET;
+        state.p1Result = -1;
+        state.p2Result = -1;
+        state.p1Expression = "";
+        state.p2Expression = "";
     }
 
     private void finishGame(MojBrojGameState state) {
@@ -267,6 +336,13 @@ public class MojBrojViewModel extends ViewModel {
         saveMojBrojStats(iWon);
     }
 
+
+
+
+    private boolean amIStopPlayer(MojBrojGameState state) {
+        return (state.stopPlayer == 1 && "player1".equals(myPlayerId))
+                || (state.stopPlayer == 2 && "player2".equals(myPlayerId));
+    }
 
     private void saveMojBrojStats(boolean iWon) {
         String uid = FirebaseAuth.getInstance().getCurrentUser() != null
@@ -289,17 +365,10 @@ public class MojBrojViewModel extends ViewModel {
                 .update(updates);
     }
 
-
-
-    private boolean amIActive(MojBrojGameState state) {
-        return (state.activePlayer == 1 && "player1".equals(myPlayerId))
-                || (state.activePlayer == 2 && "player2".equals(myPlayerId));
-    }
-
     @Override
     protected void onCleared() {
         super.onCleared();
-        cancelTimer();
+        stopTimer();
         if (repository != null) repository.removeListener();
     }
 }

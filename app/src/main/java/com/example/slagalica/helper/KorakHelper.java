@@ -21,7 +21,7 @@ public class KorakHelper {
     private static final List<KorakQuestion> QUESTIONS = new ArrayList<>();
 
     static {
-        QUESTIONS.add(new KorakQuestion("NIKOLA TESLA", new String[]{
+        QUESTIONS.add(new KorakQuestion("Nikola Tesla", new String[]{
                 "Rodjen 1856. godine",
                 "Srpsko-američki izumitelj",
                 "Patenat broj 645.576",
@@ -31,7 +31,7 @@ public class KorakHelper {
                 "Njegovo ime je mjerna jedinica za magnetno polje"
         }));
 
-        QUESTIONS.add(new KorakQuestion("EIFFELOV TORANJ", new String[]{
+        QUESTIONS.add(new KorakQuestion("Ajfelov toranj", new String[]{
                 "Otvoren 1889. godine",
                 "Visok je 330 metara",
                 "Nalazi se na Champ de Mars",
@@ -41,7 +41,7 @@ public class KorakHelper {
                 "Čelična rešetkasta konstrukcija - turistička atrakcija Francuske"
         }));
 
-        QUESTIONS.add(new KorakQuestion("BASKETBALL", new String[]{
+        QUESTIONS.add(new KorakQuestion("Kosarka", new String[]{
                 "Izumio ga James Naismith 1891.",
                 "Prvobitan koš je bila korpa za breskve",
                 "NBA liga ima 30 timova",
@@ -51,7 +51,7 @@ public class KorakHelper {
                 "Sport u kom se ubacuje lopta u koš"
         }));
 
-        QUESTIONS.add(new KorakQuestion("AMAZON", new String[]{
+        QUESTIONS.add(new KorakQuestion("Amazon", new String[]{
                 "Kompanija osnovana 1994.",
                 "Jeff Bezos je osnivač",
                 "Sjedište u Seattlu",
@@ -61,7 +61,7 @@ public class KorakHelper {
                 "Najveća svjetska online prodavnica"
         }));
 
-        QUESTIONS.add(new KorakQuestion("TITANIC", new String[]{
+        QUESTIONS.add(new KorakQuestion("Titanik", new String[]{
                 "Potopio se 1912. godine",
                 "Udario je u ledeni brijeg",
                 "Gradjen u Belfastu",
