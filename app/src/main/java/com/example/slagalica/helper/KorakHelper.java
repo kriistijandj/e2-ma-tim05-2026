@@ -5,13 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Statički podaci za igru "Korak po korak".
- * Svaki zapis sadrži tačan odgovor i 7 koraka (najtezi = index 0, najlaksi = index 6).
- *
- * Ovo je zarad demonstracije. U produkciji podatke čitate iz Firestore-a
- * na isti način kao AssociationData za Asocijacije.
- */
+
 public class KorakHelper {
 
     public static class KorakQuestion {
@@ -80,18 +74,12 @@ public class KorakHelper {
 
     private final Random random = new Random();
 
-    /**
-     * Vraća nasumično pitanje iz banke pitanja.
-     */
+
     public KorakQuestion getRandomQuestion() {
         return QUESTIONS.get(random.nextInt(QUESTIONS.size()));
     }
 
-    /**
-     * Izračunava bodove za aktivnog igrača.
-     * hintIndex je 1-indexovan (1 = najtezi, 7 = najlaksi).
-     * Igrač na koraku 1 dobija 20 bodova, svaki naredni korak -2.
-     */
+
     public int calculateScore(int hintIndex) {
         int score = 20 - (hintIndex - 1) * 2;
         return Math.max(score, 0);
