@@ -56,9 +56,13 @@ public class GameFragment extends Fragment {
                             "lobby_spojnice", "room_spojnice_001"));
         }
 
-        // MojBroj i Korak – kolega implementira, zasad bez lobija
-        setupNavigation(view, R.id.cardMojBroj, R.id.nav_mojbroj);
-        setupNavigation(view, R.id.cardKorak,   R.id.nav_korak);
+        CardView cardMojBroj = view.findViewById(R.id.cardMojBroj);
+        if (cardMojBroj != null) cardMojBroj.setOnClickListener(v ->
+                podeliUloge(view, R.id.nav_mojbroj, "lobby_mojbroj", "room_mojbroj_001"));
+
+        CardView cardKorak = view.findViewById(R.id.cardKorak);
+        if (cardKorak != null) cardKorak.setOnClickListener(v ->
+                podeliUloge(view, R.id.nav_korak, "lobby_korak", "room_korak_001"));
 
         return view;
     }

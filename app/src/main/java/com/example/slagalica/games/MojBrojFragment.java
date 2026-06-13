@@ -24,6 +24,9 @@ import com.example.slagalica.viewmodel.MojBrojViewModel;
 
 import static android.content.Context.SENSOR_SERVICE;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Fragment za igru "Moj Broj" – multiplayer putem Firebase.
  *
@@ -189,21 +192,26 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         btnOpen.setOnClickListener(insertOp);
         btnClose.setOnClickListener(insertOp);
 
-        // Broj dugmad – upisuju aktuelnu vrijednost (koja je postavljena iz state-a)
-        View.OnClickListener insertNum = v -> etExpression.append(((Button) v).getText());
-        btnNum1.setOnClickListener(insertNum);
-        btnNum2.setOnClickListener(insertNum);
-        btnNum3.setOnClickListener(insertNum);
-        btnNum4.setOnClickListener(insertNum);
-        btnNum5.setOnClickListener(insertNum);
-        btnNum6.setOnClickListener(insertNum);
+        // Broj dugmad – svako se može iskoristiti samo jednom
+        List<Button> numButtons = Arrays.asList(btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6);
+        for (Button btn : numButtons) {
+            btn.setOnClickListener(v -> {
+                etExpression.append(btn.getText());
+                btn.setEnabled(false);
+                btn.setAlpha(0.4f);
+            });
+        }
 
-        // Brisanje zadnjeg karaktera
+        // Brisanje zadnjeg karaktera + reset svih broj dugmadi
         btnDelete.setOnClickListener(v -> {
             String t = etExpression.getText().toString();
             if (!t.isEmpty()) {
                 etExpression.setText(t.substring(0, t.length() - 1));
                 etExpression.setSelection(etExpression.getText().length());
+            }
+            for (Button btn : numButtons) {
+                btn.setEnabled(true);
+                btn.setAlpha(1.0f);
             }
         });
 
@@ -215,10 +223,14 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             if (!state.targetRevealed || !state.numbersRevealed) {
                 viewModel.onStopPressed();
             } else {
-                // Predaja izraza
                 String expr = etExpression.getText().toString().trim();
                 viewModel.submitExpression(expr);
                 etExpression.setText("");
+                // Reset broj dugmadi nakon predaje
+                for (Button btn : numButtons) {
+                    btn.setEnabled(true);
+                    btn.setAlpha(1.0f);
+                }
             }
         });
     }

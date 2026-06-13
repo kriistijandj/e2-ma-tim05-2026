@@ -68,6 +68,7 @@
         android:id="@+id/nav_mojbroj"
         android:name="com.example.slagalica.games.MojBrojFragment"
         android:label="Moj broj"
+        app:popUpTo="@+id/nav_home"
         tools:layout="@layout/fragment_moj_broj"
         />
 
@@ -75,6 +76,7 @@
         android:id="@+id/nav_korak"
         android:name="com.example.slagalica.games.KorakPoKorakFragment"
         android:label="Korak po korak"
+        app:popUpTo="@+id/nav_home"
         tools:layout="@layout/fragment_korak_po_korak"
         />
 
