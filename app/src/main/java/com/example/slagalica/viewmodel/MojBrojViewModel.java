@@ -222,7 +222,7 @@ public class MojBrojViewModel extends ViewModel {
 
     private void awardRound2Points(MojBrojGameState state) {
         int target = state.targetNumber;
-        int r2 = state.p2Result; // player2 igrao u rundi 2
+        int r2 = state.p2Result;
 
         if (r2 == target) {
             state.p2Score += 10;
@@ -234,7 +234,7 @@ public class MojBrojViewModel extends ViewModel {
             int d2 = helper.distanceFromTarget(state.p2Result, target);
 
             if (d1 == Integer.MAX_VALUE && d2 == Integer.MAX_VALUE) {
-                // Oba igrača nisu ništa uneli
+
             } else if (d1 < d2) {
                 state.p1Score += 5;
             } else if (d2 < d1) {

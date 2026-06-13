@@ -31,7 +31,7 @@ import java.util.List;
 public class MojBrojFragment extends Fragment implements SensorEventListener {
 
 
-    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore;
+    private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore, tvLeftNumber, tvRightNumber;
     private TextView tvTimer, tvTargetNumber;
     private Button btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6;
     private Button btnStop, btnDelete, btnPlus, btnMinus, btnMul, btnDiv, btnOpen, btnClose;
@@ -151,6 +151,27 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         } else {
             tvStatusMessage.setVisibility(View.GONE);
         }
+
+        boolean roundJustEnded =
+                (state.round == 2 && state.p2Submitted) ||
+                        (state.round == 1 && state.p1Submitted);
+
+        if ("finished".equals(state.status) || roundJustEnded) {
+
+            tvLeftNumber.setText(
+                    state.p1Result != -1 ? String.valueOf(state.p1Result) : "-"
+            );
+
+            tvRightNumber.setText(
+                    state.p2Result != -1 ? String.valueOf(state.p2Result) : "-"
+            );
+
+        } else {
+            tvLeftNumber.setText("???");
+            tvRightNumber.setText("???");
+        }
+
+
     }
 
     private void setInputEnabled(boolean enabled) {
@@ -247,6 +268,8 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         btnNum4         = view.findViewById(R.id.btnNum4);
         btnNum5         = view.findViewById(R.id.btnNum5);
         btnNum6         = view.findViewById(R.id.btnNum6);
+        tvLeftNumber  = view.findViewById(R.id.tvLeftNumber);
+        tvRightNumber = view.findViewById(R.id.tvRightNumber);
 
 
         tvStatusMessage = view.findViewWithTag("tvStatusMessage");
