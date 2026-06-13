@@ -220,14 +220,6 @@
                     android:layout_weight="1"
                     android:text="@string/potvrdi" />
 
-                <Button
-                    android:id="@+id/btnStop2"
-                    style="@style/StopButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/sledeci" />
-
             </LinearLayout>
 
         </LinearLayout>
