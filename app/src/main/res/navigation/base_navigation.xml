@@ -112,4 +112,10 @@
         app:popUpTo="@+id/nav_home"
         app:popUpToInclusive="true" />
 
+    <fragment
+        android:id="@+id/nav_daily_missions"
+        android:name="com.example.slagalica.fragments.DailyMissionsFragment"
+        android:label="Dnevne Misije"
+        tools:layout="@layout/fragment_daily_missions" />
+
 </navigation>
