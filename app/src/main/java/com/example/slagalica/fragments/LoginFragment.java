@@ -3,6 +3,7 @@ package com.example.slagalica.fragments;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 
 import android.view.LayoutInflater;
@@ -190,6 +191,8 @@ public class LoginFragment extends Fragment {
                                         "Uspešna prijava",
                                         Toast.LENGTH_SHORT).show();
 
+                                checkAndGrantDailyTokens(user.getUid(), view);
+
                                 Navigation.findNavController(view)
                                         .navigate(R.id.nav_home);
 
@@ -241,5 +244,49 @@ public class LoginFragment extends Fragment {
                                 Toast.LENGTH_LONG).show();
                     }
                 });
+    }
+
+    private void checkAndGrantDailyTokens(String uid, View view) {
+
+        // ✅ Uzmi NavController odmah, dok je view još aktivan
+        NavController navController = Navigation.findNavController(view);
+
+        db.collection("users")
+                .document(uid)
+                .get()
+                .addOnSuccessListener(doc -> {
+
+                    long lastClaim = 0;
+                    Long stored = doc.getLong("lastTokenClaimTimestamp");
+                    if (stored != null) lastClaim = stored;
+
+                    long now = System.currentTimeMillis();
+                    long oneDayMs = 24 * 60 * 60 * 1000L;
+                    boolean claimedToday = (now - lastClaim) < oneDayMs;
+
+                    if (!claimedToday) {
+                        long currentTokens = 0;
+                        Long storedTokens = doc.getLong("tokens");
+                        if (storedTokens != null) currentTokens = storedTokens;
+
+                        db.collection("users")
+                                .document(uid)
+                                .update(
+                                        "tokens", currentTokens + 5,
+                                        "lastTokenClaimTimestamp", now
+                                )
+                                .addOnSuccessListener(unused ->
+                                        Toast.makeText(getContext(),
+                                                "Dobili ste 5 dnevnih tokena!",
+                                                Toast.LENGTH_SHORT).show()
+                                );
+                    }
+
+                    // ✅ Koristiš već sačuvani navController
+                    navController.navigate(R.id.nav_home);
+                })
+                .addOnFailureListener(e ->
+                        navController.navigate(R.id.nav_home)
+                );
     }
 }

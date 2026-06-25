@@ -52,4 +52,20 @@ public class MojBrojRepository {
             gameRef.removeEventListener(listener);
         }
     }
+
+    public void setReady(String role, Runnable bothReadyCallback) {
+        gameRef.child("ready").child(role).setValue(true);
+        gameRef.child("ready").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                boolean p1 = Boolean.TRUE.equals(snapshot.child("player1").getValue(Boolean.class));
+                boolean p2 = Boolean.TRUE.equals(snapshot.child("player2").getValue(Boolean.class));
+                if (p1 && p2) {
+                    gameRef.child("ready").removeEventListener(this);
+                    bothReadyCallback.run();
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError e) {}
+        });
+    }
 }

@@ -76,7 +76,7 @@
         android:id="@+id/nav_korak"
         android:name="com.example.slagalica.games.KorakPoKorakFragment"
         android:label="Korak po korak"
-        app:popUpTo="@+id/nav_home"
+
         tools:layout="@layout/fragment_korak_po_korak"
         />
 

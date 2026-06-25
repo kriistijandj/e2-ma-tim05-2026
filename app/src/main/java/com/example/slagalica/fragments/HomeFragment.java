@@ -1,5 +1,6 @@
 package com.example.slagalica.fragments;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -10,8 +11,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.Toast;
 
 import com.example.slagalica.R;
+import com.example.slagalica.repository.MatchmakingRepository;
 
 public class HomeFragment extends Fragment {
 
@@ -25,12 +28,64 @@ public class HomeFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
         // Povezivanje dugmeta za navigaciju ka GameFragment (izboru igara)
-        Button btnGame = view.findViewById(R.id.btnStartGame);
+        Button btnStartGame = view.findViewById(R.id.btnStartGame);
 
-        btnGame.setOnClickListener(v ->
-                Navigation.findNavController(view).navigate(R.id.nav_game)
-        );
+        btnStartGame.setOnClickListener(v -> {
+            // Prikaži loading/čekanje UI
+            showWaitingDialog();
+
+            matchmakingRepo = new MatchmakingRepository();
+
+            matchmakingRepo.startMatchmaking(new MatchmakingRepository.OnMatchFoundListener() {
+                @Override
+                public void onMatchFound(String matchId, String role) {
+                    dismissWaitingDialog();
+
+                    if (!isAdded() || getView() == null) return;
+
+                    Bundle args = new Bundle();
+                    args.putString("MATCH_ID", matchId);
+                    args.putString("PLAYER_ROLE", role);
+                    Navigation.findNavController(requireView()).navigate(R.id.nav_game, args);
+                }
+
+                @Override
+                public void onWaitingForOpponent() {
+                    // Prikaži "Tražim protivnika..." sa X dugmetom
+                }
+
+                @Override
+                public void onNoTokens() {
+                    dismissWaitingDialog();
+
+                    if (!isAdded() || getContext() == null) return;
+
+                    Toast.makeText(getContext(), "Nemaš tokena!", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
 
         return view;
+    }
+
+    private AlertDialog waitingDialog;
+    private MatchmakingRepository matchmakingRepo;
+
+    private void showWaitingDialog() {
+        waitingDialog = new AlertDialog.Builder(getContext())
+                .setTitle("Tražim protivnika...")
+                .setMessage("Molimo sačekajte")
+                .setNegativeButton("Otkaži", (d, w) -> {
+                    matchmakingRepo.cancelMatchmaking();
+                    d.dismiss();
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    private void dismissWaitingDialog() {
+        if (waitingDialog != null && waitingDialog.isShowing()) {
+            waitingDialog.dismiss();
+        }
     }
 }
