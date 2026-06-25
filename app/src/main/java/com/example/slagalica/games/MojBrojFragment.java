@@ -176,6 +176,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         }
 
         boolean mySubmitted = iAmPlayer1 ? state.p1Submitted : state.p2Submitted;
+        boolean bothSubmitted = state.p1Submitted && state.p2Submitted;
 
         boolean canInput = state.numbersRevealed && !mySubmitted
                 && "active".equals(state.status);
@@ -199,8 +200,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             btnStop.setEnabled(false);
         }
 
-        boolean showResults = state.p1Submitted && state.p2Submitted;
-        if (showResults) {
+        if (bothSubmitted) {
             tvLeftNumber.setText(formatResult(state.p1Result));
             tvRightNumber.setText(formatResult(state.p2Result));
         } else {
@@ -208,7 +208,11 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             tvRightNumber.setText(state.p2Submitted ? formatResult(state.p2Result) : "???");
         }
 
-        // Ekran "Runda 1 završena" — zaustavi sve inpute i prikaži poruku
+        // =========================================================================
+        // KRITIČNI FIX: Provere stanja kraja ekrana IDU NA VRH (Pre provera čekanja)
+        // =========================================================================
+
+        // Ekran "Runda 1 završena"
         if (state.showingRoundResult) {
             tvStatusMessage.setText("Runda 1 završena!\nPrelazak na rundu 2...");
             tvStatusMessage.setVisibility(View.VISIBLE);
@@ -217,7 +221,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             return;
         }
 
-        // Ekran kraja igre — prikaži rezultat i čekaj navigaciju kroz listenForNextGame
+        // Ekran kraja igre
         if ("finished".equals(state.status)) {
             int finalScoreP1 = viewModel.getMatchStartingScoreP1() + state.p1Score;
             int finalScoreP2 = viewModel.getMatchStartingScoreP2() + state.p2Score;
@@ -230,11 +234,13 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             tvStatusMessage.setText("Igra završena! " + winner
                     + " (P1: " + finalScoreP1 + " – P2: " + finalScoreP2 + ")");
             tvStatusMessage.setVisibility(View.VISIBLE);
+            setInputEnabled(false);
+            btnStop.setEnabled(false);
             return;
         }
 
-        // Čeka se protivnik da preda
-        if (mySubmitted) {
+        // Tek ako igra NIJE gotova, proveravamo da li neko nekog čeka
+        if (mySubmitted && !bothSubmitted) {
             tvStatusMessage.setText("Čeka se protivnik...");
             tvStatusMessage.setVisibility(View.VISIBLE);
             return;

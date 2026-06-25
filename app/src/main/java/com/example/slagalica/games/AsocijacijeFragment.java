@@ -19,6 +19,8 @@ import com.example.slagalica.R;
 import com.example.slagalica.models.asocijacije.AsocijacijeGameState;
 import com.example.slagalica.viewmodel.AsocijacijeViewModel;
 
+import java.util.Map;
+
 public class AsocijacijeFragment extends Fragment {
 
     private final Button[][] fields = new Button[4][4];
@@ -28,7 +30,6 @@ public class AsocijacijeFragment extends Fragment {
     private TextView tvTimer, tvLeftName, tvRightName, tvLeftScore, tvRightScore;
 
     private boolean isClickPending = false;
-    private boolean hasOpenedFieldInThisTurn = false;
     private AsocijacijeViewModel viewModel;
 
     @Nullable
@@ -53,21 +54,20 @@ public class AsocijacijeFragment extends Fragment {
         setupColumnViews(v, 2, new int[]{R.id.c1, R.id.c2, R.id.c3, R.id.c4}, R.id.colC);
         setupColumnViews(v, 3, new int[]{R.id.d1, R.id.d2, R.id.d3, R.id.d4}, R.id.colD);
 
-        // Inicijalizacija troslojne arhitekture (ViewModel)
+        // Inicijalizacija ViewModel-a
         viewModel = new ViewModelProvider(this).get(AsocijacijeViewModel.class);
 
-        // Podrazumevane vrednosti ako fragment startuje bez lobi sistema (npr. direktno iz koda)
-        String gameId = "test_game_001";
-        String myPlayerId = "player1";
+        // Usklađeno sa Korak po Korak nomenklaturom ključeva
+        String matchId = "test_game_001";
+        String myRole = "player1";
 
-        // Prihvatanje sobe i uloge koje je dodelio lobi sistem iz GameFragment-a
         if (getArguments() != null) {
-            gameId = getArguments().getString("ROOM_ID", "test_game_001");
-            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+            matchId = getArguments().getString("MATCH_ID", "test_game_001");
+            myRole = getArguments().getString("PLAYER_ROLE", "player1");
         }
 
-        viewModel.init(gameId, myPlayerId);
-        viewModel.setupInitialGameIfHost();
+        viewModel.init(matchId, myRole);
+        //viewModel.setupInitialGameIfHost();
 
         // Klik na dugme KONAČNO (Slanje konačnog rešenja)
         btnFinal.setOnClickListener(view -> {
@@ -102,7 +102,6 @@ public class AsocijacijeFragment extends Fragment {
                 if (isClickPending) return;
 
                 isClickPending = true;
-                hasOpenedFieldInThisTurn = true;
                 viewModel.openField(col, rowIdx);
             });
         }
@@ -124,25 +123,43 @@ public class AsocijacijeFragment extends Fragment {
             etGuess.setText("");
         });
     }
-    private int lastActivePlayer = -1;
+
     private void renderScreenFromState(AsocijacijeGameState state) {
-        // 1. Ažuriranje rezultata i zaglavlja
         isClickPending = false;
-        if (state.activePlayer != lastActivePlayer) {
-            hasOpenedFieldInThisTurn = false;
-            lastActivePlayer = state.activePlayer;
-        }
+
         tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ★" : ""));
         tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ★" : ""));
-        tvLeftScore.setText("Bodovi: " + state.p1Score);
-        tvRightScore.setText("Bodovi: " + state.p2Score);
 
+        // ========================================================
+        // KORAK PATTERN: Izvlačenje bodova preko UID-a iz scores mape
+        // ========================================================
+        int p1Score = 0;
+        int p2Score = 0;
 
-        // Provera da li sam ja trenutno aktivni igrač
-        boolean amIActive = (state.activePlayer == 1 && "player1".equals(viewModel.getMyPlayerId())) ||
-                (state.activePlayer == 2 && "player2".equals(viewModel.getMyPlayerId()));
+        if (state.scores != null) {
+            // Ako mapa sadrži UID hosta (player1Id), izvlačimo njegove bodove za Igrača 1
+            if (state.scores.containsKey(state.player1Id)) {
+                Integer s1 = state.scores.get(state.player1Id);
+                p1Score = s1 != null ? s1 : 0;
+            }
 
-        // 2. Iscrtavanje matrice polja i kolona na osnovu podataka iz baze
+            // Drugi UID u mapi koji nije player1Id dodeljuje se Igraču 2
+            for (Map.Entry<String, Integer> entry : state.scores.entrySet()) {
+                if (!entry.getKey().equals(state.player1Id)) {
+                    p2Score = entry.getValue() != null ? entry.getValue() : 0;
+                    break;
+                }
+            }
+        }
+
+        tvLeftScore.setText("Bodovi: " + p1Score);
+        tvRightScore.setText("Bodovi: " + p2Score);
+
+        // Provera da li sam ja trenutno aktivni igrač na osnovu uloge (role)
+        boolean amIActive = (state.activePlayer == 1 && "player1".equals(viewModel.getMyRole())) ||
+                (state.activePlayer == 2 && "player2".equals(viewModel.getMyRole()));
+
+        // Iscrtavanje matrice polja i kolona na osnovu podataka iz baze
         for (int c = 0; c < 4; c++) {
             String colKey = (c == 0) ? "A" : (c == 1) ? "B" : (c == 2) ? "C" : "D";
             boolean isColResolved = Boolean.TRUE.equals(state.columnResolved.get(colKey));
@@ -156,13 +173,12 @@ public class AsocijacijeFragment extends Fragment {
                     fields[c][r].setTextColor(Color.BLACK);
                     fields[c][r].setEnabled(false);
                 } else {
-                    // Ako polje nije otvoreno, ponovo ga vrati u podrazumevano stanje (za novu rundu)
                     fields[c][r].setText(colKey + (r + 1));
                     fields[c][r].setBackgroundColor(Color.parseColor("#3F51B5")); // Plava boja Slagalice
                     fields[c][r].setTextColor(Color.WHITE);
 
-                    // Onemogući klik ako nisam na potezu ILI ako sam u režimu gde smem samo pogađati rešenja
-                    fields[c][r].setEnabled(amIActive && !state.isGuessOnlyMode && !hasOpenedFieldInThisTurn);
+                    // Polje je aktivno samo ako sam ja na potezu i ako nismo u GuessOnly režimu.
+                    fields[c][r].setEnabled(amIActive && !state.isGuessOnlyMode);
                 }
             }
 
@@ -180,7 +196,7 @@ public class AsocijacijeFragment extends Fragment {
             }
         }
 
-        // 3. Iscrtavanje dugmeta za Konačno rešenje
+        // Iscrtavanje dugmeta za Konačno rešenje
         if (state.finalResolved) {
             btnFinal.setText(viewModel.getFinalSolutionText());
             btnFinal.setBackgroundColor(Color.parseColor("#2E7D32")); // Tamno zelena
@@ -195,11 +211,17 @@ public class AsocijacijeFragment extends Fragment {
             etGuess.setEnabled(amIActive);
         }
 
-        // Ako je cela igra gotova, blokiraj unos
+        // Ako je cela igra gotova ili je vreme isteklo, blokiraj unose
         if ("finished".equals(state.status)) {
             Toast.makeText(getContext(), "Igra Asocijacije je završena!", Toast.LENGTH_LONG).show();
             etGuess.setEnabled(false);
             btnFinal.setEnabled(false);
+            for (int c = 0; c < 4; c++) {
+                columnSolutions[c].setEnabled(false);
+                for (int r = 0; r < 4; r++) {
+                    fields[c][r].setEnabled(false);
+                }
+            }
         }
     }
 }

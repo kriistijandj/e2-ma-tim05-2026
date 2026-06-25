@@ -321,33 +321,24 @@ public class MojBrojViewModel extends ViewModel {
     private void advanceIfNeeded(MojBrojGameState state) {
         boolean bothSubmitted = state.p1Submitted && state.p2Submitted;
 
-        // Jedan igrač je predao, drugi još nije — samo upiši u bazu i čekaj
         if (!bothSubmitted) {
             repository.updateGameState(state);
             return;
         }
 
-        // Oba igrača su predala — izračunaj bodove za ovu rundu
-        // FIX: Guard protiv dupliranog poziva (lokalni + Firebase event)
         if (state.round == 1 && round1Processed) return;
         if (state.round == 2 && round2Processed) return;
+
         if (state.round == 1) round1Processed = true;
         if (state.round == 2) round2Processed = true;
 
         awardRoundPoints(state);
 
         if (state.round == 1) {
-            // Oba igrača upisuju state sa bodovima u bazu.
-            // Time player1 dobija Firebase event sa p2Submitted=true (ako je player2 predao drugi),
-            // i može da pokrene tajmer za prelaz. player2 analogno dobija event od player1.
-            // Koordinaciju (showingRoundResult + goToRound2) radi isključivo player1.
             if ("player1".equals(myPlayerId)) {
-                // Spreči višestruko pokretanje tajmera za prelaz
                 if (round2TransitionScheduled) return;
                 round2TransitionScheduled = true;
 
-                // player1 upisuje state sa showingRoundResult=true —
-                // ovaj jedan upis pokriva i bodove i signal za prikaz ekrana između rundi
                 state.showingRoundResult = true;
                 repository.updateGameState(state);
 
@@ -357,10 +348,8 @@ public class MojBrojViewModel extends ViewModel {
                     }
                     @Override public void onFinish() {
                         MojBrojGameState fresh = gameState.getValue();
-                        if (fresh == null) {
-                            Log.e(TAG, "fresh state je null pri prelasku na rundu 2!");
-                            return;
-                        }
+                        if (fresh == null) return;
+
                         int scoreP1 = fresh.p1Score;
                         int scoreP2 = fresh.p2Score;
 
@@ -369,33 +358,71 @@ public class MojBrojViewModel extends ViewModel {
                         fresh.p1Score = scoreP1;
                         fresh.p2Score = scoreP2;
 
-                        Log.d(TAG, "[player1] Prelazak na rundu 2. Bodovi P1=" + scoreP1 + " P2=" + scoreP2);
                         repository.updateGameState(fresh);
                     }
                 }.start();
             } else {
-                // player2 upisuje state sa oba submita (bez showingRoundResult) —
-                // player1 ce dobiti ovaj Firebase event i pokrenuti prelaz na rundu 2
                 repository.updateGameState(state);
             }
-            // player2 čeka Firebase event od player1 koji će postaviti showingRoundResult=true
-
         } else {
-            // Runda 2 je završena — kraj igre
-            // FIX: Spreči dvostruki poziv finishGame
+            // ========================================================
+            // RUNDA 2 KRAJ: Koristimo OnCompleteListener šablon
+            // ========================================================
             if (gameFinished) return;
+            gameFinished = true;
 
+            state.status = "finished";
+
+            // Prvo šaljemo state u bazu da oba klijenta vide konačne bodove iz Moj Broj igre
+            repository.updateGameState(state);
+
+            // Pokrećemo bezbedan upis u centralni meč
             if (isMatchScoreLoaded) {
-                gameFinished = true;
-                finishGame(state);
-                repository.updateGameState(state);
+                finishGameAndIncrement(state);
             } else {
-                // Retko — mreža kasni sa učitavanjem početnih bodova; pokušaj ponovo
-                Log.w(TAG, "isMatchScoreLoaded je false, čekam 1s pa pokušavam ponovo...");
                 new android.os.Handler(android.os.Looper.getMainLooper())
-                        .postDelayed(() -> advanceIfNeeded(state), 1000);
+                        .postDelayed(() -> finishGameAndIncrement(state), 1000);
             }
         }
+    }
+
+    private void finishGameAndIncrement(MojBrojGameState state) {
+        saveMojBrojStats(state);
+
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+        if (uid == null) return;
+
+        int myTotalScore = "player1".equals(myPlayerId)
+                ? (matchStartingScoreP1 + state.p1Score)
+                : (matchStartingScoreP2 + state.p2Score);
+
+        Log.d(TAG, "[" + myPlayerId + "] Upisujem krajnji skor u meč: " + myTotalScore);
+
+        // Upisujemo bodove i tek na Complete uvećavamo currentGame
+        FirebaseDatabase.getInstance()
+                .getReference("matches")
+                .child(matchId)
+                .child("scores")
+                .child(uid)
+                .setValue(myTotalScore)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "[" + myPlayerId + "] Uspešno upisan skor na server.");
+
+                        // FIX: Pošto oba igrača prolaze kroz ovu metodu paralelno na svojim telefonima kada igra završi,
+                        // player1 će garantovano okinuti increment, bez obzira da li je predao prvi ili drugi!
+                        if ("player1".equals(myPlayerId)) {
+                            Log.d(TAG, "[player1] Ja sam host, uvećavam currentGame za prelazak u Asocijacije.");
+                            FirebaseDatabase.getInstance()
+                                    .getReference("matches")
+                                    .child(matchId)
+                                    .child("currentGame")
+                                    .setValue(ServerValue.increment(1));
+                        }
+                    }
+                });
     }
 
     private void awardRoundPoints(MojBrojGameState state) {
