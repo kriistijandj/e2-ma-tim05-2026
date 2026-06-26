@@ -33,23 +33,33 @@ public class AsocijacijeViewModel extends ViewModel {
 
     private CountDownTimer roundTimer;
 
-    private String matchId; // Identifikator celog meča iz lobi sistema
+    private String matchId;
     private String myRole;  // "player1" ili "player2"
     private String myUid;
 
     private AssociationGame associationDataStatic;
 
     // Lokalne varijable za statistiku na nivou partije
-    private int mySolvedColumns  = 0;
+    private int mySolvedColumns = 0;
     private boolean myFinalSolved = false;
 
-    // Flags po uzoru na KorakViewModel za sprečavanje dupliranja i petlji
+    // Flags za sprečavanje dupliranja i petlji
     private boolean selfRegistered = false;
     private boolean matchFinishedRegistered = false;
+
+    // Flag koji sprečava da oba igrača istovremeno pokušaju prelaz na rundu 2
+    private boolean roundTransitionInProgress = false;
 
     private int matchStartingScoreP1 = 0;
     private int matchStartingScoreP2 = 0;
     private boolean isMatchScoreLoaded = false;
+
+    // Keširani server time offset (ms) koji dobijamo iz Firebase .info/serverTimeOffset
+    private long serverTimeOffset = 0;
+
+    // ----------------------------------------------------------------
+    // INIT
+    // ----------------------------------------------------------------
 
     public void init(String matchId, String role) {
         this.matchId = matchId;
@@ -59,6 +69,36 @@ public class AsocijacijeViewModel extends ViewModel {
         this.repository = new AsocijacijeRepository(matchId);
         this.associationDataStatic = AssociationData.createGame();
 
+        // 1. Učitaj server time offset PRVO, pa tek onda sve ostalo
+        FirebaseDatabase.getInstance()
+                .getReference(".info/serverTimeOffset")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        Long offset = snapshot.getValue(Long.class);
+                        serverTimeOffset = (offset != null) ? offset : 0;
+                        android.util.Log.d("ASOCIJACIJE_LOG", "[init] Server time offset: " + serverTimeOffset + "ms");
+                        loadMatchScores();
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        serverTimeOffset = 0;
+                        loadMatchScores();
+                    }
+                });
+    }
+
+    /**
+     * Vraća trenutno vreme usklađeno sa serverskim satom.
+     * Oba igrača koriste ovo umesto System.currentTimeMillis() direktno
+     * kako bi imali konzistentno računanje preostalog vremena.
+     */
+    private long serverNow() {
+        return System.currentTimeMillis() + serverTimeOffset;
+    }
+
+    private void loadMatchScores() {
         FirebaseDatabase.getInstance()
                 .getReference("matches")
                 .child(matchId)
@@ -68,26 +108,24 @@ public class AsocijacijeViewModel extends ViewModel {
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
                         for (DataSnapshot playerSnapshot : snapshot.getChildren()) {
                             String playerUid = playerSnapshot.getKey();
-                            int savedScore = playerSnapshot.getValue(Integer.class) != null ? playerSnapshot.getValue(Integer.class) : 0;
+                            Integer savedScore = playerSnapshot.getValue(Integer.class);
+                            int score = (savedScore != null) ? savedScore : 0;
 
                             if (playerUid != null && playerUid.equals(myUid)) {
-                                if ("player1".equals(myRole)) matchStartingScoreP1 = savedScore;
-                                else                           matchStartingScoreP2 = savedScore;
+                                if ("player1".equals(myRole)) matchStartingScoreP1 = score;
+                                else                           matchStartingScoreP2 = score;
                             } else {
-                                if ("player1".equals(myRole)) matchStartingScoreP2 = savedScore;
-                                else                           matchStartingScoreP1 = savedScore;
+                                if ("player1".equals(myRole)) matchStartingScoreP2 = score;
+                                else                           matchStartingScoreP1 = score;
                             }
                         }
                         isMatchScoreLoaded = true;
 
-                        android.util.Log.d("ASOCIJACIJE_LOG", "[init] Bodovi učitani iz meča -> Moj Uloga: " + myRole
-                                + " | matchStartingScoreP1: " + matchStartingScoreP1
-                                + " | matchStartingScoreP2: " + matchStartingScoreP2);
+                        android.util.Log.d("ASOCIJACIJE_LOG", "[init] Bodovi učitani -> Uloga: " + myRole
+                                + " | P1 start: " + matchStartingScoreP1
+                                + " | P2 start: " + matchStartingScoreP2);
 
-                        // POKRETANJE SLUŠANJA PROMENA
                         startListeningToGameState();
-
-                        // FIX: Tek ovde, kada imamo prave bodove, host sme da kreira igru!
                         setupInitialGameIfHost();
                     }
 
@@ -95,24 +133,51 @@ public class AsocijacijeViewModel extends ViewModel {
                     public void onCancelled(@NonNull DatabaseError error) {
                         isMatchScoreLoaded = true;
                         startListeningToGameState();
-                        setupInitialGameIfHost(); // Sigurnosni fallback
+                        setupInitialGameIfHost();
                     }
                 });
     }
 
-    // Prebaci listener u pomoćnu metodu
+    // ----------------------------------------------------------------
+    // LISTENER
+    // ----------------------------------------------------------------
+
     private void startListeningToGameState() {
         this.repository.listenToGameState(state -> {
             if (state == null) return;
 
-            // Kada se player2 registruje, postavi mu startni skor umesto 0
+            // Player2 se registruje (dodaje sebe u scores mapu)
             if (state.scores != null && !state.scores.containsKey(myUid) && !selfRegistered) {
                 selfRegistered = true;
                 int myStartScore = "player1".equals(myRole) ? matchStartingScoreP1 : matchStartingScoreP2;
                 state.scores.put(myUid, myStartScore);
 
-                android.util.Log.d("ASOCIJACIJE_LOG", "[Listener] Player2 ubacuje sebe. Postavlja početni skor: " + myStartScore);
+                android.util.Log.d("ASOCIJACIJE_LOG", "[Listener] Player2 registracija, početni skor: " + myStartScore);
                 repository.updateGameState(state);
+                return;
+            }
+
+            // Ako je rundu2 treba da pokrene Player1, a Player2 je pogodio final u rundi 1,
+            // state.showingRoundResult == true i rundaZapocinje == 1 → Player1 preuzima prelaz
+            if (state.showingRoundResult && state.round == 1 && "player1".equals(myRole) && !roundTransitionInProgress) {
+                roundTransitionInProgress = true;
+                final Map<String, Integer> scoresFromRoundOne = state.scores != null
+                        ? new HashMap<>(state.scores)
+                        : new HashMap<>();
+
+                android.util.Log.d("ASOCIJACIJE_LOG", "[Player1] Detektovao showingRoundResult, pokreće prelaz na rundu 2.");
+
+                new CountDownTimer(5000, 1000) {
+                    public void onTick(long ms) {}
+                    public void onFinish() {
+                        AsocijacijeGameState currentState = gameState.getValue();
+                        if (currentState == null) currentState = state;
+                        transitionToRound2(currentState, scoresFromRoundOne);
+                    }
+                }.start();
+
+                // Postavljamo state lokalno da UI vidi "showingRoundResult" odmah
+                gameState.setValue(state);
                 return;
             }
 
@@ -120,6 +185,10 @@ public class AsocijacijeViewModel extends ViewModel {
             handleTimerAndTurnSync(state);
         });
     }
+
+    // ----------------------------------------------------------------
+    // GETTERS
+    // ----------------------------------------------------------------
 
     public LiveData<AsocijacijeGameState> getGameState() { return gameState; }
     public LiveData<String> getTimerText()               { return timerText; }
@@ -150,18 +219,22 @@ public class AsocijacijeViewModel extends ViewModel {
         return associationDataStatic.rounds[roundIdx].finalSolution;
     }
 
+    // ----------------------------------------------------------------
+    // TIMER
+    // ----------------------------------------------------------------
+
     private void handleTimerAndTurnSync(AsocijacijeGameState state) {
         if ("finished".equals(state.status)) {
             if (roundTimer != null) roundTimer.cancel();
             timerText.setValue("Igra završena");
-            finishMatch(state); // Okidanje završetka meča i upisa
+            finishMatch(state);
             return;
         }
 
         boolean amIActive = amIActive(state);
 
-        long currentTime = System.currentTimeMillis();
-        long timeLeftMs = state.roundEndTime - currentTime;
+        // Koristimo serverNow() umesto System.currentTimeMillis()
+        long timeLeftMs = state.roundEndTime - serverNow();
 
         if (timeLeftMs <= 0) {
             if (roundTimer != null) {
@@ -189,11 +262,12 @@ public class AsocijacijeViewModel extends ViewModel {
     private void startTimer(int seconds) {
         if (roundTimer != null) roundTimer.cancel();
 
-        roundTimer = new CountDownTimer(seconds * 1000, 1000) {
+        roundTimer = new CountDownTimer(seconds * 1000L, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
                 timerText.setValue((millisUntilFinished / 1000) + "s");
             }
+
             @Override
             public void onFinish() {
                 timerText.setValue("0s");
@@ -206,9 +280,12 @@ public class AsocijacijeViewModel extends ViewModel {
     private void handleTimeOut() {
         AsocijacijeGameState state = gameState.getValue();
         if (state == null || !amIActive(state)) return;
-
         endRoundLogic(state);
     }
+
+    // ----------------------------------------------------------------
+    // AKCIJE IGRAČA
+    // ----------------------------------------------------------------
 
     public void openField(int col, int row) {
         AsocijacijeGameState state = gameState.getValue();
@@ -231,29 +308,42 @@ public class AsocijacijeViewModel extends ViewModel {
 
         if ("FINAL".equals(target)) {
             if (currentRoundData.finalSolution.equalsIgnoreCase(guess)) {
-                int scoreGained = 7;
+                int scoreGained = 7; // bazični bodovi za konačno rešenje
 
                 for (int c = 0; c < 4; c++) {
                     String colKey = getColumnKey(c);
-                    if (!Boolean.TRUE.equals(state.columnResolved.get(colKey))) {
-                        scoreGained += 6;
-                        state.columnResolved.put(colKey, true);
-                    } else {
-                        int unopenedCount = 0;
-                        for (int r = 0; r < 4; r++) {
-                            if (!state.openedFields.get(c).get(r)) unopenedCount++;
+
+                    // Proveravamo koliko ima neotvorenih polja u ovoj koloni
+                    int unopenedCount = 0;
+                    for (int r = 0; r < 4; r++) {
+                        if (!state.openedFields.get(c).get(r)) {
+                            unopenedCount++;
                         }
+                    }
+
+                    // Slajsanje po stanjima kolone:
+                    if (Boolean.TRUE.equals(state.columnResolved.get(colKey))) {
+                        // Stanje 1: Kolona je već ranije rešena, bodovi su već dodeljeni
+                        // Ovde ne dodajemo ništa (0 bodova)
+                    } else if (unopenedCount == 4) {
+                        // Stanje 2: Kolona je potpuno neotvorena (netaknuta)
+                        scoreGained += 6;
+                    } else {
+                        // Stanje 3: Kolona je delimično otvorena, a nije bila rešena
                         scoreGained += (2 + unopenedCount);
                     }
-                    for (int r = 0; r < 4; r++) state.openedFields.get(c).set(r, true);
+
+                    // Na kraju, otvaramo sva polja i rešavamo kolonu vizuelno za UI
+                    state.columnResolved.put(colKey, true);
+                    for (int r = 0; r < 4; r++) {
+                        state.openedFields.get(c).set(r, true);
+                    }
                 }
 
                 state.finalResolved = true;
                 myFinalSolved = true;
 
-                // KORAK PATTERN: Bezbedno dodavanje bodova kroz novu mapu u bazu
                 updatePlayerScore(state, scoreGained);
-
                 endRoundLogic(state);
                 return true;
             } else {
@@ -278,7 +368,6 @@ public class AsocijacijeViewModel extends ViewModel {
 
                 mySolvedColumns++;
 
-                // KORAK PATTERN: Bezbedno dodavanje bodova
                 updatePlayerScore(state, scoreGained);
 
                 state.isGuessOnlyMode = true;
@@ -291,13 +380,9 @@ public class AsocijacijeViewModel extends ViewModel {
         }
     }
 
-    // Pomoćna metoda za inkrementiranje skora unutar mape u stilu KorakViewModel-a
     private void updatePlayerScore(AsocijacijeGameState state, int points) {
-        if (state.scores == null) {
-            state.scores = new HashMap<>();
-        }
+        if (state.scores == null) state.scores = new HashMap<>();
         int current = state.scores.containsKey(myUid) ? state.scores.get(myUid) : 0;
-
         Map<String, Integer> newScores = new HashMap<>(state.scores);
         newScores.put(myUid, current + points);
         state.scores = newScores;
@@ -309,63 +394,86 @@ public class AsocijacijeViewModel extends ViewModel {
         repository.updateGameState(state);
     }
 
+    // ----------------------------------------------------------------
+    // KRAJ RUNDE
+    // ----------------------------------------------------------------
+
     private void endRoundLogic(AsocijacijeGameState state) {
-        if (roundTimer != null) roundTimer.cancel();
+        if (roundTimer != null) {
+            roundTimer.cancel();
+            roundTimer = null;
+        }
 
         if (state.round == 1) {
-            // Zaključavamo osvojene bodove iz prve runde da ih prenesemo u drugu rundu
+            // Sačuvaj bodove pre prelaza
             final Map<String, Integer> scoresFromRoundOne = state.scores != null
                     ? new HashMap<>(state.scores)
                     : new HashMap<>();
 
+            // Postavi showingRoundResult = true tako da PLAYER1 može da detektuje
+            // da treba pokrenuti prelaz, bez obzira ko je pogodio final
+            state.showingRoundResult = true;
+            repository.updateGameState(state);
+
+            android.util.Log.d("ASOCIJACIJE_LOG", "[endRoundLogic] Runda 1 završena, ko sam: " + myRole
+                    + " | showingRoundResult postavljen na true");
+
+            // Samo Player1 pokreće tajmer za prelaz
+            // Ako je Player2 pogodio, Player1 će detektovati showingRoundResult u listeneru
             if ("player1".equals(myRole)) {
-                state.showingRoundResult = true;
-                repository.updateGameState(state);
+                roundTransitionInProgress = true;
+                new CountDownTimer(5000, 1000) {
+                    public void onTick(long ms) {}
+                    public void onFinish() {
+                        AsocijacijeGameState currentState = gameState.getValue();
+                        if (currentState == null) currentState = state;
+                        transitionToRound2(currentState, scoresFromRoundOne);
+                    }
+                }.start();
             }
 
-            // Pauza od 5 sekundi (isto kao u Koraku) pre prelaska na drugu rundu
-            new CountDownTimer(5000, 1000) {
-                public void onTick(long ms) {}
-
-                public void onFinish() {
-                    if (!"player1".equals(myRole)) return;
-
-                    AsocijacijeGameState currentState = gameState.getValue();
-                    if (currentState == null) currentState = state;
-
-                    currentState.round = 2;
-                    currentState.rundaZapocinje = 2;
-                    currentState.activePlayer = 2;
-                    currentState.isGuessOnlyMode = false;
-                    currentState.finalResolved = false;
-                    currentState.showingRoundResult = false;
-                    currentState.roundEndTime = System.currentTimeMillis() + 120000;
-
-                    for (int c = 0; c < 4; c++) {
-                        currentState.columnResolved.put(getColumnKey(c), false);
-                        for (int r = 0; r < 4; r++) {
-                            currentState.openedFields.get(c).set(r, false);
-                        }
-                    }
-
-                    // VRAĆANJE BODOVA IZ PRVE RUNDE NA KOJE SE DODAJU NOVI BODOVI
-                    currentState.scores = scoresFromRoundOne;
-
-                    repository.updateGameState(currentState);
-                }
-            }.start();
-
         } else {
+            // Runda 2 → kraj igre
             state.status = "finished";
-
-            // Pokretanje lokalnog upisa u Firestore statistike pre slanja u centralni meč
             calculateAndSaveFirestoreStats(state);
-
             repository.updateGameState(state);
         }
     }
 
-    // ---------------- FINISH MATCH (IDENTIČNO KORAKU) ----------------
+    /**
+     * Prelaz na rundu 2 — uvijek ga izvršava Player1.
+     * Poziva se ili direktno (ako je Player1 završio rundu 1)
+     * ili kroz listener (ako je Player2 završio rundu 1).
+     */
+    private void transitionToRound2(AsocijacijeGameState currentState, Map<String, Integer> scoresFromRoundOne) {
+        android.util.Log.d("ASOCIJACIJE_LOG", "[transitionToRound2] Player1 pokreće rundu 2.");
+
+        currentState.round = 2;
+        currentState.rundaZapocinje = 2;
+        currentState.activePlayer = 2;
+        currentState.isGuessOnlyMode = false;
+        currentState.finalResolved = false;
+        currentState.showingRoundResult = false;
+
+        // Koristimo serverNow() umesto System.currentTimeMillis()
+        currentState.roundEndTime = serverNow() + 120000;
+
+        for (int c = 0; c < 4; c++) {
+            currentState.columnResolved.put(getColumnKey(c), false);
+            for (int r = 0; r < 4; r++) {
+                currentState.openedFields.get(c).set(r, false);
+            }
+        }
+
+        // Vraćamo bodove iz runde 1 kao bazu za rundu 2
+        currentState.scores = scoresFromRoundOne;
+
+        repository.updateGameState(currentState);
+    }
+
+    // ----------------------------------------------------------------
+    // ZAVRŠETAK MEČA
+    // ----------------------------------------------------------------
 
     private void finishMatch(AsocijacijeGameState state) {
         if (matchFinishedRegistered) return;
@@ -375,7 +483,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 ? state.scores.get(myUid)
                 : 0;
 
-        // 1. Upis u zajednički čvor meča u Realtime bazi
+        // Upis u zajednički čvor meča u Realtime bazi
         FirebaseDatabase.getInstance()
                 .getReference("matches")
                 .child(matchId)
@@ -383,7 +491,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 .child(myUid)
                 .setValue(score);
 
-        // 2. Samo player1 inkrementira currentGame da bi lobi sistem prebacio na sledeću igru
+        // Samo player1 inkrementira currentGame da lobi sistem pređe na sledeću igru
         if ("player1".equals(myRole)) {
             FirebaseDatabase.getInstance()
                     .getReference("matches")
@@ -393,14 +501,15 @@ public class AsocijacijeViewModel extends ViewModel {
         }
     }
 
-    // ---------------- FIRESTORE STATISTIKA ----------------
+    // ----------------------------------------------------------------
+    // FIRESTORE STATISTIKA
+    // ----------------------------------------------------------------
 
     private void calculateAndSaveFirestoreStats(AsocijacijeGameState state) {
         if (myUid == null || state.scores == null) return;
 
         int myScore = state.scores.containsKey(myUid) ? state.scores.get(myUid) : 0;
 
-        // Pronalaženje protivničkog skora radi provere pobede/poraza
         int oppScore = 0;
         for (Map.Entry<String, Integer> entry : state.scores.entrySet()) {
             if (!entry.getKey().equals(myUid)) {
@@ -428,21 +537,31 @@ public class AsocijacijeViewModel extends ViewModel {
                 .update(updates);
     }
 
+    // ----------------------------------------------------------------
+    // SETUP (HOST)
+    // ----------------------------------------------------------------
+
     public void setupInitialGameIfHost() {
         if ("player1".equals(myRole)) {
             AsocijacijeGameState initialState = new AsocijacijeGameState();
-            initialState.roundEndTime = System.currentTimeMillis() + 120000;
+
+            // serverNow() garantuje konzistentno vreme za oba igrača
+            initialState.roundEndTime = serverNow() + 120000;
             initialState.player1Id = myUid;
 
             selfRegistered = true;
             initialState.scores = new HashMap<>();
             initialState.scores.put(myUid, matchStartingScoreP1);
 
-            android.util.Log.d("ASOCIJACIJE_LOG", "[Host] Kreiram igru, ubacujem startne bodove za Player1: " + matchStartingScoreP1);
+            android.util.Log.d("ASOCIJACIJE_LOG", "[Host] Kreiram igru, startni skor P1: " + matchStartingScoreP1);
 
             repository.updateGameState(initialState);
         }
     }
+
+    // ----------------------------------------------------------------
+    // HELPERS
+    // ----------------------------------------------------------------
 
     private boolean amIActive(AsocijacijeGameState state) {
         return (state.activePlayer == 1 && "player1".equals(myRole))
