@@ -17,8 +17,11 @@ public class SkockoRepository {
         void onStateChanged(SkockoGameState state);
     }
 
-    public SkockoRepository(String gameId) {
-        this.gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId).child("skocko");
+    public SkockoRepository(String matchId) {
+        this.gameRef = FirebaseDatabase.getInstance()
+                .getReference("games")
+                .child(matchId)
+                .child("skocko");
     }
 
     public void listenToGameState(GameStateCallback callback) {
@@ -48,6 +51,30 @@ public class SkockoRepository {
     public void removeListener() {
         if (gameStateListener != null) {
             gameRef.removeEventListener(gameStateListener);
+            gameStateListener = null; //← dodato kao u AsocijacijeRepository
         }
+    }
+
+    /**
+     * Isti ready mehanizam kao u AsocijacijeRepository / MojBrojRepository.
+     * Svaki igrač poziva setReady(), i tek kad su oba ready,
+     * izvršava se bothReadyCallback (samo jednom, kod player1).
+     */
+    public void setReady(String role, Runnable bothReadyCallback) {
+        gameRef.child("ready").child(role).setValue(true);
+        gameRef.child("ready").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                boolean p1 = Boolean.TRUE.equals(snapshot.child("player1").getValue(Boolean.class));
+                boolean p2 = Boolean.TRUE.equals(snapshot.child("player2").getValue(Boolean.class));
+                if (p1 && p2) {
+                    gameRef.child("ready").removeEventListener(this);
+                    bothReadyCallback.run();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError e) {}
+        });
     }
 }
