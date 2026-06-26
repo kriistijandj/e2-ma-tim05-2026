@@ -1,7 +1,9 @@
 package com.example.slagalica.viewmodel;
 
 import android.os.CountDownTimer;
+import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -10,14 +12,20 @@ import com.example.slagalica.helper.MojBrojHelper;
 import com.example.slagalica.models.mojbroj.MojBrojGameState;
 import com.example.slagalica.repository.MojBrojRepository;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ServerValue;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 import java.util.Map;
 
-
 public class MojBrojViewModel extends ViewModel {
+
+    private static final String TAG = "MOJ_BROJ_LOG";
 
     private MojBrojRepository repository;
     private final MojBrojHelper helper = new MojBrojHelper();
@@ -27,8 +35,13 @@ public class MojBrojViewModel extends ViewModel {
 
     private CountDownTimer timer;
     private String myPlayerId;
+    private String matchId;
 
-    // Faze tajmera – čuvaju se odvojeno od timera da cancelTimer() ne gubi fazu
+    // Istorija bodova iz prethodnih igara u meču
+    private int matchStartingScoreP1 = 0;
+    private int matchStartingScoreP2 = 0;
+    private boolean isMatchScoreLoaded = false;
+
     private static final int PHASE_NONE    = 0;
     private static final int PHASE_TARGET  = 1;
     private static final int PHASE_NUMBERS = 2;
@@ -36,34 +49,94 @@ public class MojBrojViewModel extends ViewModel {
 
     private int currentTimerPhase = PHASE_NONE;
 
-    // Statistika za čuvanje
+    private boolean round2TransitionScheduled = false;
+    private boolean gameFinished = false;
+
+    private boolean round1Processed = false;
+    private boolean round2Processed = false;
+
     private int myRoundsPlayed = 0;
     private int myRoundsSolved = 0;
 
-    public void init(String gameId, String playerId) {
+    // -------------------------------------------------------------------------
+    // INIT
+    // -------------------------------------------------------------------------
+
+    public void init(String matchId, String playerId) {
+        this.matchId = matchId;
         this.myPlayerId = playerId;
-        this.repository = new MojBrojRepository(gameId);
-        this.repository.listenToGameState(state -> {
+        this.repository = new MojBrojRepository(matchId);
+
+        // Učitaj trenutne akumulirane bodove iz celog meča pre početka ove igre
+        FirebaseDatabase.getInstance()
+                .getReference("matches")
+                .child(matchId)
+                .child("scores")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null
+                                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                                : "";
+
+                        for (DataSnapshot playerSnapshot : snapshot.getChildren()) {
+                            String playerUid = playerSnapshot.getKey();
+                            int savedScore = playerSnapshot.getValue(Integer.class) != null
+                                    ? playerSnapshot.getValue(Integer.class) : 0;
+
+                            if (playerUid != null && playerUid.equals(currentUid)) {
+                                if ("player1".equals(myPlayerId)) matchStartingScoreP1 = savedScore;
+                                else                               matchStartingScoreP2 = savedScore;
+                            } else {
+                                if ("player1".equals(myPlayerId)) matchStartingScoreP2 = savedScore;
+                                else                               matchStartingScoreP1 = savedScore;
+                            }
+                        }
+                        isMatchScoreLoaded = true;
+                        Log.d(TAG, "Učitani bodovi iz meča -> P1: " + matchStartingScoreP1
+                                + " | P2: " + matchStartingScoreP2);
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Log.e(TAG, "Greška pri učitavanju bodova meča: " + error.getMessage());
+                        isMatchScoreLoaded = true;
+                    }
+                });
+
+        repository.listenToGameState(state -> {
             gameState.setValue(state);
             handleTimerSync(state);
         });
     }
 
-    public LiveData<MojBrojGameState> getGameState() { return gameState; }
-    public LiveData<String> getTimerText()           { return timerText; }
-    public String getMyPlayerId()                    { return myPlayerId; }
-
-
-    public void setupInitialGameIfHost() {
-        if (!"player1".equals(myPlayerId)) return;
-
-        MojBrojGameState initial = new MojBrojGameState();
-        initial.targetNumber = helper.generateTargetNumber();
-        initial.availableNumbers = helper.generateAvailableNumbers();
-        initial.stopPlayer = 1;
-        repository.updateGameState(initial);
+    public void signalReadyAndInit() {
+        repository.setReady(myPlayerId, () -> {
+            if ("player1".equals(myPlayerId)) {
+                MojBrojGameState initial = new MojBrojGameState();
+                initial.targetNumber      = helper.generateTargetNumber();
+                initial.availableNumbers  = helper.generateAvailableNumbers();
+                initial.stopPlayer        = 1;
+                initial.round             = 1;
+                initial.status            = "active";
+                repository.updateGameState(initial);
+            }
+        });
     }
 
+    // -------------------------------------------------------------------------
+    // GETTERI
+    // -------------------------------------------------------------------------
+
+    public LiveData<MojBrojGameState> getGameState() { return gameState; }
+    public LiveData<String>           getTimerText()  { return timerText; }
+    public String                     getMyPlayerId() { return myPlayerId; }
+    public int getMatchStartingScoreP1()              { return matchStartingScoreP1; }
+    public int getMatchStartingScoreP2()              { return matchStartingScoreP2; }
+
+    // -------------------------------------------------------------------------
+    // STOP DUGME
+    // -------------------------------------------------------------------------
 
     public void onStopPressed() {
         MojBrojGameState state = gameState.getValue();
@@ -79,6 +152,9 @@ public class MojBrojViewModel extends ViewModel {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // PREDAJA IZRAZA
+    // -------------------------------------------------------------------------
 
     public void submitExpression(String expression) {
         MojBrojGameState state = gameState.getValue();
@@ -92,38 +168,56 @@ public class MojBrojViewModel extends ViewModel {
 
         if ("player1".equals(myPlayerId)) {
             state.p1Expression = expression;
-            state.p1Result = result;
-            state.p1Submitted = true;
+            state.p1Result     = result;
+            state.p1Submitted  = true;
         } else {
             state.p2Expression = expression;
-            state.p2Result = result;
-            state.p2Submitted = true;
+            state.p2Result     = result;
+            state.p2Submitted  = true;
         }
 
         myRoundsPlayed++;
         if (result == state.targetNumber) myRoundsSolved++;
 
-        // Zaustavi lokalni tajmer – predali smo, više nam ne treba
         stopTimer();
-
         advanceIfNeeded(state);
     }
 
-
-
+    // -------------------------------------------------------------------------
+    // TAJMER SINHRONIZACIJA
+    // -------------------------------------------------------------------------
 
     private void handleTimerSync(MojBrojGameState state) {
+        if (state == null) return;
 
-        // Dok se prikazuju rezultati runde – nema tajmera
         if (state.showingRoundResult) {
             stopTimer();
-            timerText.setValue("Prikazuju se rezultati...");
+            timerText.setValue("Prelazak na rundu 2...");
             return;
         }
 
         if ("finished".equals(state.status)) {
             stopTimer();
             timerText.setValue("Igra završena");
+            if ("player2".equals(myPlayerId) && !gameFinished) {
+                gameFinished = true;
+                if (isMatchScoreLoaded) {
+                    finishGameAndIncrement(state);
+                } else {
+                    new android.os.Handler(android.os.Looper.getMainLooper())
+                            .postDelayed(() -> finishGameAndIncrement(state), 1000);
+                }
+            }
+            return;
+        }
+
+        if (state.round == 2) {
+            round2TransitionScheduled = false;
+        }
+
+        if (state.numbersRevealed && state.p1Submitted && state.p2Submitted
+                && !state.showingRoundResult && !"finished".equals(state.status)) {
+            advanceIfNeeded(state);
             return;
         }
 
@@ -147,45 +241,30 @@ public class MojBrojViewModel extends ViewModel {
             if (!mySubmitted) {
                 startTimerPhase(PHASE_PLAY, 60);
             } else {
-                // Predao sam – ugasi moj tajmer, čekam protivnika
                 stopTimer();
                 timerText.setValue("Predato – čeka se...");
             }
         }
     }
 
-
     private void startTimerPhase(int phase, int seconds) {
-        if (currentTimerPhase == phase && timer != null) {
-            // Isti tajmer već teče, ne dirajmo ga
-            return;
-        }
+        if (currentTimerPhase == phase && timer != null) return;
 
-
-        if (timer != null) {
-            timer.cancel();
-            timer = null;
-        }
-
-        currentTimerPhase = phase;  // setuj PRE nego što timer krene
+        stopTimer();
+        currentTimerPhase = phase;
 
         timer = new CountDownTimer(seconds * 1000L, 1000) {
-            @Override
-            public void onTick(long ms) {
+            @Override public void onTick(long ms) {
                 timerText.setValue((ms / 1000) + "s");
             }
-            @Override
-            public void onFinish() {
+            @Override public void onFinish() {
                 timer = null;
-                // currentTimerPhase OSTAJE postavljen na fazu koja je istekla
-                // da handleTimeOut() zna šta da uradi
-                int expiredPhase = currentTimerPhase;
+                int expiredPhase  = currentTimerPhase;
                 currentTimerPhase = PHASE_NONE;
                 handleTimeOut(expiredPhase);
             }
         }.start();
     }
-
 
     private void stopTimer() {
         if (timer != null) {
@@ -215,16 +294,15 @@ public class MojBrojViewModel extends ViewModel {
                 break;
 
             case PHASE_PLAY:
-                // Automatska predaja – kao da je igrač kliknuo "Predaj" sa praznim izrazom
                 boolean mySubmitted = "player1".equals(myPlayerId)
                         ? state.p1Submitted : state.p2Submitted;
                 if (!mySubmitted) {
                     if ("player1".equals(myPlayerId)) {
                         state.p1Submitted = true;
-                        state.p1Result = Integer.MIN_VALUE;
+                        state.p1Result    = Integer.MIN_VALUE;
                     } else {
                         state.p2Submitted = true;
-                        state.p2Result = Integer.MIN_VALUE;
+                        state.p2Result    = Integer.MIN_VALUE;
                     }
                     myRoundsPlayed++;
                     advanceIfNeeded(state);
@@ -233,122 +311,233 @@ public class MojBrojViewModel extends ViewModel {
         }
     }
 
-
-
+    // -------------------------------------------------------------------------
+    // TOK IGRE — GLAVNI FIX
+    // -------------------------------------------------------------------------
 
     private void advanceIfNeeded(MojBrojGameState state) {
         boolean bothSubmitted = state.p1Submitted && state.p2Submitted;
+
         if (!bothSubmitted) {
-            // Samo jedan je predao – sačuvaj i čekaj drugog
+            // Samo upisujemo svoju predaju, ne diramo tuđu
             repository.updateGameState(state);
             return;
         }
 
-        // Oba su predala – dodeli poene za ovu rundu
-        awardRoundPoints(state);
+        if (state.round == 1 && round1Processed) return;
+        if (state.round == 2 && round2Processed) return;
+
+        if (state.round == 1) round1Processed = true;
+        if (state.round == 2) round2Processed = true;
 
         if (state.round == 1) {
-            // Postavi flag za prikaz rezultata
-            state.showingRoundResult = true;
-            repository.updateGameState(state);
-
-            // Samo player1 pokreće countdown i prelaz na rundu 2
-            // (player2 samo čeka novi state iz baze)
+            // Bodove računa svaki lokalno, ali SAMO player1 ih upisuje u bazu
             if ("player1".equals(myPlayerId)) {
-                new CountDownTimer(5000, 1000) {
-                    @Override
-                    public void onTick(long ms) {
+                awardRoundPoints(state); // ← premesti ovde
+            }
+
+            if ("player1".equals(myPlayerId)) {
+                if (round2TransitionScheduled) return;
+                round2TransitionScheduled = true;
+
+                final int finalScoreP1 = state.p1Score;
+                final int finalScoreP2 = state.p2Score;
+
+                state.showingRoundResult = true;
+                repository.updateGameState(state);
+
+                new CountDownTimer(3000, 1000) {
+                    @Override public void onTick(long ms) {
                         timerText.setValue("Sledeća runda za: " + (ms / 1000) + "s");
                     }
-                    @Override
-                    public void onFinish() {
-                        // Uzmi najsvežiji state iz LiveData
-                        MojBrojGameState fresh = gameState.getValue();
-                        if (fresh == null) return;
-                        goToRound2(fresh);
-                        repository.updateGameState(fresh);
+                    @Override public void onFinish() {
+                        goToRound2(state);
+                        state.p1Score = finalScoreP1;
+                        state.p2Score = finalScoreP2;
+                        state.showingRoundResult = false;
+                        repository.updateGameState(state);
                     }
                 }.start();
+
+            } else {
+                // Player2 upisuje svoje stanje kako bi player1 imao tačan p2Result
+                repository.updateGameState(state);
             }
+
         } else {
-            // Runda 2 završena – kraj igre
-            finishGame(state);
-            repository.updateGameState(state);
+            // ============================================================
+            // RUNDA 2 KRAJ
+            // ============================================================
+            if (gameFinished) return;
+            gameFinished = true;
+
+            if ("player2".equals(myPlayerId)) {
+                // Player2 samo upisuje svoju predaju i čeka player1 da završi igru
+                repository.updateGameState(state);
+                return;
+            }
+
+            // Samo player1 odavde nastavlja — ali mora da sačeka
+            // da listener donese svež state sa tačnim p2Result iz baze
+            new android.os.Handler(android.os.Looper.getMainLooper())
+                    .postDelayed(() -> {
+                        MojBrojGameState freshState = gameState.getValue();
+                        if (freshState == null) return;
+
+                        Log.d(TAG, "[player1] freshState nakon 500ms -> "
+                                + "p1Submitted: " + freshState.p1Submitted
+                                + " | p2Submitted: " + freshState.p2Submitted
+                                + " | p1Result: " + freshState.p1Result
+                                + " | p2Result: " + freshState.p2Result
+                                + " | p1Score: " + freshState.p1Score
+                                + " | p2Score: " + freshState.p2Score);
+
+                        // Sigurnosna provera — ako p2Result još nije stigao, čekamo još malo
+                        if (!freshState.p2Submitted) {
+                            new android.os.Handler(android.os.Looper.getMainLooper())
+                                    .postDelayed(() -> {
+                                        MojBrojGameState retryState = gameState.getValue();
+                                        if (retryState == null) return;
+                                        Log.d(TAG, "[player1] retryState -> p2Submitted: " + retryState.p2Submitted
+                                                + " | p2Result: " + retryState.p2Result);
+                                        finalizeGame(retryState);
+                                    }, 500);
+                        } else {
+                            finalizeGame(freshState);
+                        }
+                    }, 500);
         }
     }
 
+    private void finalizeGame(MojBrojGameState state) {
+
+        Log.d(TAG, "[finalizeGame] PRE obračuna -> p1Score: " + state.p1Score
+                + " | p2Score: " + state.p2Score
+                + " | p1Result: " + state.p1Result
+                + " | p2Result: " + state.p2Result
+                + " | target: " + state.targetNumber
+                + " | stopPlayer: " + state.stopPlayer);
+
+
+        awardRoundPoints(state);
+
+        Log.d(TAG, "[finalizeGame] POSLE obračuna -> p1Score: " + state.p1Score
+                + " | p2Score: " + state.p2Score);
+
+
+        state.status = "finished";
+        repository.updateGameState(state);
+
+        if (isMatchScoreLoaded) {
+            finishGameAndIncrement(state);
+        } else {
+            new android.os.Handler(android.os.Looper.getMainLooper())
+                    .postDelayed(() -> finishGameAndIncrement(state), 1000);
+        }
+    }
+
+    private void finishGameAndIncrement(MojBrojGameState state) {
+        saveMojBrojStats(state);
+
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+        if (uid == null) return;
+
+        // Sabiramo istoriju celog meča sa spojenim bodovima iz OBERUNDE
+        int myTotalScore = "player1".equals(myPlayerId)
+                ? (matchStartingScoreP1 + state.p1Score)
+                : (matchStartingScoreP2 + state.p2Score);
+
+        Log.d(TAG, "[" + myPlayerId + "] Upisujem KONAČAN skor u meč: " + myTotalScore);
+
+        FirebaseDatabase.getInstance()
+                .getReference("matches")
+                .child(matchId)
+                .child("scores")
+                .child(uid)
+                .setValue(myTotalScore)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "[" + myPlayerId + "] Uspešno upisan skor.");
+
+                        // Bilo ko da je predao zadnji, player1 (host) reaguje i pomera igru
+                        if ("player1".equals(myPlayerId)) {
+                            Log.d(TAG, "[player1] Pokrećem prebacivanje na novu igru.");
+                            FirebaseDatabase.getInstance()
+                                    .getReference("matches")
+                                    .child(matchId)
+                                    .child("currentGame")
+                                    .setValue(ServerValue.increment(1));
+                        }
+                    }
+                });
+    }
 
     private void awardRoundPoints(MojBrojGameState state) {
         int target = state.targetNumber;
-        int r1 = state.p1Result;
-        int r2 = state.p2Result;
+        int r1     = state.p1Result;
+        int r2     = state.p2Result;
 
         boolean p1Hit = (r1 == target);
         boolean p2Hit = (r2 == target);
 
-        if (p1Hit) state.p1Score += 10;
-        if (p2Hit) state.p2Score += 10;
-
-        if (!p1Hit && !p2Hit) {
+        if (p1Hit && p2Hit) {
+            if (state.stopPlayer == 1) state.p1Score += 10;
+            else                       state.p2Score += 10;
+        }
+        else if (p1Hit) {
+            state.p1Score += 10;
+        } else if (p2Hit) {
+            state.p2Score += 10;
+        }
+        else {
             int d1 = helper.distanceFromTarget(r1, target);
             int d2 = helper.distanceFromTarget(r2, target);
 
             if (d1 == Integer.MAX_VALUE && d2 == Integer.MAX_VALUE) {
-                // Niko nije uneo ništa
-            } else if (d1 == Integer.MAX_VALUE) {
-                state.p2Score += 5;
-            } else if (d2 == Integer.MAX_VALUE) {
-                state.p1Score += 5;
-            } else if (d1 < d2) {
-                state.p1Score += 5;
-            } else if (d2 < d1) {
-                state.p2Score += 5;
-            } else {
-                // Ista razlika → stopPlayer dobija poene
+                /* niko nema validan izraz */
+            }
+            else if (d1 == Integer.MAX_VALUE)  { state.p2Score += 5; }
+            else if (d2 == Integer.MAX_VALUE)  { state.p1Score += 5; }
+            else if (d1 < d2)                  { state.p1Score += 5; }
+            else if (d2 < d1)                  { state.p2Score += 5; }
+            else {
                 if (state.stopPlayer == 1) state.p1Score += 5;
-                else state.p2Score += 5;
+                else                       state.p2Score += 5;
             }
         }
     }
 
     private void goToRound2(MojBrojGameState state) {
-        state.showingRoundResult = false;   // ← obavezno, inače ostaje zauvek true
-        state.round = 2;
-        state.stopPlayer = 2;
-
-        state.targetNumber = helper.generateTargetNumber();
-        state.availableNumbers = helper.generateAvailableNumbers();
-
-        state.targetRevealed = false;
-        state.numbersRevealed = false;
-        state.p1Submitted = false;
-        state.p2Submitted = false;
-        state.p1Result = -1;
-        state.p2Result = -1;
-        state.p1Expression = "";
-        state.p2Expression = "";
+        round2Processed = false;
+        state.showingRoundResult = false;
+        state.round              = 2;
+        state.stopPlayer         = 2;
+        state.targetNumber       = helper.generateTargetNumber();
+        state.availableNumbers   = helper.generateAvailableNumbers();
+        state.targetRevealed     = false;
+        state.numbersRevealed    = false;
+        state.p1Submitted        = false;
+        state.p2Submitted        = false;
+        state.p1Result           = -1;
+        state.p2Result           = -1;
+        state.p1Expression       = "";
+        state.p2Expression       = "";
     }
 
-    private void finishGame(MojBrojGameState state) {
-        state.status = "finished";
-        boolean iWon = ("player1".equals(myPlayerId) ? state.p1Score : state.p2Score)
-                > ("player1".equals(myPlayerId) ? state.p2Score : state.p1Score);
-        saveMojBrojStats(iWon);
-    }
+    // -------------------------------------------------------------------------
+    // STATISTIKA
+    // -------------------------------------------------------------------------
 
-
-
-
-    private boolean amIStopPlayer(MojBrojGameState state) {
-        return (state.stopPlayer == 1 && "player1".equals(myPlayerId))
-                || (state.stopPlayer == 2 && "player2".equals(myPlayerId));
-    }
-
-    private void saveMojBrojStats(boolean iWon) {
+    private void saveMojBrojStats(MojBrojGameState state) {
         String uid = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
-                : null;
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
         if (uid == null) return;
+
+        int myScore  = "player1".equals(myPlayerId) ? state.p1Score : state.p2Score;
+        int oppScore = "player1".equals(myPlayerId) ? state.p2Score : state.p1Score;
+        boolean iWon = myScore > oppScore;
 
         Map<String, Object> updates = new HashMap<>();
         updates.put("stats.mojbroj.roundsPlayed", FieldValue.increment(myRoundsPlayed));
@@ -363,6 +552,11 @@ public class MojBrojViewModel extends ViewModel {
                 .collection("users")
                 .document(uid)
                 .update(updates);
+    }
+
+    private boolean amIStopPlayer(MojBrojGameState state) {
+        return (state.stopPlayer == 1 && "player1".equals(myPlayerId))
+                || (state.stopPlayer == 2 && "player2".equals(myPlayerId));
     }
 
     @Override

@@ -139,14 +139,20 @@ public class SignupFragment extends Fragment {
 
                     // ── Osnovni podaci ────────────────────────────────────────
                     Map<String, Object> userMap = new HashMap<>();
-                    userMap.put("email",     email);
-                    userMap.put("username",  username);
-                    userMap.put("region",    region);
-                    userMap.put("createdAt", System.currentTimeMillis());
-                    userMap.put("isEnabled", false);
-                    userMap.put("tokens",    0);
-                    userMap.put("stars",     0);
-                    userMap.put("avatarId",  0);
+
+
+                    userMap.put("uid",      uid);
+                    userMap.put("email",    email);
+                    userMap.put("username", username);
+                    userMap.put("region",   region);
+                    userMap.put("tokens", 5);   // bonus za registraciju
+                    userMap.put("stars",  0);
+                    userMap.put("online",   false);
+                    userMap.put("inMatch",  false);
+                    userMap.put("isEnabled", false);  // čeka email verifikaciju
+                    userMap.put("lastTokenClaimTimestamp", System.currentTimeMillis());
+
+                    userMap.put("avatarId", 0);
 
                     // ── Statistika – sve na nulama ────────────────────────────
                     Map<String, Object> globalStats = new HashMap<>();
