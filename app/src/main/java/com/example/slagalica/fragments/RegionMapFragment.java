@@ -1,11 +1,16 @@
 package com.example.slagalica.fragments;
 
-import android.graphics.drawable.Drawable;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -14,6 +19,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import com.example.slagalica.R;
+import com.example.slagalica.repository.RegionRepository;
 import com.example.slagalica.viewmodel.RegionViewModel;
 
 import org.osmdroid.config.Configuration;
@@ -28,6 +34,16 @@ public class RegionMapFragment extends Fragment {
 
     private MapView mapView;
     private RegionViewModel viewModel;
+    private final RegionRepository repository = new RegionRepository();
+
+    private final ActivityResultLauncher<String> locationPermLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                if (granted) {
+                    saveAndLoadLocations();
+                } else {
+                    viewModel.loadUserLocations();
+                }
+            });
 
     @Nullable
     @Override
@@ -46,12 +62,44 @@ public class RegionMapFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
         view.findViewById(R.id.btnRangLista).setOnClickListener(v ->
                 Navigation.findNavController(v).navigate(R.id.nav_region_list));
 
         viewModel = new ViewModelProvider(this).get(RegionViewModel.class);
         viewModel.getUserLocations().observe(getViewLifecycleOwner(), this::showMarkers);
+
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            saveAndLoadLocations();
+        } else {
+            locationPermLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+    }
+
+    private void saveAndLoadLocations() {
+        Location loc = getBestLastLocation();
+        if (loc != null) {
+            repository.saveUserLocation(loc.getLatitude(), loc.getLongitude());
+        }
         viewModel.loadUserLocations();
+    }
+
+    private Location getBestLastLocation() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return null;
+
+        LocationManager lm = (LocationManager) requireContext()
+                .getSystemService(android.content.Context.LOCATION_SERVICE);
+        if (lm == null) return null;
+
+        Location gps = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        Location net = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+
+        if (gps != null && net != null) {
+            return gps.getAccuracy() <= net.getAccuracy() ? gps : net;
+        }
+        return gps != null ? gps : net;
     }
 
     private void showMarkers(List<double[]> locations) {
@@ -60,9 +108,8 @@ public class RegionMapFragment extends Fragment {
             Marker marker = new Marker(mapView);
             marker.setPosition(new GeoPoint(loc[0], loc[1]));
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-            Drawable icon = ContextCompat.getDrawable(requireContext(),
-                    android.R.drawable.ic_menu_myplaces);
-            marker.setIcon(icon);
+            marker.setIcon(ContextCompat.getDrawable(requireContext(),
+                    android.R.drawable.ic_menu_myplaces));
             marker.setTitle(null);
             mapView.getOverlays().add(marker);
         }

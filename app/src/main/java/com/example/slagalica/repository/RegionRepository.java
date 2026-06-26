@@ -2,6 +2,8 @@ package com.example.slagalica.repository;
 
 import com.example.slagalica.models.RegionModel;
 import com.example.slagalica.region.SerbiaRegions;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -141,14 +143,27 @@ public class RegionRepository {
                 for (QueryDocumentSnapshot doc : task.getResult()) {
                     String region = doc.getString("region");
                     if (region == null || !SerbiaRegions.isValid(region)) continue;
-                    int idx = SerbiaRegions.indexOf(region);
-                    if (idx < 0) continue;
-                    double[] latLng = SerbiaRegions.randomLatLng(idx);
-                    locations.add(latLng);
+                    Double lat = doc.getDouble("lat");
+                    Double lng = doc.getDouble("lng");
+                    if (lat != null && lng != null) {
+                        locations.add(new double[]{lat, lng});
+                    } else {
+                        int idx = SerbiaRegions.indexOf(region);
+                        if (idx >= 0) locations.add(SerbiaRegions.randomLatLng(idx));
+                    }
                 }
             }
             callback.onResult(locations);
         });
+    }
+
+    public void saveUserLocation(double lat, double lng) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) return;
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("lat", lat);
+        updates.put("lng", lng);
+        db.collection("users").document(user.getUid()).update(updates);
     }
 
     public void incrementRegionStars(String regionName, long amount) {
