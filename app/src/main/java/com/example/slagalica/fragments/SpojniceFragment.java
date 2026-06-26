@@ -42,6 +42,8 @@ public class SpojniceFragment extends Fragment {
     private MaterialButton[] leftButtons  = new MaterialButton[5];
     private MaterialButton[] rightButtons = new MaterialButton[5];
 
+    private MaterialButton btnHomePage;
+
     // ====== BOJE ======
     private static final int COLOR_DEFAULT   = Color.parseColor("#F2AF14");
     private static final int COLOR_SELECTED  = Color.parseColor("#3A7BFF");
@@ -140,6 +142,13 @@ public class SpojniceFragment extends Fragment {
         rightButtons[2] = view.findViewById(R.id.btnRight3);
         rightButtons[3] = view.findViewById(R.id.btnRight4);
         rightButtons[4] = view.findViewById(R.id.btnRight5);
+
+        btnHomePage = view.findViewById(R.id.btnHomePage);
+        btnHomePage.setOnClickListener(v -> {
+            androidx.navigation.Navigation
+                    .findNavController(requireView())
+                    .navigate(R.id.nav_home);
+        });
 
         // ── Čitaj identifikatore iz argumenata ───────────────────────────────
         matchId = "test_game_001";
@@ -589,25 +598,10 @@ public class SpojniceFragment extends Fragment {
             tvStatus.setText("Nerešeno!\n"
                     + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
 
+        if (btnHomePage != null) btnHomePage.setVisibility(View.VISIBLE);
         updateScoreUI();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ZVEZDICE + TOKENI + STATISTIKA
-    //
-    // Pravila:
-    //  - Pobednik:  +10 zvezdica + (osvojeniBodovi / 40) zvezdica (floor)
-    //  - Gubitnik:  -10 zvezdica + (osvojeniBodovi / 40) zvezdica (floor)
-    //  - Broj zvezdica ne može pasti ispod 0 (ne može se izgubiti
-    //    više zvezdica nego što igrač trenutno ima)
-    //  - Svakih 50 (ukupno akumuliranih) zvezdica = 1 token; taj višak
-    //    se konvertuje u tokene, a ostatak (mod 50) ostaje kao zvezdice
-    //
-    // Pošto je potrebno PROČITATI trenutno stanje (stars, tokens) pa
-    // ga na osnovu toga izmeniti, koristimo Firestore transakciju —
-    // FieldValue.increment() ovde ne bi bio dovoljan jer ne ume da
-    // uradi "clamp na 0" niti floor-deljenje sa 40/50.
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void applyStarsTokensAndStats(String uid, boolean won, int myScore,
                                           int connectedCorrect, int connectedTotal) {
@@ -667,43 +661,6 @@ public class SpojniceFragment extends Fragment {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ČEKANJE NA FIREBASE PRE NAVIGACIJE
-    // Spojnice je case 3 (4. igra po redu 0-indexed), prelazimo kad currentGame >= 4
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void listenForNextGame() {
-        gameAdvanceListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                Integer game = snapshot.getValue(Integer.class);
-
-                if (game != null && game >= 4) {
-                    matchRef.child("currentGame").removeEventListener(this);
-                    gameAdvanceListener = null;
-
-                    if (!isAdded() || getView() == null) return;
-
-                    Bundle args = new Bundle();
-                    args.putString("MATCH_ID",    matchId);
-                    args.putString("PLAYER_ROLE", myRole);
-
-                    androidx.navigation.Navigation
-                            .findNavController(requireView())
-                            .navigate(R.id.nav_game, args);
-                }
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        };
-
-        matchRef.child("currentGame").addValueEventListener(gameAdvanceListener);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // HELPERI
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void setButtonTint(MaterialButton btn, int color) {
         btn.setBackgroundTintList(ColorStateList.valueOf(color));
