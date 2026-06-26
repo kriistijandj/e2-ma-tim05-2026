@@ -18,6 +18,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ServerValue;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -47,27 +48,40 @@ public class KoZnaZnaFragment extends Fragment {
             "U kojoj godini je počeo Drugi svjetski rat?"
     };
     private static final String[][] ANSWERS = {
-            {"A) Berlin", "B) Madrid", "C) Pariz",   "D) Rim"},
-            {"A) 7",      "B) 8",      "C) 9",        "D) 10"},
-            {"A) Tolstoj","B) Dostojevski","C) Šekspir","D) Homer"},
-            {"A) Amazon", "B) Nil",     "C) Jangce",  "D) Misisipi"},
-            {"A) 1935",   "B) 1937",    "C) 1939",    "D) 1941"}
+            {"A) Berlin", "B) Madrid", "C) Pariz",      "D) Rim"},
+            {"A) 7",      "B) 8",      "C) 9",           "D) 10"},
+            {"A) Tolstoj","B) Dostojevski","C) Šekspir", "D) Homer"},
+            {"A) Amazon", "B) Nil",     "C) Jangce",     "D) Misisipi"},
+            {"A) 1935",   "B) 1937",    "C) 1939",       "D) 1941"}
     };
     private static final int[] CORRECT = {2, 1, 2, 1, 2};
 
-    // ====== FIREBASE ======
-    private DatabaseReference gameRef;
-    private String gameId;
-    private String myPlayerId;
-    private ValueEventListener questionListener;
+    // ====== IDENTIFIKATORI ======
+    private String matchId;
+    private String myRole;      // "player1" ili "player2"
+    private String myUid;
 
-    // ====== STANJE ======
+    // ====== FIREBASE ======
+    private DatabaseReference gameRef;      // games/{matchId}/koznaZna
+    private DatabaseReference matchRef;     // matches/{matchId}
+    private ValueEventListener questionListener;
+    private ValueEventListener gameAdvanceListener;
+
+    // ====== POČETNI SKOROVI IZ MEČA ======
+    private int matchStartingScoreP1 = 0;
+    private int matchStartingScoreP2 = 0;
+
+    // ====== STANJE IGRE ======
     private int     currentQuestion   = 0;
     private int     scorePlayer1      = 0;
     private int     scorePlayer2      = 0;
     private boolean myAnswered        = false;
     private boolean questionResolved  = false;
     private long    questionStartTime = 0;
+
+    // ====== NAVIGACIJA ======
+    private boolean matchFinishedRegistered = false;
+    private boolean navigationScheduled     = false;
 
     // ====== STATISTIKA ======
     private int myCorrectAnswers = 0;
@@ -76,6 +90,10 @@ public class KoZnaZnaFragment extends Fragment {
     private CountDownTimer questionTimer;
 
     public KoZnaZnaFragment() {}
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIFECYCLE
+    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -100,31 +118,94 @@ public class KoZnaZnaFragment extends Fragment {
         btnAnswerC.setOnClickListener(v -> submitAnswer(2));
         btnAnswerD.setOnClickListener(v -> submitAnswer(3));
 
-        // Čitaj argumente iz GameFragment lobija
-        gameId     = "room_koznaZna_001";
-        myPlayerId = "player1";
-
+        // ── Čitaj identifikatore iz argumenata ───────────────────────────────
+        matchId  = "test_game_001";
+        myRole   = "player1";
         if (getArguments() != null) {
-            gameId     = getArguments().getString("ROOM_ID",     "room_koznaZna_001");
-            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+            matchId = getArguments().getString("MATCH_ID",     "test_game_001");
+            myRole  = getArguments().getString("PLAYER_ROLE", "player1");
         }
 
-        gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
+        myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        gameRef  = FirebaseDatabase.getInstance()
+                .getReference("games").child(matchId).child("koznaZna");
+        matchRef = FirebaseDatabase.getInstance()
+                .getReference("matches").child(matchId);
 
-        // Player1 briše staro stanje i inicijalizuje igru
-        if ("player1".equals(myPlayerId)) {
-            gameRef.removeValue((error, ref) -> loadQuestion(0));
-        } else {
-            // Player2 čeka da player1 postavi pitanje
-            waitForQuestion();
-        }
+        // ── Korak 1: učitaj početne skorove iz meča, pa tek pokreni igru ─────
+        loadMatchScores();
 
         return view;
     }
 
-    // ==============================
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (questionTimer != null) questionTimer.cancel();
+        if (questionListener != null) {
+            gameRef.child("answers").child(String.valueOf(currentQuestion))
+                    .removeEventListener(questionListener);
+            questionListener = null;
+        }
+        if (gameAdvanceListener != null) {
+            matchRef.child("currentGame").removeEventListener(gameAdvanceListener);
+            gameAdvanceListener = null;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // KORAK 1 — UČITAJ POČETNE SCOROVE IZ MEČA (kao u SkockoViewModel)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void loadMatchScores() {
+        matchRef.child("scores").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot child : snapshot.getChildren()) {
+                    String uid   = child.getKey();
+                    Integer val  = child.getValue(Integer.class);
+                    int score    = val != null ? val : 0;
+
+                    if (myUid.equals(uid)) {
+                        if ("player1".equals(myRole)) matchStartingScoreP1 = score;
+                        else                          matchStartingScoreP2 = score;
+                    } else {
+                        if ("player1".equals(myRole)) matchStartingScoreP2 = score;
+                        else                          matchStartingScoreP1 = score;
+                    }
+                }
+                startGame();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                startGame(); // nastavi čak i ako učitavanje ne uspe
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // KORAK 2 — POKRETANJE IGRE
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void startGame() {
+        // Postavi početne skorove iz meča
+        scorePlayer1 = matchStartingScoreP1;
+        scorePlayer2 = matchStartingScoreP2;
+        updateScoreUI();
+
+        if ("player1".equals(myRole)) {
+            // Player1 briše staro stanje i inicijalizuje igru
+            gameRef.removeValue((error, ref) -> loadQuestion(0));
+        } else {
+            // Player2 čeka da player1 postavi prvo pitanje
+            waitForQuestion();
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // PLAYER2 ČEKA PRVO PITANJE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void waitForQuestion() {
         tvStatus.setText("Čekanje...");
@@ -144,9 +225,9 @@ public class KoZnaZnaFragment extends Fragment {
         });
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // UČITAVANJE PITANJA
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void loadQuestion(int idx) {
         currentQuestion  = idx;
@@ -167,10 +248,8 @@ public class KoZnaZnaFragment extends Fragment {
         setAllButtonsEnabled(true);
         updateScoreUI();
 
-        // Player1 upisuje indeks pitanja u Firebase
-        if ("player1".equals(myPlayerId)) {
+        if ("player1".equals(myRole)) {
             gameRef.child("currentQuestion").setValue(idx);
-            // Briši stare odgovore za ovo pitanje
             gameRef.child("answers").child(String.valueOf(idx)).removeValue();
         }
 
@@ -178,9 +257,9 @@ public class KoZnaZnaFragment extends Fragment {
         listenForBothAnswers(idx);
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // TAJMER: 5 SEKUNDI
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void startQuestionTimer() {
         if (questionTimer != null) questionTimer.cancel();
@@ -198,9 +277,9 @@ public class KoZnaZnaFragment extends Fragment {
         }.start();
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // IGRAČ KLIKNE ODGOVOR
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void submitAnswer(int answerIdx) {
         if (myAnswered) return;
@@ -209,7 +288,6 @@ public class KoZnaZnaFragment extends Fragment {
 
         long answerTime = System.currentTimeMillis() - questionStartTime;
 
-        // Vizualno odmah pokaži odgovor
         Button[] buttons = {btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD};
         if (answerIdx >= 0) {
             boolean correct = (answerIdx == CORRECT[currentQuestion]);
@@ -220,20 +298,19 @@ public class KoZnaZnaFragment extends Fragment {
             myWrongAnswers++;
         }
 
-        // Upiši u Firebase
         gameRef.child("answers").child(String.valueOf(currentQuestion))
-                .child(myPlayerId).child("answerIndex").setValue(answerIdx);
+                .child(myRole).child("answerIndex").setValue(answerIdx);
         gameRef.child("answers").child(String.valueOf(currentQuestion))
-                .child(myPlayerId).child("answerTime").setValue(answerTime);
+                .child(myRole).child("answerTime").setValue(answerTime);
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // SLUŠAJ KAD OBA ODGOVORE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void listenForBothAnswers(int questionIdx) {
         if (questionListener != null) {
-            gameRef.child("answers").child(String.valueOf(questionIdx))
+            gameRef.child("answers").child(String.valueOf(questionIdx - 1))
                     .removeEventListener(questionListener);
             questionListener = null;
         }
@@ -245,12 +322,12 @@ public class KoZnaZnaFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (questionResolved) return;
+                // Čekamo da oba igrača upišu odgovor (player1 i player2)
                 if (!snapshot.hasChild("player1") || !snapshot.hasChild("player2")) return;
 
                 questionResolved = true;
                 if (questionTimer != null) questionTimer.cancel();
 
-                // Ukloni listener odmah
                 answersRef.removeEventListener(this);
                 questionListener = null;
 
@@ -259,12 +336,12 @@ public class KoZnaZnaFragment extends Fragment {
                 Long    p1Time = snapshot.child("player1").child("answerTime").getValue(Long.class);
                 Long    p2Time = snapshot.child("player2").child("answerTime").getValue(Long.class);
 
-                int  p1Answer = p1Ans  != null ? p1Ans  : -1;
-                int  p2Answer = p2Ans  != null ? p2Ans  : -1;
-                long p1T      = p1Time != null ? p1Time : 9999;
-                long p2T      = p2Time != null ? p2Time : 9999;
-
-                resolveQuestion(p1Answer, p2Answer, p1T, p2T);
+                resolveQuestion(
+                        p1Ans  != null ? p1Ans  : -1,
+                        p2Ans  != null ? p2Ans  : -1,
+                        p1Time != null ? p1Time : 9999L,
+                        p2Time != null ? p2Time : 9999L
+                );
             }
 
             @Override
@@ -274,19 +351,16 @@ public class KoZnaZnaFragment extends Fragment {
         answersRef.addValueEventListener(questionListener);
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // RAZRIJEŠI PITANJE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void resolveQuestion(int p1Answer, int p2Answer, long p1Time, long p2Time) {
         Button[] buttons = {btnAnswerA, btnAnswerB, btnAnswerC, btnAnswerD};
 
-        // Pokaži tačan odgovor
         buttons[CORRECT[currentQuestion]].setBackgroundColor(COLOR_CORRECT);
 
-        // Pokaži i protivnikov odgovor
-        String opponent = "player1".equals(myPlayerId) ? "player2" : "player1";
-        int oppAnswer = "player1".equals(myPlayerId) ? p2Answer : p1Answer;
+        int oppAnswer = "player1".equals(myRole) ? p2Answer : p1Answer;
         if (oppAnswer >= 0 && oppAnswer != CORRECT[currentQuestion]) {
             buttons[oppAnswer].setBackgroundColor(COLOR_WRONG);
         }
@@ -317,14 +391,13 @@ public class KoZnaZnaFragment extends Fragment {
                     ? "Niko nije odgovorio." : "✗ Netačno!");
         }
 
-        // Samo player1 upisuje skorove
-        if ("player1".equals(myPlayerId)) {
+        // Samo player1 upisuje scorove u Firebase (kao u Skočko)
+        if ("player1".equals(myRole)) {
             gameRef.child("scores").child("player1").setValue(scorePlayer1);
             gameRef.child("scores").child("player2").setValue(scorePlayer2);
         }
 
         updateScoreUI();
-
         rootView.postDelayed(this::nextQuestion, 1500);
     }
 
@@ -337,60 +410,103 @@ public class KoZnaZnaFragment extends Fragment {
         }
     }
 
-    // ==============================
-    // KRAJ IGRE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
+    // KRAJ IGRE — upiši u matches/{matchId}/scores, inkrementiraj currentGame
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void endGame() {
+        if (matchFinishedRegistered) return;
+        matchFinishedRegistered = true;
+
         if (questionTimer != null) questionTimer.cancel();
         setAllButtonsEnabled(false);
 
-        if ("player1".equals(myPlayerId)) {
-            gameRef.child("status").setValue("finished");
+        // Odredi moj finalni skor
+        int myFinalScore  = "player1".equals(myRole) ? scorePlayer1 : scorePlayer2;
+        int oppFinalScore = "player1".equals(myRole) ? scorePlayer2 : scorePlayer1;
+        boolean iWon      = myFinalScore > oppFinalScore;
+
+        // ── Upiši skor u zajednički čvor meča (kao u Skočko finishMatch) ─────
+        matchRef.child("scores").child(myUid).setValue(myFinalScore);
+
+        // ── Samo player1 inkremantira currentGame ─────────────────────────────
+        if ("player1".equals(myRole)) {
+            matchRef.child("currentGame").setValue(ServerValue.increment(1));
         }
 
+        // ── Firestore statistika ──────────────────────────────────────────────
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("stats.koznaZna.correct",  FieldValue.increment(myCorrectAnswers));
+        updates.put("stats.koznaZna.wrong",    FieldValue.increment(myWrongAnswers));
+        updates.put("stats.koznaZna.wins",     FieldValue.increment(iWon ? 1 : 0));
+        updates.put("stats.koznaZna.losses",   FieldValue.increment(iWon ? 0 : 1));
+        updates.put("stats.global.totalGames", FieldValue.increment(1));
+        updates.put("stats.global.wins",       FieldValue.increment(iWon ? 1 : 0));
+        updates.put("stats.global.losses",     FieldValue.increment(iWon ? 0 : 1));
+        FirebaseFirestore.getInstance().collection("users").document(myUid).update(updates);
+
+        // ── UI prikaz rezultata ───────────────────────────────────────────────
         tvQuestionNumber.setText("Kraj igre!");
         tvTimer.setText("—");
         tvQuestion.setText("Igra završena!");
 
-        String p1Label = "player1".equals(myPlayerId) ? "Ti" : "Protivnik";
-        String p2Label = "player2".equals(myPlayerId) ? "Ti" : "Protivnik";
-        int myScore    = "player1".equals(myPlayerId) ? scorePlayer1 : scorePlayer2;
-        int oppScore   = "player1".equals(myPlayerId) ? scorePlayer2 : scorePlayer1;
-        boolean iWon   = myScore > oppScore;
+        String p1Label = "player1".equals(myRole) ? "Ti" : "Protivnik";
+        String p2Label = "player2".equals(myRole) ? "Ti" : "Protivnik";
 
         if (scorePlayer1 > scorePlayer2)
-            tvStatus.setText("🏆 " + p1Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+            tvStatus.setText("🏆 " + p1Label + " pobijedio!\n"
+                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
         else if (scorePlayer2 > scorePlayer1)
-            tvStatus.setText("🏆 " + p2Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+            tvStatus.setText("🏆 " + p2Label + " pobijedio!\n"
+                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
         else
-            tvStatus.setText("Neriješeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+            tvStatus.setText("Neriješeno!\n"
+                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
 
         updateScoreUI();
 
-        // Upis statistike u Firestore
-        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-
-        if (uid != null) {
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("stats.koznaZna.correct",  FieldValue.increment(myCorrectAnswers));
-            updates.put("stats.koznaZna.wrong",    FieldValue.increment(myWrongAnswers));
-            updates.put("stats.koznaZna.wins",     FieldValue.increment(iWon ? 1 : 0));
-            updates.put("stats.koznaZna.losses",   FieldValue.increment(iWon ? 0 : 1));
-            updates.put("stats.global.totalGames", FieldValue.increment(1));
-            updates.put("stats.global.wins",       FieldValue.increment(iWon ? 1 : 0));
-            updates.put("stats.global.losses",     FieldValue.increment(iWon ? 0 : 1));
-            FirebaseFirestore.getInstance().collection("users").document(uid).update(updates);
-        }
-
-        rootView.postDelayed(() -> {
-            if (getView() != null)
-                androidx.navigation.Navigation.findNavController(getView()).navigate(R.id.nav_game);
-        }, 3000);
+        // ── Čekaj Firebase signal pa naviguiraj (kao u Skočko) ───────────────
+        navigationScheduled = true;
+        listenForNextGame();
     }
 
-    // ====== HELPERI ======
+    // ─────────────────────────────────────────────────────────────────────────
+    // ČEKANJE NA FIREBASE PRE NAVIGACIJE (isti obrazac kao Skočko)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void listenForNextGame() {
+        gameAdvanceListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Integer game = snapshot.getValue(Integer.class);
+
+                // KoZnaZna je case 4, prelazimo kad currentGame >= 5
+                if (game != null && game >= 5) {
+                    matchRef.child("currentGame").removeEventListener(this);
+                    gameAdvanceListener = null;
+
+                    if (!isAdded() || getView() == null) return;
+
+                    Bundle args = new Bundle();
+                    args.putString("MATCH_ID",    matchId);
+                    args.putString("PLAYER_ROLE", myRole);
+
+                    androidx.navigation.Navigation
+                            .findNavController(requireView())
+                            .navigate(R.id.nav_game, args);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+
+        matchRef.child("currentGame").addValueEventListener(gameAdvanceListener);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HELPERI
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void resetButtonColors() {
         btnAnswerA.setBackgroundColor(COLOR_DEFAULT);
@@ -407,22 +523,13 @@ public class KoZnaZnaFragment extends Fragment {
     }
 
     private void updateScoreUI() {
-        if ("player1".equals(myPlayerId)) {
+        if ("player1".equals(myRole)) {
             tvScorePlayer1.setText(String.valueOf(scorePlayer1));
             tvScorePlayer2.setText(String.valueOf(scorePlayer2));
         } else {
+            // Player2 vidi sebe levo
             tvScorePlayer1.setText(String.valueOf(scorePlayer2));
             tvScorePlayer2.setText(String.valueOf(scorePlayer1));
-        }
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        if (questionTimer != null) questionTimer.cancel();
-        if (questionListener != null) {
-            gameRef.child("answers").child(String.valueOf(currentQuestion))
-                    .removeEventListener(questionListener);
         }
     }
 }

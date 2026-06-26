@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
@@ -19,9 +20,15 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ServerValue;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Transaction;
+
+import android.widget.Toast;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,6 +36,7 @@ import java.util.Map;
 public class SpojniceFragment extends Fragment {
 
     // ====== UI ======
+    private View rootView;
     private TextView tvRound, tvTimer, tvKriterijum, tvStatus;
     private TextView tvScorePlayer1, tvScorePlayer2;
     private MaterialButton[] leftButtons  = new MaterialButton[5];
@@ -42,7 +50,6 @@ public class SpojniceFragment extends Fragment {
     private static final int COLOR_WRONG     = Color.parseColor("#D32F2F");
 
     // ====== PODACI ======
-    // Runda 0: izvođači i pjesme, Runda 1: naučnici i otkrića
     private static final String[][] LEFT_TERMS = {
             {"Riblja čorba", "Bajaga", "EKV", "Đ. Balašević", "Generacija 5"},
             {"Einstein",     "Tesla",  "Curie", "Newton",     "Darwin"}
@@ -55,25 +62,34 @@ public class SpojniceFragment extends Fragment {
             "Poveži izvođače sa njihovim pesmama",
             "Poveži naučnike sa njihovim otkrićima"
     };
-    // Tačno mapiranje: left[i] -> right[i] (0-4 su svi tačni po redu)
     private static final int[] CORRECT_MAPPING = {0, 1, 2, 3, 4};
 
+    // ====== KONSTANTE ZA ZVEZDICE / TOKENE ======
+    private static final int STARS_FOR_WIN        = 10;   // bonus pobedniku
+    private static final int STARS_LOST_ON_LOSS   = 10;   // penal gubitniku
+    private static final int POINTS_PER_STAR      = 40;   // svakih 40 bodova = 1 zvezda (floor)
+    private static final int STARS_PER_TOKEN      = 50;   // svakih 50 zvezdica = 1 token
+
+    // ====== IDENTIFIKATORI ======
+    private String matchId;
+    private String myRole;      // "player1" ili "player2"
+    private String myUid;
+
     // ====== FIREBASE ======
-    private DatabaseReference gameRef;
-    private String gameId;
-    private String myPlayerId;
+    private DatabaseReference gameRef;      // games/{matchId}/spojnice
+    private DatabaseReference matchRef;     // matches/{matchId}
     private ValueEventListener roundStateListener;
+    private ValueEventListener gameAdvanceListener;
+
+    // ====== POČETNI SKOROVI IZ MEČA ======
+    private int matchStartingScoreP1 = 0;
+    private int matchStartingScoreP2 = 0;
 
     // ====== STANJE ======
-    // currentRound: 0 ili 1
-    // U rundi 0: player1 igra aktivan, player2 ispravlja
-    // U rundi 1: player2 igra aktivan, player1 ispravlja
     private int currentRound = 0;
 
-    // Faza: "waiting" = čekamo da aktivan igrač završi
-    //       "fixing"  = fixing igrač ispravlja
-    //       "done"    = runda gotova
-    private String myPhase = "waiting";
+    // Faza: "active" = aktivan igrač igra, "fixing" = drugi ispravlja, "done" = runda gotova
+    private String myPhase = "active";
 
     private int scorePlayer1 = 0;
     private int scorePlayer2 = 0;
@@ -81,9 +97,12 @@ public class SpojniceFragment extends Fragment {
     private int selectedLeftIndex  = -1;
     private int selectedRightIndex = -1;
 
-    private boolean[] leftUsed    = new boolean[5];
-    private boolean[] rightUsed   = new boolean[5];
+    private boolean[] leftUsed      = new boolean[5];
+    private boolean[] rightUsed     = new boolean[5];
     private int[]     connectedRight = new int[]{-1, -1, -1, -1, -1};
+
+    // ====== NAVIGACIJA ======
+    private boolean matchFinishedRegistered = false;
 
     // ====== STATISTIKA ======
     private int myConnectedCorrect = 0;
@@ -93,10 +112,15 @@ public class SpojniceFragment extends Fragment {
 
     public SpojniceFragment() {}
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIFECYCLE
+    // ─────────────────────────────────────────────────────────────────────────
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_spojnice, container, false);
+        rootView = view;
 
         tvRound        = view.findViewById(R.id.tvRound);
         tvTimer        = view.findViewById(R.id.tvTimer);
@@ -117,58 +141,120 @@ public class SpojniceFragment extends Fragment {
         rightButtons[3] = view.findViewById(R.id.btnRight4);
         rightButtons[4] = view.findViewById(R.id.btnRight5);
 
-        // Čitaj argumente iz GameFragment lobija
-        gameId     = "test_game_spojnice_001";
-        myPlayerId = "player1";
-
+        // ── Čitaj identifikatore iz argumenata ───────────────────────────────
+        matchId = "test_game_001";
+        myRole  = "player1";
         if (getArguments() != null) {
-            gameId     = getArguments().getString("ROOM_ID",     "test_game_spojnice_001");
-            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+            matchId = getArguments().getString("MATCH_ID",    "test_game_001");
+            myRole  = getArguments().getString("PLAYER_ROLE", "player1");
         }
 
-        gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
+        myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        gameRef  = FirebaseDatabase.getInstance()
+                .getReference("games").child(matchId).child("spojnice");
+        matchRef = FirebaseDatabase.getInstance()
+                .getReference("matches").child(matchId);
 
         setupClickListeners();
 
-        // Player1 inicijalizuje igru i briše staro stanje
-        if ("player1".equals(myPlayerId)) {
-            gameRef.removeValue((error, ref) -> startRound(0));
-        } else {
-            startRound(0);
-        }
+        // ── Korak 1: učitaj početne skorove iz meča, pa tek pokreni igru ─────
+        loadMatchScores();
 
         return view;
     }
 
-    // ==============================
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (roundTimer != null) roundTimer.cancel();
+        if (roundStateListener != null) {
+            gameRef.child("rounds").child(String.valueOf(currentRound))
+                    .removeEventListener(roundStateListener);
+            roundStateListener = null;
+        }
+        if (gameAdvanceListener != null) {
+            matchRef.child("currentGame").removeEventListener(gameAdvanceListener);
+            gameAdvanceListener = null;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // KORAK 1 — UČITAJ POČETNE SCOROVE IZ MEČA
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void loadMatchScores() {
+        matchRef.child("scores").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot child : snapshot.getChildren()) {
+                    String uid  = child.getKey();
+                    Integer val = child.getValue(Integer.class);
+                    int score   = val != null ? val : 0;
+
+                    if (myUid.equals(uid)) {
+                        if ("player1".equals(myRole)) matchStartingScoreP1 = score;
+                        else                          matchStartingScoreP2 = score;
+                    } else {
+                        if ("player1".equals(myRole)) matchStartingScoreP2 = score;
+                        else                          matchStartingScoreP1 = score;
+                    }
+                }
+                startGame();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                startGame(); // nastavi čak i ako učitavanje ne uspe
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // KORAK 2 — POKRETANJE IGRE
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void startGame() {
+        scorePlayer1 = matchStartingScoreP1;
+        scorePlayer2 = matchStartingScoreP2;
+        updateScoreUI();
+
+        if ("player1".equals(myRole)) {
+            // Player1 briše staro stanje i inicijalizuje igru
+            gameRef.removeValue((error, ref) -> startRound(0));
+        } else {
+            startRound(0);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // DA LI SMIJE KLIKNUTI
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private boolean canIClick() {
         if ("active".equals(myPhase)) {
-            return (currentRound == 0 && "player1".equals(myPlayerId))
-                    || (currentRound == 1 && "player2".equals(myPlayerId));
+            return (currentRound == 0 && "player1".equals(myRole))
+                    || (currentRound == 1 && "player2".equals(myRole));
         }
         if ("fixing".equals(myPhase)) {
-            return (currentRound == 0 && "player2".equals(myPlayerId))
-                    || (currentRound == 1 && "player1".equals(myPlayerId));
+            return (currentRound == 0 && "player2".equals(myRole))
+                    || (currentRound == 1 && "player1".equals(myRole));
         }
         return false;
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // POKRETANJE RUNDE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void startRound(int round) {
-        currentRound      = round;
-        myPhase           = "active";
+        currentRound       = round;
+        myPhase            = "active";
         selectedLeftIndex  = -1;
         selectedRightIndex = -1;
 
         for (int i = 0; i < 5; i++) {
-            leftUsed[i]      = false;
-            rightUsed[i]     = false;
+            leftUsed[i]       = false;
+            rightUsed[i]      = false;
             connectedRight[i] = -1;
         }
 
@@ -186,18 +272,17 @@ public class SpojniceFragment extends Fragment {
         updateScoreUI();
         updateStatusAndTimer();
 
-        // Slušaj stanje runde iz Firebase
         listenForRoundState(round);
     }
 
     private void updateStatusAndTimer() {
-        boolean active = (currentRound == 0 && "player1".equals(myPlayerId))
-                || (currentRound == 1 && "player2".equals(myPlayerId));
-        boolean fixing = (currentRound == 0 && "player2".equals(myPlayerId))
-                || (currentRound == 1 && "player1".equals(myPlayerId));
+        boolean iAmActive = (currentRound == 0 && "player1".equals(myRole))
+                || (currentRound == 1 && "player2".equals(myRole));
+        boolean iAmFixing = (currentRound == 0 && "player2".equals(myRole))
+                || (currentRound == 1 && "player1".equals(myRole));
 
         if ("active".equals(myPhase)) {
-            if (active) {
+            if (iAmActive) {
                 tvStatus.setText("🎮 Igrač " + (currentRound == 0 ? "1" : "2")
                         + " (Ti) igraš — poveži pojmove!");
                 startCountdown(30, this::onActiveTimerFinished);
@@ -207,7 +292,7 @@ public class SpojniceFragment extends Fragment {
                 tvTimer.setText("—");
             }
         } else if ("fixing".equals(myPhase)) {
-            if (fixing) {
+            if (iAmFixing) {
                 tvStatus.setText("🔧 Igrač " + (currentRound == 0 ? "2" : "1")
                         + " (Ti) ispravlja!");
                 startCountdown(30, this::onFixingTimerFinished);
@@ -219,9 +304,9 @@ public class SpojniceFragment extends Fragment {
         }
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // TAJMER
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void startCountdown(int seconds, Runnable onFinish) {
         if (roundTimer != null) roundTimer.cancel();
@@ -235,19 +320,17 @@ public class SpojniceFragment extends Fragment {
     }
 
     private void onActiveTimerFinished() {
-        // Aktivan igrač završio – šalje signal u Firebase
         submitActivePhaseEnd();
     }
 
     private void onFixingTimerFinished() {
-        // Fixing igrač završio – šalje signal u Firebase
         gameRef.child("rounds").child(String.valueOf(currentRound))
                 .child("phase").setValue("done");
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // CLICK LISTENERI
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void setupClickListeners() {
         for (int i = 0; i < 5; i++) {
@@ -288,14 +371,14 @@ public class SpojniceFragment extends Fragment {
         }
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // NAPRAVI VEZU LOKALNO + UPIŠI U FIREBASE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void makeConnection(int leftIdx, int rightIdx) {
-        leftUsed[leftIdx]       = true;
-        rightUsed[rightIdx]     = true;
-        connectedRight[leftIdx] = rightIdx;
+        leftUsed[leftIdx]        = true;
+        rightUsed[rightIdx]      = true;
+        connectedRight[leftIdx]  = rightIdx;
 
         boolean correct = (CORRECT_MAPPING[leftIdx] == rightIdx);
         setButtonTint(leftButtons[leftIdx],   correct ? COLOR_CONNECTED : COLOR_WRONG);
@@ -312,22 +395,20 @@ public class SpojniceFragment extends Fragment {
                 .child("rightIdx").setValue(rightIdx);
         gameRef.child("rounds").child(String.valueOf(currentRound))
                 .child("connections").child(String.valueOf(leftIdx))
-                .child("madeBy").setValue(myPlayerId);
+                .child("madeBy").setValue(myRole);
 
         if (correct) {
-            if ("player1".equals(myPlayerId)) scorePlayer1 += 2;
-            else                              scorePlayer2 += 2;
+            if ("player1".equals(myRole)) scorePlayer1 += 2;
+            else                          scorePlayer2 += 2;
             updateScoreUI();
         }
 
-        // Ako su svi spojeni u aktivnoj fazi – završi aktivnu fazu
         if (allConnected() && "active".equals(myPhase)) {
             if (roundTimer != null) roundTimer.cancel();
             submitActivePhaseEnd();
             return;
         }
 
-        // Ako su svi slobodni spojeni u fixing fazi – odmah završi, ne čekaj tajmer
         if ("fixing".equals(myPhase) && allConnected()) {
             if (roundTimer != null) roundTimer.cancel();
             tvTimer.setText("—");
@@ -335,28 +416,29 @@ public class SpojniceFragment extends Fragment {
                     .child("phase").setValue("done");
         }
     }
+
     private boolean allConnected() {
         for (boolean u : leftUsed) if (!u) return false;
         return true;
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // KRAJ AKTIVNE FAZE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void submitActivePhaseEnd() {
-        // Provjeri ima li netačnih veza, obriši ih
         boolean anyWrong = false;
         for (int i = 0; i < 5; i++) {
             if (leftUsed[i] && connectedRight[i] != CORRECT_MAPPING[i]) {
                 anyWrong = true;
                 gameRef.child("rounds").child(String.valueOf(currentRound))
                         .child("connections").child(String.valueOf(i)).removeValue();
-                leftUsed[i]      = false;
-                rightUsed[connectedRight[i]] = false;
-                connectedRight[i] = -1;
-                setButtonTint(leftButtons[i],          COLOR_DEFAULT);
-                setButtonTint(rightButtons[connectedRight[i] >= 0 ? connectedRight[i] : i], COLOR_DEFAULT);
+                int wrongRight = connectedRight[i];
+                leftUsed[i]          = false;
+                rightUsed[wrongRight] = false;
+                connectedRight[i]    = -1;
+                setButtonTint(leftButtons[i],         COLOR_DEFAULT);
+                setButtonTint(rightButtons[wrongRight], COLOR_DEFAULT);
             }
         }
 
@@ -368,10 +450,9 @@ public class SpojniceFragment extends Fragment {
                 .child("phase").setValue(nextPhase);
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // SLUŠAJ STANJE RUNDE IZ FIREBASE
-    // (oba igrača vide iste promjene)
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void listenForRoundState(int round) {
         if (roundStateListener != null) {
@@ -393,23 +474,33 @@ public class SpojniceFragment extends Fragment {
                     String madeBy    = connSnap.child("madeBy").getValue(String.class);
 
                     if (rightIdx == null) continue;
-                    if (madeBy != null && madeBy.equals(myPlayerId)) continue; // već prikazano lokalno
+                    if (myRole.equals(madeBy)) continue; // već prikazano lokalno
+
+                    // Preskači ako je veza već sinhronizovana lokalno
+                    if (leftUsed[leftIdx] && connectedRight[leftIdx] == rightIdx) continue;
 
                     boolean correct = (CORRECT_MAPPING[leftIdx] == rightIdx);
-                    leftUsed[leftIdx]    = true;
-                    rightUsed[rightIdx]  = true;
+
+                    // Ako je protivnik sada napravio tačnu vezu, dodaj mu bodove
+                    if (correct && !leftUsed[leftIdx]) {
+                        String oppRole = "player1".equals(myRole) ? "player2" : "player1";
+                        if ("player1".equals(oppRole)) scorePlayer1 += 2;
+                        else                           scorePlayer2 += 2;
+                        updateScoreUI();
+                    }
+
+                    leftUsed[leftIdx]       = true;
+                    rightUsed[rightIdx]     = true;
                     connectedRight[leftIdx] = rightIdx;
 
                     setButtonTint(leftButtons[leftIdx],   correct ? COLOR_CONNECTED : COLOR_WRONG);
                     setButtonTint(rightButtons[rightIdx], correct ? COLOR_CONNECTED : COLOR_WRONG);
                 }
 
-                // Reaguj na promjenu faze
                 if ("fixing".equals(phase) && "active".equals(myPhase)) {
                     myPhase = "fixing";
                     if (roundTimer != null) roundTimer.cancel();
                     updateStatusAndTimer();
-
                 } else if ("done".equals(phase) && !"done".equals(myPhase)) {
                     myPhase = "done";
                     if (roundTimer != null) roundTimer.cancel();
@@ -425,9 +516,9 @@ public class SpojniceFragment extends Fragment {
                 .addValueEventListener(roundStateListener);
     }
 
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
     // RUNDA ZAVRŠENA
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void onRoundDone(int round) {
         if (roundStateListener != null) {
@@ -439,8 +530,8 @@ public class SpojniceFragment extends Fragment {
         tvStatus.setText("✅ Runda " + (round + 1) + " završena!");
         tvTimer.setText("—");
 
-        if (getView() != null) {
-            getView().postDelayed(() -> {
+        if (rootView != null) {
+            rootView.postDelayed(() -> {
                 if (round + 1 < 2) {
                     startRound(round + 1);
                 } else {
@@ -450,84 +541,181 @@ public class SpojniceFragment extends Fragment {
         }
     }
 
-    // ==============================
-    // KRAJ IGRE
-    // ==============================
+    // ─────────────────────────────────────────────────────────────────────────
+    // KRAJ IGRE — upiši u matches/{matchId}/scores, ažuriraj statistiku,
+    // zvezdice i tokene
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void endGame() {
+        if (matchFinishedRegistered) return;
+        matchFinishedRegistered = true;
+
         if (roundTimer != null) roundTimer.cancel();
 
-        gameRef.child("status").setValue("finished");
-        gameRef.child("scores").child("player1").setValue(scorePlayer1);
-        gameRef.child("scores").child("player2").setValue(scorePlayer2);
+        int myFinalScore  = "player1".equals(myRole) ? scorePlayer1 : scorePlayer2;
+        int oppFinalScore = "player1".equals(myRole) ? scorePlayer2 : scorePlayer1;
+        // Napomena: u slučaju nerešenog rezultata (myFinalScore == oppFinalScore)
+        // igrač se trenutno tretira kao "gubitnik" za potrebe obračuna zvezdica,
+        // pošto specifikacija ne definiše poseban slučaj za nerešeno.
+        boolean iWon      = myFinalScore > oppFinalScore;
 
-        tvRound.setText("Igra završena!");
+        // ── Upiši moj skor u zajednički čvor meča ────────────────────────────
+        matchRef.child("scores").child(myUid).setValue(myFinalScore);
+
+        // ── Samo player1 inkremantira currentGame ─────────────────────────────
+        if ("player1".equals(myRole)) {
+            matchRef.child("status").setValue("finished");
+        }
+
+        // ── Zvezdice, tokeni i statistika (Firestore, transakciono) ──────────
+        applyStarsTokensAndStats(myUid, iWon, myFinalScore,
+                myConnectedCorrect, myConnectedTotal);
+
+        // ── UI prikaz rezultata ───────────────────────────────────────────────
+        tvRound.setText("Kraj igre!");
         tvTimer.setText("—");
         tvKriterijum.setText("");
 
-        String p1Label = "player1".equals(myPlayerId) ? "Ti" : "Protivnik";
-        String p2Label = "player2".equals(myPlayerId) ? "Ti" : "Protivnik";
-        int myScore    = "player1".equals(myPlayerId) ? scorePlayer1 : scorePlayer2;
-        int oppScore   = "player1".equals(myPlayerId) ? scorePlayer2 : scorePlayer1;
-        boolean iWon   = myScore > oppScore;
+        String p1Label = "player1".equals(myRole) ? "Ti" : "Protivnik";
+        String p2Label = "player2".equals(myRole) ? "Ti" : "Protivnik";
 
-        String rezultat;
         if (scorePlayer1 > scorePlayer2)
-            rezultat = "🏆 " + p1Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2;
+            tvStatus.setText("🏆 " + p1Label + " si pobedio!\n"
+                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
         else if (scorePlayer2 > scorePlayer1)
-            rezultat = "🏆 " + p2Label + " pobijedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2;
+            tvStatus.setText("🏆 " + p2Label + " je pobedio!\n"
+                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
         else
-            rezultat = "Neriješeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2;
+            tvStatus.setText("Nerešeno!\n"
+                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
 
-        tvStatus.setText(rezultat);
         updateScoreUI();
-
-        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-
-        if (uid != null) {
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("stats.spojnice.connected",    FieldValue.increment(myConnectedCorrect));
-            updates.put("stats.spojnice.total",        FieldValue.increment(myConnectedTotal));
-            updates.put("stats.spojnice.wins",         FieldValue.increment(iWon ? 1 : 0));
-            updates.put("stats.spojnice.losses",       FieldValue.increment(iWon ? 0 : 1));
-            updates.put("stats.global.totalGames",     FieldValue.increment(1));
-            updates.put("stats.global.wins",           FieldValue.increment(iWon ? 1 : 0));
-            updates.put("stats.global.losses",         FieldValue.increment(iWon ? 0 : 1));
-            FirebaseFirestore.getInstance().collection("users").document(uid).update(updates);
-        }
-
-        if (getView() != null) {
-            getView().postDelayed(() -> {
-                if (getView() != null)
-                    androidx.navigation.Navigation.findNavController(getView()).navigate(R.id.nav_game);
-            }, 3000);
-        }
     }
 
-    // ====== HELPERI ======
+    // ─────────────────────────────────────────────────────────────────────────
+    // ZVEZDICE + TOKENI + STATISTIKA
+    //
+    // Pravila:
+    //  - Pobednik:  +10 zvezdica + (osvojeniBodovi / 40) zvezdica (floor)
+    //  - Gubitnik:  -10 zvezdica + (osvojeniBodovi / 40) zvezdica (floor)
+    //  - Broj zvezdica ne može pasti ispod 0 (ne može se izgubiti
+    //    više zvezdica nego što igrač trenutno ima)
+    //  - Svakih 50 (ukupno akumuliranih) zvezdica = 1 token; taj višak
+    //    se konvertuje u tokene, a ostatak (mod 50) ostaje kao zvezdice
+    //
+    // Pošto je potrebno PROČITATI trenutno stanje (stars, tokens) pa
+    // ga na osnovu toga izmeniti, koristimo Firestore transakciju —
+    // FieldValue.increment() ovde ne bi bio dovoljan jer ne ume da
+    // uradi "clamp na 0" niti floor-deljenje sa 40/50.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void applyStarsTokensAndStats(String uid, boolean won, int myScore,
+                                          int connectedCorrect, int connectedTotal) {
+
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        DocumentReference userRef = firestore.collection("users").document(uid);
+
+        firestore.runTransaction((Transaction.Function<Void>) transaction -> {
+
+            DocumentSnapshot snapshot = transaction.get(userRef);
+
+            Long currentStarsLong  = snapshot.getLong("stars");
+            long currentStars      = currentStarsLong  != null ? currentStarsLong  : 0L;
+
+            Long currentTokensLong = snapshot.getLong("tokens");
+            long currentTokens     = currentTokensLong != null ? currentTokensLong : 0L;
+
+            // Zvezdice osvojene na osnovu broja bodova (floor deljenje)
+            int starsFromScore = myScore / POINTS_PER_STAR;
+
+            long starsDelta = won
+                    ? (STARS_FOR_WIN + starsFromScore)
+                    : (-STARS_LOST_ON_LOSS + starsFromScore);
+
+            long newStars = currentStars + starsDelta;
+            if (newStars < 0) newStars = 0; // ne može otići u minus
+
+            // Konverzija viška zvezdica u tokene (1 token na svakih 50 zvezdica)
+            long tokensEarned   = newStars / STARS_PER_TOKEN;
+            long remainingStars = newStars % STARS_PER_TOKEN;
+            long newTokens      = currentTokens + tokensEarned;
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("stars",  remainingStars);
+            updates.put("tokens", newTokens);
+
+            updates.put("stats.spojnice.connected", FieldValue.increment(connectedCorrect));
+            updates.put("stats.spojnice.total",     FieldValue.increment(connectedTotal));
+            updates.put("stats.spojnice.wins",      FieldValue.increment(won ? 1 : 0));
+            updates.put("stats.spojnice.losses",    FieldValue.increment(won ? 0 : 1));
+
+            updates.put("stats.global.totalGames",  FieldValue.increment(1));
+            updates.put("stats.global.wins",        FieldValue.increment(won ? 1 : 0));
+            updates.put("stats.global.losses",      FieldValue.increment(won ? 0 : 1));
+
+            transaction.update(userRef, updates);
+            return null;
+        }).addOnSuccessListener(unused -> {
+            // Po potrebi: obavesti igrača o promeni zvezdica/tokena
+            // npr. Toast.makeText(getContext(), "Zvezdice ažurirane", Toast.LENGTH_SHORT).show();
+        }).addOnFailureListener(e -> {
+            if (getContext() != null) {
+                Toast.makeText(getContext(),
+                        "Greška pri ažuriranju zvezdica/tokena: " + e.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ČEKANJE NA FIREBASE PRE NAVIGACIJE
+    // Spojnice je case 3 (4. igra po redu 0-indexed), prelazimo kad currentGame >= 4
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void listenForNextGame() {
+        gameAdvanceListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Integer game = snapshot.getValue(Integer.class);
+
+                if (game != null && game >= 4) {
+                    matchRef.child("currentGame").removeEventListener(this);
+                    gameAdvanceListener = null;
+
+                    if (!isAdded() || getView() == null) return;
+
+                    Bundle args = new Bundle();
+                    args.putString("MATCH_ID",    matchId);
+                    args.putString("PLAYER_ROLE", myRole);
+
+                    androidx.navigation.Navigation
+                            .findNavController(requireView())
+                            .navigate(R.id.nav_game, args);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+
+        matchRef.child("currentGame").addValueEventListener(gameAdvanceListener);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HELPERI
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void setButtonTint(MaterialButton btn, int color) {
         btn.setBackgroundTintList(ColorStateList.valueOf(color));
     }
 
     private void updateScoreUI() {
-        if ("player1".equals(myPlayerId)) {
+        if ("player1".equals(myRole)) {
             tvScorePlayer1.setText("Ti: " + scorePlayer1);
             tvScorePlayer2.setText("Protivnik: " + scorePlayer2);
         } else {
             tvScorePlayer1.setText("Protivnik: " + scorePlayer1);
             tvScorePlayer2.setText("Ti: " + scorePlayer2);
-        }
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        if (roundTimer != null) roundTimer.cancel();
-        if (roundStateListener != null && gameRef != null) {
-            gameRef.child("rounds").child(String.valueOf(currentRound))
-                    .removeEventListener(roundStateListener);
         }
     }
 }
