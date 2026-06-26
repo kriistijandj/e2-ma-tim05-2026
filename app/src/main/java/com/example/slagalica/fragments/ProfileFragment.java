@@ -141,6 +141,10 @@ public class ProfileFragment extends Fragment {
                     }
                     ivAvatar.setImageResource(AVATAR_RES[currentAvatarId]);
 
+                    if (region != null && !region.isEmpty()) {
+                        loadAvatarBorder(region);
+                    }
+
                     // ── QR kod (sadržaj = username) ───────────────────────
                     if (username != null) {
                         generateQrCode(username);
@@ -325,6 +329,35 @@ public class ProfileFragment extends Fragment {
             // Ako ne uspije, ostaje default ikona
             android.util.Log.e("ProfileFragment", "QR greška: " + e.getMessage());
         }
+    }
+
+    // ==============================
+    // AVATAR BORDER – boja po rangu regiona
+    // ==============================
+
+    private void loadAvatarBorder(String myRegion) {
+        com.example.slagalica.repository.RegionRepository repo =
+                new com.example.slagalica.repository.RegionRepository();
+        repo.getPreviousCycleRank(myRegion, regionModel -> {
+            if (getActivity() == null || !isAdded()) return;
+            requireActivity().runOnUiThread(() -> {
+                int rank = regionModel.getRank();
+                String color = null;
+                if (rank == 1) color = "#FFD700";
+                else if (rank == 2) color = "#C0C0C0";
+                else if (rank == 3) color = "#CD7F32";
+                if (color != null) {
+                    android.graphics.drawable.GradientDrawable border =
+                            new android.graphics.drawable.GradientDrawable();
+                    border.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                    border.setStroke(6, android.graphics.Color.parseColor(color));
+                    border.setColor(android.graphics.Color.TRANSPARENT);
+                    ivAvatar.setBackground(border);
+                } else {
+                    ivAvatar.setBackground(null);
+                }
+            });
+        });
     }
 
     // ==============================

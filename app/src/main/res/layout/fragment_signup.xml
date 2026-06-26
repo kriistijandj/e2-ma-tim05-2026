@@ -55,12 +55,14 @@
                 android:layout_marginBottom="12dp"/>
 
             <!-- Region -->
-            <EditText
-                android:id="@+id/etRegion"
-                style="@style/RoundedEditText"
-                android:hint="Region"
-                android:inputType="text"
-                android:layout_marginBottom="12dp"/>
+            <Spinner
+                android:id="@+id/spinnerRegion"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/rounded_spinner_bg"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"/>
 
             <!-- Password -->
             <EditText

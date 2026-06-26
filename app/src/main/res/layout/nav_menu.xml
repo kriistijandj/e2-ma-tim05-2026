@@ -25,5 +25,10 @@
             android:id="@+id/nav_daily_missions"
             android:icon="@drawable/ic_launcher_foreground"
             android:title="@string/dnevne_misije" />
+        <item
+            android:id="@+id/nav_region_map"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:title="Regioni"
+            android:orderInCategory="200"/>
     </group>
 </menu>
