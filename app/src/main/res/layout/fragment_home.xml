@@ -108,6 +108,15 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardFriends"
+                style="@style/GameMenuCard"
+                android:layout_height="80dp">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Prijatelji" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
         </GridLayout>
     </LinearLayout>
 
