@@ -9,7 +9,12 @@
     <fragment
         android:id="@+id/nav_home"
         android:name="com.example.slagalica.fragments.HomeFragment"
-        android:label="Home" />
+        android:label="Home" >
+
+        <action
+            android:id="@+id/action_home_to_leaderboard"
+            app:destination="@id/nav_leaderboard" />
+    </fragment>
 
     <fragment
         android:id="@+id/nav_notifications"
@@ -135,5 +140,11 @@
         android:name="com.example.slagalica.fragments.RegionDetailFragment"
         android:label="Statistika regiona"
         tools:layout="@layout/fragment_region_detail"/>
-
+    <fragment
+        android:id="@+id/nav_leaderboard"
+        android:name="com.example.slagalica.fragments.LeaderboardFragment"
+        android:label="Rang Lista"
+        tools:layout="@layout/fragment_leaderboard"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="false" />
 </navigation>
