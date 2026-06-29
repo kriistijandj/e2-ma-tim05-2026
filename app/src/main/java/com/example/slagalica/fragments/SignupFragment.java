@@ -178,6 +178,13 @@ public class SignupFragment extends Fragment {
                     userMap.put("isEnabled", false);  // čeka email verifikaciju
                     userMap.put("lastTokenClaimTimestamp", System.currentTimeMillis());
 
+                    int regionIdx = SerbiaRegions.indexOf(region);
+                    if (regionIdx >= 0) {
+                        double[] pos = SerbiaRegions.randomLatLng(regionIdx);
+                        userMap.put("lat", pos[0]);
+                        userMap.put("lng", pos[1]);
+                    }
+
                     userMap.put("avatarId", 0);
 
                     // ── Statistika – sve na nulama ────────────────────────────

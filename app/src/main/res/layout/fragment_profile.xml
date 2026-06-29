@@ -243,6 +243,61 @@
 
                 </LinearLayout>
 
+                <!-- Liga progress bar -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="4dp">
+
+                        <TextView
+                            android:id="@+id/tvCurrentLeagueLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="⚫ Nulta"
+                            android:textSize="12sp"
+                            android:textStyle="bold"/>
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"/>
+
+                        <TextView
+                            android:id="@+id/tvNextLeagueLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🥉 Bronzana (100★)"
+                            android:textSize="12sp"/>
+
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/pbLeague"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="10dp"
+                        android:max="100"
+                        android:progress="0"/>
+
+                    <TextView
+                        android:id="@+id/tvLeagueProgress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="0 / 100 ★"
+                        android:textSize="11sp"
+                        android:gravity="center"
+                        android:layout_marginTop="2dp"/>
+
+                </LinearLayout>
+
                 <!-- Region -->
                 <LinearLayout
                     android:orientation="horizontal"

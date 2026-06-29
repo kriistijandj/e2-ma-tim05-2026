@@ -153,6 +153,8 @@ public class DailyMissionsFragment extends Fragment {
             return null;
         }).addOnSuccessListener(aVoid -> {
             Toast.makeText(getContext(), "Uspešno preuzet bonus! Stigla su 2 tokena i 3 zvezde! 🎉", Toast.LENGTH_LONG).show();
+            com.example.slagalica.services.LeagueManager.checkAndUpdateLeague(
+                    currentUid, requireContext(), getChildFragmentManager());
         }).addOnFailureListener(e -> {
             Toast.makeText(getContext(), "Greška pri preuzimanju: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         });
@@ -187,7 +189,11 @@ public class DailyMissionsFragment extends Fragment {
             // Pošto je uspešno rešio pojedinačnu misiju, odmah mu dajemo pripadajuće 3 zvezde (Zahtev b)
             transaction.update(userRef, "stars", FieldValue.increment(3));
             return null;
-        }).addOnSuccessListener(aVoid -> Toast.makeText(getContext(), "Simulacija uspešna! +3 zvezde upisane.", Toast.LENGTH_SHORT).show());
+        }).addOnSuccessListener(aVoid -> {
+            Toast.makeText(getContext(), "Simulacija uspešna! +3 zvezde upisane.", Toast.LENGTH_SHORT).show();
+            com.example.slagalica.services.LeagueManager.checkAndUpdateLeague(
+                    currentUid, requireContext(), getChildFragmentManager());
+        });
     }
 
     @Override

@@ -52,7 +52,29 @@ public class RegionRepository {
             result.add(new RegionModel(name));
         }
 
-        final int[] pending = {SerbiaRegions.ALL.size()};
+        // +1 for the users query that counts registered players per region
+        final int[] pending = {SerbiaRegions.ALL.size() + 1};
+
+        db.collection("users").whereEqualTo("isEnabled", true).get().addOnCompleteListener(usersTask -> {
+            if (usersTask.isSuccessful() && usersTask.getResult() != null) {
+                Map<String, Integer> playerCounts = new HashMap<>();
+                for (QueryDocumentSnapshot doc : usersTask.getResult()) {
+                    String region = doc.getString("region");
+                    if (region != null && SerbiaRegions.isValid(region)) {
+                        playerCounts.put(region, playerCounts.getOrDefault(region, 0) + 1);
+                    }
+                }
+                for (RegionModel m : result) {
+                    Integer count = playerCounts.get(m.getName());
+                    m.setPlayerCount(count != null ? count : 0);
+                }
+            }
+            pending[0]--;
+            if (pending[0] == 0) {
+                assignRanks(result);
+                callback.onResult(result);
+            }
+        });
 
         for (int i = 0; i < SerbiaRegions.ALL.size(); i++) {
             final int idx = i;
@@ -65,9 +87,7 @@ public class RegionRepository {
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
                             Long stars = task.getResult().getLong("totalStars");
-                            Long count = task.getResult().getLong("playerCount");
                             result.get(idx).setTotalStars(stars != null ? stars : 0);
-                            result.get(idx).setPlayerCount(count != null ? count.intValue() : 0);
                         }
                         pending[0]--;
                         if (pending[0] == 0) {
@@ -110,6 +130,7 @@ public class RegionRepository {
 
         db.collection("users")
                 .whereEqualTo("region", regionName)
+                .whereEqualTo("isEnabled", true)
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && task.getResult() != null) {
@@ -145,11 +166,13 @@ public class RegionRepository {
                     if (region == null || !SerbiaRegions.isValid(region)) continue;
                     Double lat = doc.getDouble("lat");
                     Double lng = doc.getDouble("lng");
-                    if (lat != null && lng != null) {
+                    int idx = SerbiaRegions.indexOf(region);
+                    if (lat != null && lng != null && isWithinSerbia(lat, lng)) {
                         locations.add(new double[]{lat, lng});
-                    } else {
-                        int idx = SerbiaRegions.indexOf(region);
-                        if (idx >= 0) locations.add(SerbiaRegions.randomLatLng(idx));
+                    } else if (idx >= 0) {
+                        double[] pos = SerbiaRegions.randomLatLng(idx);
+                        locations.add(pos);
+                        saveRandomLocation(doc.getId(), pos[0], pos[1]);
                     }
                 }
             }
@@ -157,13 +180,28 @@ public class RegionRepository {
         });
     }
 
-    public void saveUserLocation(double lat, double lng) {
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) return;
+    private boolean isWithinSerbia(double lat, double lng) {
+        return lat >= 41.8 && lat <= 46.2 && lng >= 18.8 && lng <= 23.1;
+    }
+
+    private void saveRandomLocation(String uid, double lat, double lng) {
         Map<String, Object> updates = new HashMap<>();
         updates.put("lat", lat);
         updates.put("lng", lng);
-        db.collection("users").document(user.getUid()).update(updates);
+        db.collection("users").document(uid).update(updates);
+    }
+
+    public void saveUserLocation(double lat, double lng, Runnable onComplete) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("lat", lat);
+        updates.put("lng", lng);
+        db.collection("users").document(user.getUid()).update(updates)
+                .addOnCompleteListener(t -> { if (onComplete != null) onComplete.run(); });
     }
 
     public void incrementRegionStars(String regionName, long amount) {
