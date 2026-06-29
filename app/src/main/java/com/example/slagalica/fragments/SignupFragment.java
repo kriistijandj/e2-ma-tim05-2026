@@ -166,7 +166,13 @@ public class SignupFragment extends Fragment {
                     userMap.put("username", username);
                     userMap.put("region",   region);
                     userMap.put("tokens", 5);   // bonus za registraciju
-                    userMap.put("stars",  0);
+                    userMap.put("stars", 0); // Ukupne zvezde
+                    userMap.put("weeklyStars", 0);  // Zvezde u tekućoj nedelji (kreće od 0)
+                    userMap.put("monthlyStars", 0); // Zvezde u tekućem mesecu (kreće od 0)
+                    userMap.put("leagueIcon", "bronze_league"); // Zahtev (b) - podrazumevana liga
+                    // Pamtićemo id-eve ciklusa u kojima je korisnik poslednji put osvojio zvezdu
+                    userMap.put("lastWeeklyCycle", "");
+                    userMap.put("lastMonthlyCycle", "");
                     userMap.put("online",   false);
                     userMap.put("inMatch",  false);
                     userMap.put("isEnabled", false);  // čeka email verifikaciju

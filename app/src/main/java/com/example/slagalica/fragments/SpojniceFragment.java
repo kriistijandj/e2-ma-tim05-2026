@@ -4,6 +4,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -603,46 +604,120 @@ public class SpojniceFragment extends Fragment {
     }
 
 
+    // Dodaj ove pomoćne metode na dno klase za generisanje ID-eva ciklusa (Zahtev e)
+    private String getCurrentWeeklyCycleId() {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int year = cal.get(java.util.Calendar.YEAR);
+        int week = cal.get(java.util.Calendar.WEEK_OF_YEAR);
+        return year + "_W" + week;
+    }
+
+    private String getCurrentMonthlyCycleId() {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int year = cal.get(java.util.Calendar.YEAR);
+        int month = cal.get(java.util.Calendar.MONTH) + 1; // Januar je 0
+        return year + "_M" + String.format("%02d", month);
+    }
+
     private void applyStarsTokensAndStats(String uid, boolean won, int myScore,
                                           int connectedCorrect, int connectedTotal) {
 
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
         DocumentReference userRef = firestore.collection("users").document(uid);
 
+        final String currentWeeklyId = getCurrentWeeklyCycleId();
+        final String currentMonthlyId = getCurrentMonthlyCycleId();
+
         firestore.runTransaction((Transaction.Function<Void>) transaction -> {
-
             DocumentSnapshot snapshot = transaction.get(userRef);
-
-            Long currentStarsLong  = snapshot.getLong("stars");
-            long currentStars      = currentStarsLong  != null ? currentStarsLong  : 0L;
 
             Long currentTokensLong = snapshot.getLong("tokens");
             long currentTokens     = currentTokensLong != null ? currentTokensLong : 0L;
 
-            // Zvezdice osvojene na osnovu broja bodova (floor deljenje)
-            int starsFromScore = myScore / POINTS_PER_STAR;
+            // Provera da li je počeo novi ciklus
+            String lastWeeklyCycle = snapshot.getString("lastWeeklyCycle");
+            String lastMonthlyCycle = snapshot.getString("lastMonthlyCycle");
 
+            Long dbWeeklyStars = snapshot.getLong("weeklyStars");
+            long currentWeeklyStars = (dbWeeklyStars != null) ? dbWeeklyStars : 0L;
+
+            Long dbMonthlyStars = snapshot.getLong("monthlyStars");
+            long currentMonthlyStars = (dbMonthlyStars != null) ? dbMonthlyStars : 0L;
+
+            // Konstante i delta matematika za OVE partiju
+            int starsFromScore = myScore / POINTS_PER_STAR;
             long starsDelta = won
                     ? (STARS_FOR_WIN + starsFromScore)
                     : (-STARS_LOST_ON_LOSS + starsFromScore);
 
-            long newStars = currentStars + starsDelta;
-            if (newStars < 0) newStars = 0; // ne može otići u minus
-
-            // Konverzija viška zvezdica u tokene (1 token na svakih 50 zvezdica)
-            long tokensEarned   = newStars / STARS_PER_TOKEN;
-            long remainingStars = newStars % STARS_PER_TOKEN;
-            long newTokens      = currentTokens + tokensEarned;
-
+            // Map za sve upise
             Map<String, Object> updates = new HashMap<>();
-            updates.put("stars",  remainingStars);
-            updates.put("tokens", newTokens);
 
+            // --- RESET LOGIKA AKO JE NOVI CIKLUS ---
+            // Ako je počeo novi ciklus, podrazumevana vrednost je 0 + delta iz ove partije.
+            // Ako je ciklus isti, koristimo FieldValue.increment da bezbedno dodamo/oduzmemo na serveru.
+            if (lastWeeklyCycle == null || !lastWeeklyCycle.equals(currentWeeklyId)) {
+                long newWeekly = Math.max(0, starsDelta);
+                updates.put("weeklyStars", newWeekly);
+            } else {
+                // Ako igrač gubi zvezde, moramo lokalno proveriti da ne ode ispod nule na serveru
+                if (currentWeeklyStars + starsDelta < 0) {
+                    updates.put("weeklyStars", 0L); // Zakucaj na 0 ako ide u minus
+                } else {
+                    updates.put("weeklyStars", FieldValue.increment(starsDelta));
+                }
+            }
+
+            if (lastMonthlyCycle == null || !lastMonthlyCycle.equals(currentMonthlyId)) {
+                long newMonthly = Math.max(0, starsDelta);
+                updates.put("monthlyStars", newMonthly);
+            } else {
+                if (currentMonthlyStars + starsDelta < 0) {
+                    updates.put("monthlyStars", 0L);
+                } else {
+                    updates.put("monthlyStars", FieldValue.increment(starsDelta));
+                }
+            }
+
+            // --- SISTEM TOKENA (Tvoj stari sistem) ---
+            Long currentStarsLong  = snapshot.getLong("stars");
+            long remainingStars    = currentStarsLong != null ? currentStarsLong : 0L;
+            remainingStars += starsDelta;
+            if (remainingStars < 0) remainingStars = 0;
+
+            long tokensEarned = remainingStars / STARS_PER_TOKEN;
+            remainingStars = remainingStars % STARS_PER_TOKEN;
+            long newTokens = currentTokens + tokensEarned;
+
+            updates.put("stars", remainingStars);
+            updates.put("tokens", newTokens);
+            updates.put("lastWeeklyCycle", currentWeeklyId);
+            updates.put("lastMonthlyCycle", currentMonthlyId);
+
+            // --- DNEVNE MISIJE ---
+            Boolean alreadyWonToday = snapshot.getBoolean("dailyMissions.wonGame");
+            if (won) {
+                if (alreadyWonToday == null || !alreadyWonToday) {
+                    updates.put("dailyMissions.wonGame", true);
+                    remainingStars += 3;
+                    if (remainingStars >= STARS_PER_TOKEN) {
+                        newTokens += (remainingStars / STARS_PER_TOKEN);
+                        remainingStars = remainingStars % STARS_PER_TOKEN;
+                    }
+                    updates.put("stars", remainingStars);
+                    updates.put("tokens", newTokens);
+
+                    // APSOLUTNO BEZBEDNO UVEĆANJE: Koristimo ponovo increment za bonus misije
+                    updates.put("weeklyStars", FieldValue.increment(3));
+                    updates.put("monthlyStars", FieldValue.increment(3));
+                }
+            }
+
+            // --- STATISTIKA ---
             updates.put("stats.spojnice.connected", FieldValue.increment(connectedCorrect));
             updates.put("stats.spojnice.total",     FieldValue.increment(connectedTotal));
             updates.put("stats.spojnice.wins",      FieldValue.increment(won ? 1 : 0));
             updates.put("stats.spojnice.losses",    FieldValue.increment(won ? 0 : 1));
-
             updates.put("stats.global.totalGames",  FieldValue.increment(1));
             updates.put("stats.global.wins",        FieldValue.increment(won ? 1 : 0));
             updates.put("stats.global.losses",      FieldValue.increment(won ? 0 : 1));
@@ -650,13 +725,10 @@ public class SpojniceFragment extends Fragment {
             transaction.update(userRef, updates);
             return null;
         }).addOnSuccessListener(unused -> {
-            // Po potrebi: obavesti igrača o promeni zvezdica/tokena
-            // npr. Toast.makeText(getContext(), "Zvezdice ažurirane", Toast.LENGTH_SHORT).show();
+            Log.d("EndGame", "Uspešno i bezbedno ažuriran tekući ciklus.");
         }).addOnFailureListener(e -> {
             if (getContext() != null) {
-                Toast.makeText(getContext(),
-                        "Greška pri ažuriranju zvezdica/tokena: " + e.getMessage(),
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(getContext(), "Greška: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
