@@ -54,7 +54,8 @@ public class HomeActivity extends AppCompatActivity {
                 R.id.nav_home,
                 R.id.nav_notifications,
                 R.id.nav_profile,
-                R.id.nav_daily_missions
+                R.id.nav_daily_missions,
+                R.id.nav_chat
         ).setOpenableLayout(drawer).build();
 
 
