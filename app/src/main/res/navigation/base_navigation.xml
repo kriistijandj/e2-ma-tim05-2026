@@ -118,4 +118,22 @@
         android:label="Dnevne Misije"
         tools:layout="@layout/fragment_daily_missions" />
 
+    <fragment
+        android:id="@+id/nav_region_map"
+        android:name="com.example.slagalica.fragments.RegionMapFragment"
+        android:label="Regioni"
+        tools:layout="@layout/fragment_region_map"/>
+
+    <fragment
+        android:id="@+id/nav_region_list"
+        android:name="com.example.slagalica.fragments.RegionListFragment"
+        android:label="Rang lista regiona"
+        tools:layout="@layout/fragment_region_list"/>
+
+    <fragment
+        android:id="@+id/nav_region_detail"
+        android:name="com.example.slagalica.fragments.RegionDetailFragment"
+        android:label="Statistika regiona"
+        tools:layout="@layout/fragment_region_detail"/>
+
 </navigation>
