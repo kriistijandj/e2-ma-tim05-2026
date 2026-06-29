@@ -31,6 +31,8 @@ public class ProfileFragment extends Fragment {
     // ====== UI ======
     private ImageView ivAvatar, ivQrCode;
     private TextView tvUsername, tvEmail, tvTokens, tvStars, tvLeague, tvRegion;
+    private TextView tvCurrentLeagueLabel, tvNextLeagueLabel, tvLeagueProgress;
+    private android.widget.ProgressBar pbLeague;
     private TextView tvTotalGames, tvWinLoss;
     private TextView tvKoZnaZnaStat, tvMojBrojStat, tvKorakStat;
     private TextView tvAsocijacijeStat, tvSkockoStat, tvSpojniceStat;
@@ -65,8 +67,12 @@ public class ProfileFragment extends Fragment {
         tvEmail           = view.findViewById(R.id.tvEmail);
         tvTokens          = view.findViewById(R.id.tvTokens);
         tvStars           = view.findViewById(R.id.tvStars);
-        tvLeague          = view.findViewById(R.id.tvLeague);
-        tvRegion          = view.findViewById(R.id.tvRegion);
+        tvLeague              = view.findViewById(R.id.tvLeague);
+        tvRegion              = view.findViewById(R.id.tvRegion);
+        tvCurrentLeagueLabel  = view.findViewById(R.id.tvCurrentLeagueLabel);
+        tvNextLeagueLabel     = view.findViewById(R.id.tvNextLeagueLabel);
+        tvLeagueProgress      = view.findViewById(R.id.tvLeagueProgress);
+        pbLeague              = view.findViewById(R.id.pbLeague);
         tvTotalGames      = view.findViewById(R.id.tvTotalGames);
         tvWinLoss         = view.findViewById(R.id.tvWinLoss);
         tvKoZnaZnaStat    = view.findViewById(R.id.tvKoZnaZnaStat);
@@ -132,7 +138,14 @@ public class ProfileFragment extends Fragment {
                     tvRegion.setText(region != null ? region : "—");
                     tvTokens.setText(tokens != null ? String.valueOf(tokens) : "0");
                     tvStars.setText(stars != null ? String.valueOf(stars) : "0");
-                    tvLeague.setText("Nulta"); // Liga za sljedeću kontrolnu tačku
+                    long starCount = stars != null ? stars : 0;
+                    int leagueIdx = 0;
+                    if (doc.getLong("league") != null)
+                        leagueIdx = doc.getLong("league").intValue();
+                    else
+                        leagueIdx = com.example.slagalica.services.LeagueManager.getLeagueIndex(starCount);
+                    tvLeague.setText(com.example.slagalica.services.LeagueManager.getDisplayName(leagueIdx));
+                    updateLeagueProgress(leagueIdx, starCount);
 
                     // ── Avatar ────────────────────────────────────────────
                     currentAvatarId = avatarId != null ? avatarId.intValue() : 0;
@@ -369,5 +382,31 @@ public class ProfileFragment extends Fragment {
         if (value instanceof Long)    return (Long) value;
         if (value instanceof Integer) return ((Integer) value).longValue();
         return 0;
+    }
+
+    private void updateLeagueProgress(int leagueIdx, long stars) {
+        long[] thresholds = com.example.slagalica.services.LeagueManager.THRESHOLDS;
+        String[] names    = com.example.slagalica.services.LeagueManager.NAMES;
+        String[] icons    = com.example.slagalica.services.LeagueManager.ICONS;
+
+        tvCurrentLeagueLabel.setText(icons[leagueIdx] + " " + names[leagueIdx]);
+
+        boolean isMaxLeague = leagueIdx >= thresholds.length - 1;
+        if (isMaxLeague) {
+            tvNextLeagueLabel.setText("MAX LIGA");
+            pbLeague.setProgress(100);
+            tvLeagueProgress.setText("🌟 Maksimalna liga dostignuta!");
+        } else {
+            long current = thresholds[leagueIdx];
+            long next    = thresholds[leagueIdx + 1];
+            long starsInLevel = stars - current;
+            long needed       = next - current;
+            int  progress     = (int) (starsInLevel * 100 / needed);
+
+            tvNextLeagueLabel.setText(icons[leagueIdx + 1] + " " + names[leagueIdx + 1]
+                    + " (" + next + "★)");
+            pbLeague.setProgress(Math.min(progress, 100));
+            tvLeagueProgress.setText(starsInLevel + " / " + needed + " ★ do " + names[leagueIdx + 1]);
+        }
     }
 }
