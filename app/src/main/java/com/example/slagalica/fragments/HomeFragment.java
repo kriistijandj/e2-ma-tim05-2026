@@ -66,10 +66,16 @@ public class HomeFragment extends Fragment {
 
 
         androidx.cardview.widget.CardView rangList = view.findViewById(R.id.cardRankings);
-
         rangList.setOnClickListener(v -> {
             if (isAdded() && getView() != null) {
                 Navigation.findNavController(view).navigate(R.id.action_home_to_leaderboard);
+            }
+        });
+
+        androidx.cardview.widget.CardView cardFriends = view.findViewById(R.id.cardFriends);
+        cardFriends.setOnClickListener(v -> {
+            if (isAdded() && getView() != null) {
+                Navigation.findNavController(view).navigate(R.id.action_home_to_friends);
             }
         });
 
