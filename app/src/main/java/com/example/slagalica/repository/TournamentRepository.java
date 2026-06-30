@@ -59,15 +59,18 @@ public class TournamentRepository {
                 listenToQueueAndMatchmake(listener);
 
             }).addOnFailureListener(e -> {
-                // Ako dokument 'waiting' ne postoji, batch update će pući, pa ga defanzivno kreiramo
+                // Ako dokument 'waiting' ne postoji, batch update će pući, pa ga defanzivno kreiramo.
+                // Koristimo arrayUnion i ovde (ne fiksnu listu) da ne bismo izgubili igrača koji je
+                // u međuvremenu, paralelno, takođe prvi put kreirao isti dokument.
                 Map<String, Object> initialData = new java.util.HashMap<>();
-                initialData.put("players", java.util.Arrays.asList(currentUid));
+                initialData.put("players", FieldValue.arrayUnion(currentUid));
                 queueRef.set(initialData, com.google.firebase.firestore.SetOptions.merge())
                         .addOnSuccessListener(aVoid2 -> {
                             userRef.update("tokens", FieldValue.increment(-TOURNAMENT_COST));
                             listener.onJoinedQueue();
                             listenToQueueAndMatchmake(listener);
-                        });
+                        })
+                        .addOnFailureListener(e2 -> Log.e("Tournament", "Greška pri kreiranju reda za čekanje", e2));
             });
         }).addOnFailureListener(e -> Log.e("Tournament", "Greška pri čitanju tokena", e));
     }
@@ -78,7 +81,11 @@ public class TournamentRepository {
         if (queueListener != null) queueListener.remove();
 
         queueListener = queueRef.addSnapshotListener((snapshot, e) -> {
-            if (e != null || snapshot == null || !snapshot.exists()) return;
+            if (e != null) {
+                Log.e("Tournament", "Greška pri osluškivanju reda za čekanje", e);
+                return;
+            }
+            if (snapshot == null || !snapshot.exists()) return;
 
             List<String> waitingPlayers = (List<String>) snapshot.get("players");
             if (waitingPlayers != null && waitingPlayers.size() >= 4) {
@@ -163,13 +170,27 @@ public class TournamentRepository {
     public void listenForTournamentStart(OnTournamentStatusListener listener) {
         if (queueListener != null) queueListener.remove();
 
+        // Namerno BEZ .whereEqualTo("status", "semi_finals") ovde: array-contains + jednakost na
+        // drugom polju zahteva composite index u Firestore-u, koji ako ne postoji, upit pada sa
+        // FAILED_PRECONDITION i klijent zauvek ostaje "zaglavljen" na čekanju. Filtriramo status lokalno.
         queueListener = firestore.collection("tournaments")
                 .whereArrayContains("players", currentUid)
-                .whereEqualTo("status", "semi_finals")
                 .addSnapshotListener((snapshots, e) -> {
-                    if (e != null || snapshots == null || snapshots.isEmpty()) return;
+                    if (e != null) {
+                        Log.e("Tournament", "Greška pri osluškivanju starta turnira", e);
+                        return;
+                    }
+                    if (snapshots == null || snapshots.isEmpty()) return;
 
-                    DocumentSnapshot doc = snapshots.getDocuments().get(0);
+                    DocumentSnapshot doc = null;
+                    for (DocumentSnapshot d : snapshots.getDocuments()) {
+                        if ("semi_finals".equals(d.getString("status"))) {
+                            doc = d;
+                            break;
+                        }
+                    }
+                    if (doc == null) return;
+
                     String tournamentId = doc.getId();
 
                     List<String> players = (List<String>) doc.get("players");
