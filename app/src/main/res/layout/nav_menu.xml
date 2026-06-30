@@ -30,5 +30,11 @@
             android:icon="@drawable/ic_launcher_foreground"
             android:title="Regioni"
             android:orderInCategory="200"/>
+
+        <item
+            android:id="@+id/nav_chat"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:title="Čet"
+            android:orderInCategory="150" />
     </group>
 </menu>
