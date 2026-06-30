@@ -155,12 +155,22 @@ public class TournamentRepository {
         match.scores.put(p2, 0);
         match.createdAt = System.currentTimeMillis();
 
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("/matches/" + matchId, match);
-        updates.put("/matches/" + matchId + "/isTournament", true);
-        updates.put("/matches/" + matchId + "/tournamentId", tourId);
-        updates.put("/matches/" + matchId + "/tournamentPhase", phase);
+        // Sva polja meča (uključujući turnirska) moraju ići u JEDAN objekat na "/matches/" + matchId.
+        // RTDB updateChildren ne dozvoljava da putanja i njen potomak budu odvojeni ključevi u istom
+        // pozivu (npr. "/matches/x" i "/matches/x/isTournament" zajedno) — baca DatabaseException.
+        Map<String, Object> matchData = new HashMap<>();
+        matchData.put("player1Id", match.player1Id);
+        matchData.put("player2Id", match.player2Id);
+        matchData.put("status", match.status);
+        matchData.put("currentGame", match.currentGame);
+        matchData.put("scores", match.scores);
+        matchData.put("createdAt", match.createdAt);
+        matchData.put("isTournament", true);
+        matchData.put("tournamentId", tourId);
+        matchData.put("tournamentPhase", phase);
 
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("/matches/" + matchId, matchData);
         updates.put("/players/" + p1 + "/inMatch", true);
         updates.put("/players/" + p2 + "/inMatch", true);
 
