@@ -9,7 +9,21 @@
     <fragment
         android:id="@+id/nav_home"
         android:name="com.example.slagalica.fragments.HomeFragment"
-        android:label="Home" />
+        android:label="Home" >
+
+        <action
+            android:id="@+id/action_home_to_leaderboard"
+            app:destination="@id/nav_leaderboard" />
+        <action
+            android:id="@+id/action_home_to_friends"
+            app:destination="@id/nav_friends" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_friends"
+        android:name="com.example.slagalica.fragments.FriendsFragment"
+        android:label="Prijatelji"
+        tools:layout="@layout/fragment_friends" />
 
     <fragment
         android:id="@+id/nav_notifications"
@@ -141,5 +155,14 @@
         android:name="com.example.slagalica.fragments.ChatFragment"
         android:label="Čet"
         tools:layout="@layout/fragment_chat" />
+
+
+    <fragment
+        android:id="@+id/nav_leaderboard"
+        android:name="com.example.slagalica.fragments.LeaderboardFragment"
+        android:label="Rang Lista"
+        tools:layout="@layout/fragment_leaderboard"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="false" />
 
 </navigation>

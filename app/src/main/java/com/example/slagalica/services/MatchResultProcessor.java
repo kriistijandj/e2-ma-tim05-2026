@@ -9,6 +9,8 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.ServerValue;
 import com.google.firebase.database.Transaction;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,21 +44,30 @@ public class MatchResultProcessor {
                 return Transaction.success(currentData);
             }
             @Override
-            public void onComplete(DatabaseError error,
-                                   boolean committed,
-                                   DataSnapshot currentData) {
-
+            public void onComplete(DatabaseError error, boolean committed, DataSnapshot currentData) {
                 if (error != null) {
-                    Log.e("MatchResult",
-                            "Greška pri ažuriranju zvezdica",
-                            error.toException());
+                    Log.e("MatchResult", "Greška pri ažuriranju zvezdica", error.toException());
                 }
             }
         });
 
-        // Proveri da li je igrač dostigao 50 zvezda → +1 token
-        // Uradi i to u transakciji na stars, i dodaj token ako treba
-
         db.updateChildren(updates);
+
+        // Sync stars to Firestore and update leagues
+        FirebaseFirestore fs = FirebaseFirestore.getInstance();
+        fs.collection("users").document(winnerId)
+                .update("stars", FieldValue.increment(winnerStars))
+                .addOnSuccessListener(v -> LeagueManager.checkAndUpdateLeague(winnerId, null, null));
+
+        fs.collection("users").document(loserId).get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) return;
+                    long current = doc.getLong("stars") != null ? doc.getLong("stars") : 0;
+                    long newStars = Math.max(0, current - 10 + loserStarsBonus);
+                    fs.collection("users").document(loserId)
+                            .update("stars", newStars)
+                            .addOnSuccessListener(v ->
+                                    LeagueManager.checkAndUpdateLeague(loserId, null, null));
+                });
     }
 }

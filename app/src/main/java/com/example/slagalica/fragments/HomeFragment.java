@@ -18,9 +18,8 @@ import com.example.slagalica.repository.MatchmakingRepository;
 
 public class HomeFragment extends Fragment {
 
-    public HomeFragment() {
-        // Obavezan prazan konstruktor
-    }
+
+    public HomeFragment() { }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -63,6 +62,21 @@ public class HomeFragment extends Fragment {
                     Toast.makeText(getContext(), "Nemaš tokena!", Toast.LENGTH_SHORT).show();
                 }
             });
+        });
+
+
+        androidx.cardview.widget.CardView rangList = view.findViewById(R.id.cardRankings);
+        rangList.setOnClickListener(v -> {
+            if (isAdded() && getView() != null) {
+                Navigation.findNavController(view).navigate(R.id.action_home_to_leaderboard);
+            }
+        });
+
+        androidx.cardview.widget.CardView cardFriends = view.findViewById(R.id.cardFriends);
+        cardFriends.setOnClickListener(v -> {
+            if (isAdded() && getView() != null) {
+                Navigation.findNavController(view).navigate(R.id.action_home_to_friends);
+            }
         });
 
         return view;

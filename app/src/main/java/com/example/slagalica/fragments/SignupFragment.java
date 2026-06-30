@@ -166,11 +166,24 @@ public class SignupFragment extends Fragment {
                     userMap.put("username", username);
                     userMap.put("region",   region);
                     userMap.put("tokens", 5);   // bonus za registraciju
-                    userMap.put("stars",  0);
+                    userMap.put("stars", 0); // Ukupne zvezde
+                    userMap.put("weeklyStars", 0);  // Zvezde u tekućoj nedelji (kreće od 0)
+                    userMap.put("monthlyStars", 0); // Zvezde u tekućem mesecu (kreće od 0)
+                    userMap.put("leagueIcon", "bronze_league"); // Zahtev (b) - podrazumevana liga
+                    // Pamtićemo id-eve ciklusa u kojima je korisnik poslednji put osvojio zvezdu
+                    userMap.put("lastWeeklyCycle", "");
+                    userMap.put("lastMonthlyCycle", "");
                     userMap.put("online",   false);
                     userMap.put("inMatch",  false);
                     userMap.put("isEnabled", false);  // čeka email verifikaciju
                     userMap.put("lastTokenClaimTimestamp", System.currentTimeMillis());
+
+                    int regionIdx = SerbiaRegions.indexOf(region);
+                    if (regionIdx >= 0) {
+                        double[] pos = SerbiaRegions.randomLatLng(regionIdx);
+                        userMap.put("lat", pos[0]);
+                        userMap.put("lng", pos[1]);
+                    }
 
                     userMap.put("avatarId", 0);
 
