@@ -24,6 +24,8 @@ public class GameFragment extends Fragment {
 
     private String matchId;
     private String playerRole;
+    private boolean isTournament;
+    private String tournamentId;
 
     @Override
     public View onCreateView(
@@ -41,6 +43,8 @@ public class GameFragment extends Fragment {
         if (getArguments() != null) {
             matchId = getArguments().getString("MATCH_ID");
             playerRole = getArguments().getString("PLAYER_ROLE");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
         }
 
         loadCurrentGame();
@@ -82,6 +86,8 @@ public class GameFragment extends Fragment {
         Bundle args = new Bundle();
         args.putString("MATCH_ID", matchId);
         args.putString("PLAYER_ROLE", playerRole);
+        args.putBoolean("IS_TOURNAMENT", isTournament);
+        args.putString("TOURNAMENT_ID", tournamentId);
 
         NavController nav =
                 Navigation.findNavController(requireView());

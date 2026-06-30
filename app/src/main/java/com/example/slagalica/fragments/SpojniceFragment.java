@@ -80,6 +80,8 @@ public class SpojniceFragment extends Fragment {
     private String matchId;
     private String myRole;      // "player1" ili "player2"
     private String myUid;
+    private boolean isTournament;
+    private String tournamentId;
 
     // ====== FIREBASE ======
     private DatabaseReference gameRef;      // games/{matchId}/spojnice
@@ -151,9 +153,19 @@ public class SpojniceFragment extends Fragment {
 
         btnHomePage = view.findViewById(R.id.btnHomePage);
         btnHomePage.setOnClickListener(v -> {
-            androidx.navigation.Navigation
-                    .findNavController(requireView())
-                    .navigate(R.id.nav_home);
+            // U turniru, pobednik polufinala treba da se vrati na ekran turnira
+            // (da prati/odigra finale), ne na početnu stranicu.
+            if (isTournament && tournamentId != null && !tournamentId.isEmpty()) {
+                Bundle tourArgs = new Bundle();
+                tourArgs.putString("TOURNAMENT_ID", tournamentId);
+                androidx.navigation.Navigation
+                        .findNavController(requireView())
+                        .navigate(R.id.nav_tournament, tourArgs);
+            } else {
+                androidx.navigation.Navigation
+                        .findNavController(requireView())
+                        .navigate(R.id.nav_home);
+            }
         });
         repo = new com.example.slagalica.repository.TournamentRepository();
         // ── Čitaj identifikatore iz argumenata ───────────────────────────────
@@ -162,6 +174,8 @@ public class SpojniceFragment extends Fragment {
         if (getArguments() != null) {
             matchId = getArguments().getString("MATCH_ID",    "test_game_001");
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
         }
 
         myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
