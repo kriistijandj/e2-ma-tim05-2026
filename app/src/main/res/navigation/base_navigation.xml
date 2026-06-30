@@ -152,6 +152,14 @@
         android:name="com.example.slagalica.fragments.RegionDetailFragment"
         android:label="Statistika regiona"
         tools:layout="@layout/fragment_region_detail"/>
+
+    <fragment
+        android:id="@+id/nav_chat"
+        android:name="com.example.slagalica.fragments.ChatFragment"
+        android:label="Čet"
+        tools:layout="@layout/fragment_chat" />
+
+
     <fragment
         android:id="@+id/nav_leaderboard"
         android:name="com.example.slagalica.fragments.LeaderboardFragment"

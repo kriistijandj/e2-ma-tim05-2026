@@ -9,6 +9,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.slagalica.R;
@@ -117,6 +118,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                     // Pošto u Fragmentu imamo SnapshotListener, on će sam detektovati
                     // ovu promenu u bazi i osvežiti interfejs automatski!
                 }
+            }
+
+            if ("CHAT".equals(notif.getType())) {
+                Navigation.findNavController(holder.itemView)
+                        .navigate(R.id.nav_chat);
             }
         });
     }
