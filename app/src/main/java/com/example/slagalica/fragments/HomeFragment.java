@@ -78,6 +78,14 @@ public class HomeFragment extends Fragment {
                 Navigation.findNavController(view).navigate(R.id.action_home_to_friends);
             }
         });
+        // Povezivanje novog dugmeta za turnir
+        Button btnStartTournament = view.findViewById(R.id.btnStartTournament);
+        btnStartTournament.setOnClickListener(v -> {
+            if (isAdded() && getView() != null) {
+                // Navigacija ka fragmentu koji prikazuje stablo turnira
+                Navigation.findNavController(view).navigate(R.id.action_home_to_tournament);
+            }
+        });
 
         return view;
     }

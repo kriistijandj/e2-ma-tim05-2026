@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="player3" type="id" />
+    <item name="player2" type="id" />
+    <item name="player1" type="id" />
+    <item name="tvTourTitle" type="id" />
+    <item name="player4" type="id" />
+    <item name="divider" type="id" />
+    <item name="tvFinalsTitle" type="id" />
+    <item name="finalist1" type="id" />
+    <item name="finalist2" type="id" />
+    <item name="btnEnterMatch" type="id" />
+    <item name="tvVsFinals" type="id" />
+    <item name="tvVs2" type="id" />
+    <item name="tvVs1" type="id" />
+</resources>
