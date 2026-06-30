@@ -22,6 +22,7 @@ import androidx.navigation.ui.NavigationUI;
 import androidx.navigation.NavOptions;
 
 import com.example.slagalica.R;
+import com.example.slagalica.helper.NotificationHelper;
 import com.example.slagalica.repository.FriendRepository;
 import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -32,6 +33,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -53,11 +55,14 @@ public class HomeActivity extends AppCompatActivity {
     private FirebaseAuth.AuthStateListener authStateListener;
     private FriendRepository friendRepo;
 
+    private ListenerRegistration notificationsListener;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
         createNotificationChannels();
+        startNotificationsListener();
 
         drawer = findViewById(R.id.drawer_layout);
         NavigationView navView = findViewById(R.id.nav_view);
@@ -251,6 +256,7 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (notificationsListener != null) notificationsListener.remove();
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
             FirebaseFirestore.getInstance().collection("users").document(user.getUid())
@@ -260,6 +266,32 @@ public class HomeActivity extends AppCompatActivity {
         stopCountdown();
         if (authStateListener != null) {
             FirebaseAuth.getInstance().removeAuthStateListener(authStateListener);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user != null) {
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(user.getUid())
+                    .update("online", false);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user != null) {
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(user.getUid())
+                    .update("online", true);
         }
     }
 
@@ -288,5 +320,48 @@ public class HomeActivity extends AppCompatActivity {
     public boolean onSupportNavigateUp() {
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
+    }
+
+    private void startNotificationsListener() {
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (uid == null) return;
+
+        // Pamtimo kad smo počeli da slušamo, da ne bismo pokazivali stare notifikacije
+        long startTime = System.currentTimeMillis();
+
+        notificationsListener = FirebaseFirestore.getInstance()
+                .collection("users").document(uid)
+                .collection("notifications")
+                .addSnapshotListener((snapshots, e) -> {
+                    if (e != null || snapshots == null) return;
+
+                    for (com.google.firebase.firestore.DocumentChange dc : snapshots.getDocumentChanges()) {
+                        // Samo novi dokumenti (ne postojeći pri prvom učitavanju)
+                        if (dc.getType() != com.google.firebase.firestore.DocumentChange.Type.ADDED) continue;
+
+                        com.example.slagalica.models.NotificationModel notif =
+                                dc.getDocument().toObject(com.example.slagalica.models.NotificationModel.class);
+
+                        if (notif == null) continue;
+                        if (notif.getTimestamp() < startTime) continue; // preskoci stare
+                        if (notif.getIsRead()) continue; // preskoci vec procitane
+
+                        // Odaberi kanal na osnovu tipa
+                        String channelId;
+                        if ("CHAT".equals(notif.getType())) channelId = CHAT_CHANNEL_ID;
+                        else if ("RANK".equals(notif.getType())) channelId = RANK_CHANNEL_ID;
+                        else if ("REWARD".equals(notif.getType()) || "REWARDS".equals(notif.getType())) channelId = REWARD_CHANNEL_ID;
+                        else channelId = OTHER_CHANNEL_ID;
+
+                        NotificationHelper.showNotification(
+                                getApplicationContext(),
+                                channelId,
+                                (int) System.currentTimeMillis(),
+                                notif.getTitle(),
+                                notif.getMessage()
+                        );
+                    }
+                });
     }
 }
