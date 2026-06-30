@@ -1,0 +1,271 @@
+package com.example.slagalica.repository;
+
+import android.util.Log;
+
+import com.example.slagalica.models.Match;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Transaction;
+import com.google.firebase.firestore.WriteBatch;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class TournamentRepository {
+
+    private final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+    private final DatabaseReference rtdb = FirebaseDatabase.getInstance().getReference();
+    private final String currentUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+    private ListenerRegistration queueListener;
+    private static final int TOURNAMENT_COST = 3;
+
+    public void joinTournament(OnTournamentStatusListener listener) {
+        DocumentReference userRef = firestore.collection("users").document(currentUid);
+        DocumentReference queueRef = firestore.collection("tournament_matchmaking").document("waiting");
+
+        // 1. Prvo bezbedno proveravamo žetone (obično čitanje, bez teške transakcije)
+        userRef.get().addOnSuccessListener(userSnapshot -> {
+            if (!userSnapshot.exists()) {
+                listener.onNoTokens(); // Ili korisnik ne postoji
+                return;
+            }
+
+            Long tokens = userSnapshot.getLong("tokens");
+            if (tokens == null || tokens < TOURNAMENT_COST) {
+                listener.onNoTokens();
+                return;
+            }
+
+            // 2. Skidamo tokene korisniku i ODMAH ga dodajemo u niz pomoću arrayUnion
+            // arrayUnion automatski sprečava duplikate i radi atomski na Firebase serveru!
+            com.google.firebase.firestore.WriteBatch batch = firestore.batch();
+            batch.update(userRef, "tokens", FieldValue.increment(-TOURNAMENT_COST));
+            batch.update(queueRef, "players", FieldValue.arrayUnion(currentUid));
+
+            batch.commit().addOnSuccessListener(aVoid -> {
+                // Uspešno smo ušli u red i platili!
+                listener.onJoinedQueue();
+
+                // 3. Pokrećemo slušalac koji prati stanje u redu i reaguje ČIM se skupi 4
+                listenToQueueAndMatchmake(listener);
+
+            }).addOnFailureListener(e -> {
+                // Ako dokument 'waiting' ne postoji, batch update će pući, pa ga defanzivno kreiramo.
+                // Koristimo arrayUnion i ovde (ne fiksnu listu) da ne bismo izgubili igrača koji je
+                // u međuvremenu, paralelno, takođe prvi put kreirao isti dokument.
+                Map<String, Object> initialData = new java.util.HashMap<>();
+                initialData.put("players", FieldValue.arrayUnion(currentUid));
+                queueRef.set(initialData, com.google.firebase.firestore.SetOptions.merge())
+                        .addOnSuccessListener(aVoid2 -> {
+                            userRef.update("tokens", FieldValue.increment(-TOURNAMENT_COST));
+                            listener.onJoinedQueue();
+                            listenToQueueAndMatchmake(listener);
+                        })
+                        .addOnFailureListener(e2 -> Log.e("Tournament", "Greška pri kreiranju reda za čekanje", e2));
+            });
+        }).addOnFailureListener(e -> Log.e("Tournament", "Greška pri čitanju tokena", e));
+    }
+
+    private void listenToQueueAndMatchmake(OnTournamentStatusListener listener) {
+        DocumentReference queueRef = firestore.collection("tournament_matchmaking").document("waiting");
+
+        if (queueListener != null) queueListener.remove();
+
+        queueListener = queueRef.addSnapshotListener((snapshot, e) -> {
+            if (e != null) {
+                Log.e("Tournament", "Greška pri osluškivanju reda za čekanje", e);
+                return;
+            }
+            if (snapshot == null || !snapshot.exists()) return;
+
+            List<String> waitingPlayers = (List<String>) snapshot.get("players");
+            if (waitingPlayers != null && waitingPlayers.size() >= 4) {
+
+                // KO KREIRA TURNIR? Da se ne bi kreirala 4 turnira odjednom,
+                // samo PRVI igrač iz niza (ili onaj koji je pokrenuo okidač) preuzima odgovornost kreiranja!
+                if (currentUid.equals(waitingPlayers.get(0))) {
+
+                    // Uzimamo prva 4 igrača
+                    List<String> tournamentPlayers = new ArrayList<>(waitingPlayers.subList(0, 4));
+
+                    String tournamentId = firestore.collection("tournaments").document().getId();
+                    Collections.shuffle(tournamentPlayers);
+
+                    String p1 = tournamentPlayers.get(0);
+                    String p2 = tournamentPlayers.get(1);
+                    String p3 = tournamentPlayers.get(2);
+                    String p4 = tournamentPlayers.get(3);
+
+                    String match1Id = rtdb.child("matches").push().getKey();
+                    String match2Id = rtdb.child("matches").push().getKey();
+
+                    createTournamentMatchInRTDB(match1Id, p1, p2, tournamentId, "semi_finals");
+                    createTournamentMatchInRTDB(match2Id, p3, p4, tournamentId, "semi_finals");
+
+                    Map<String, Object> tournamentData = new HashMap<>();
+                    tournamentData.put("tournamentId", tournamentId);
+                    tournamentData.put("status", "semi_finals");
+                    tournamentData.put("players", tournamentPlayers);
+
+                    Map<String, String> semiFinals = new HashMap<>();
+                    semiFinals.put("match1Id", match1Id);
+                    semiFinals.put("match2Id", match2Id);
+                    tournamentData.put("semiFinals", semiFinals);
+
+                    Map<String, String> finals = new HashMap<>();
+                    finals.put("matchId", "");
+                    finals.put("player1Id", "");
+                    finals.put("player2Id", "");
+                    finals.put("winnerId", "");
+                    tournamentData.put("finals", finals);
+
+                    // Upisujemo turnir
+                    firestore.collection("tournaments").document(tournamentId).set(tournamentData);
+
+                    // Čistimo prva 4 igrača iz reda (ostali, ako ih ima, ostaju da čekaju)
+                    List<String> remainingPlayers = new ArrayList<>(waitingPlayers.subList(4, waitingPlayers.size()));
+                    queueRef.update("players", remainingPlayers);
+                }
+
+                // Sva 4 igrača paralelno gase ovaj listener i prelaze na osluškivanje starta meča
+                if (waitingPlayers.contains(currentUid)) {
+                    if (queueListener != null) queueListener.remove();
+                    listenForTournamentStart(listener);
+                }
+            }
+        });
+    }
+    public void createTournamentMatchInRTDB(String matchId, String p1, String p2, String tourId, String phase) {
+        Match match = new Match();
+        match.player1Id = p1;
+        match.player2Id = p2;
+        match.status = "in_progress";
+        match.currentGame = 0;
+        match.scores = new HashMap<>();
+        match.scores.put(p1, 0);
+        match.scores.put(p2, 0);
+        match.createdAt = System.currentTimeMillis();
+
+        // Sva polja meča (uključujući turnirska) moraju ići u JEDAN objekat na "/matches/" + matchId.
+        // RTDB updateChildren ne dozvoljava da putanja i njen potomak budu odvojeni ključevi u istom
+        // pozivu (npr. "/matches/x" i "/matches/x/isTournament" zajedno) — baca DatabaseException.
+        Map<String, Object> matchData = new HashMap<>();
+        matchData.put("player1Id", match.player1Id);
+        matchData.put("player2Id", match.player2Id);
+        matchData.put("status", match.status);
+        matchData.put("currentGame", match.currentGame);
+        matchData.put("scores", match.scores);
+        matchData.put("createdAt", match.createdAt);
+        matchData.put("isTournament", true);
+        matchData.put("tournamentId", tourId);
+        matchData.put("tournamentPhase", phase);
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("/matches/" + matchId, matchData);
+        updates.put("/players/" + p1 + "/inMatch", true);
+        updates.put("/players/" + p2 + "/inMatch", true);
+
+        rtdb.updateChildren(updates);
+    }
+
+    public void listenForTournamentStart(OnTournamentStatusListener listener) {
+        if (queueListener != null) queueListener.remove();
+
+        // Namerno BEZ .whereEqualTo("status", "semi_finals") ovde: array-contains + jednakost na
+        // drugom polju zahteva composite index u Firestore-u, koji ako ne postoji, upit pada sa
+        // FAILED_PRECONDITION i klijent zauvek ostaje "zaglavljen" na čekanju. Filtriramo status lokalno.
+        queueListener = firestore.collection("tournaments")
+                .whereArrayContains("players", currentUid)
+                .addSnapshotListener((snapshots, e) -> {
+                    if (e != null) {
+                        Log.e("Tournament", "Greška pri osluškivanju starta turnira", e);
+                        return;
+                    }
+                    if (snapshots == null || snapshots.isEmpty()) return;
+
+                    DocumentSnapshot doc = null;
+                    for (DocumentSnapshot d : snapshots.getDocuments()) {
+                        if ("semi_finals".equals(d.getString("status"))) {
+                            doc = d;
+                            break;
+                        }
+                    }
+                    if (doc == null) return;
+
+                    String tournamentId = doc.getId();
+
+                    List<String> players = (List<String>) doc.get("players");
+                    Map<String, String> semiFinals = (Map<String, String>) doc.get("semiFinals");
+
+                    String myMatchId = "";
+                    String myRole = "";
+
+                    if (players != null && semiFinals != null) {
+                        if (currentUid.equals(players.get(0)) || currentUid.equals(players.get(1))) {
+                            myMatchId = semiFinals.get("match1Id");
+                            myRole = currentUid.equals(players.get(0)) ? "player1" : "player2";
+                        } else if (currentUid.equals(players.get(2)) || currentUid.equals(players.get(3))) {
+                            myMatchId = semiFinals.get("match2Id");
+                            myRole = currentUid.equals(players.get(2)) ? "player1" : "player2";
+                        }
+                    }
+
+                    if (!myMatchId.isEmpty()) {
+                        removeQueueListener(); // Gasimo slušalac jer meč počinje
+                        listener.onTournamentStarted(tournamentId, myMatchId, myRole);
+                    }
+                });
+    }
+
+    // Atomska operacija: Izbaci igrača iz niza i VRATI mu 3 žetona nazad
+    public void cancelTournamentMatchmaking(String uid, OnCancelListener listener) {
+        // Prvo ugasimo snapshot listener da nam fragment ne reaguje na promenu u redu
+        removeQueueListener();
+
+        DocumentReference queueRef = firestore.collection("tournament_matchmaking").document("waiting");
+        DocumentReference userRef = firestore.collection("users").document(uid);
+
+        WriteBatch batch = firestore.batch();
+
+        // 1. Ukloni korisnika iz niza čekanja
+        batch.update(queueRef, "players", FieldValue.arrayRemove(uid));
+
+        // 2. Vrati žetone (Refundacija pošto meč zapravo nije počeo)
+        batch.update(userRef, "tokens", FieldValue.increment(TOURNAMENT_COST));
+
+        // Izvrši batch operaciju na serveru
+        batch.commit()
+                .addOnSuccessListener(aVoid -> listener.onCancelSuccess())
+                .addOnFailureListener(e -> {
+                    Log.e("Tournament", "Greška pri otkazivanju reda", e);
+                    listener.onCancelFailure(e);
+                });
+    }
+
+    private void removeQueueListener() {
+        if (queueListener != null) {
+            queueListener.remove();
+            queueListener = null;
+        }
+    }
+
+    public interface OnCancelListener {
+        void onCancelSuccess();
+        void onCancelFailure(Exception e);
+    }
+
+    public interface OnTournamentStatusListener {
+        void onJoinedQueue();
+        void onNoTokens();
+        void onTournamentStarted(String tournamentId, String myMatchId, String myRole);
+    }
+}

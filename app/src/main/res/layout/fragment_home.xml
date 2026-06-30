@@ -83,7 +83,16 @@
             android:textSize="20sp"
             android:layout_marginBottom="16dp"
             app:cornerRadius="20dp"/>
-
+        <Button
+            android:id="@+id/btnStartTournament"
+            style="@style/AuthButton"
+            android:backgroundTint="#FF9800"
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:text="Igraj TURNIR"
+            android:textSize="20sp"
+            android:layout_marginBottom="16dp"
+            app:cornerRadius="20dp"/>
         <GridLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

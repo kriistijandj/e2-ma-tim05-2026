@@ -15,6 +15,8 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
+import com.example.slagalica.models.Match;
+import com.example.slagalica.repository.TournamentRepository;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -44,6 +46,7 @@ public class SpojniceFragment extends Fragment {
     private MaterialButton[] rightButtons = new MaterialButton[5];
 
     private MaterialButton btnHomePage;
+    private TournamentRepository repo;
 
     // ====== BOJE ======
     private static final int COLOR_DEFAULT   = Color.parseColor("#F2AF14");
@@ -77,6 +80,8 @@ public class SpojniceFragment extends Fragment {
     private String matchId;
     private String myRole;      // "player1" ili "player2"
     private String myUid;
+    private boolean isTournament;
+    private String tournamentId;
 
     // ====== FIREBASE ======
     private DatabaseReference gameRef;      // games/{matchId}/spojnice
@@ -119,6 +124,8 @@ public class SpojniceFragment extends Fragment {
     // LIFECYCLE
     // ─────────────────────────────────────────────────────────────────────────
 
+// Unutar onCreateView ili onCreate dodaj inicijalizaciju:
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -146,17 +153,29 @@ public class SpojniceFragment extends Fragment {
 
         btnHomePage = view.findViewById(R.id.btnHomePage);
         btnHomePage.setOnClickListener(v -> {
-            androidx.navigation.Navigation
-                    .findNavController(requireView())
-                    .navigate(R.id.nav_home);
+            // U turniru, pobednik polufinala treba da se vrati na ekran turnira
+            // (da prati/odigra finale), ne na početnu stranicu.
+            if (isTournament && tournamentId != null && !tournamentId.isEmpty()) {
+                Bundle tourArgs = new Bundle();
+                tourArgs.putString("TOURNAMENT_ID", tournamentId);
+                androidx.navigation.Navigation
+                        .findNavController(requireView())
+                        .navigate(R.id.nav_tournament, tourArgs);
+            } else {
+                androidx.navigation.Navigation
+                        .findNavController(requireView())
+                        .navigate(R.id.nav_home);
+            }
         });
-
+        repo = new com.example.slagalica.repository.TournamentRepository();
         // ── Čitaj identifikatore iz argumenata ───────────────────────────────
         matchId = "test_game_001";
         myRole  = "player1";
         if (getArguments() != null) {
             matchId = getArguments().getString("MATCH_ID",    "test_game_001");
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
         }
 
         myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
@@ -564,43 +583,156 @@ public class SpojniceFragment extends Fragment {
 
         int myFinalScore  = "player1".equals(myRole) ? scorePlayer1 : scorePlayer2;
         int oppFinalScore = "player1".equals(myRole) ? scorePlayer2 : scorePlayer1;
-        // Napomena: u slučaju nerešenog rezultata (myFinalScore == oppFinalScore)
-        // igrač se trenutno tretira kao "gubitnik" za potrebe obračuna zvezdica,
-        // pošto specifikacija ne definiše poseban slučaj za nerešeno.
         boolean iWon      = myFinalScore > oppFinalScore;
 
-        // ── Upiši moj skor u zajednički čvor meča ────────────────────────────
-        matchRef.child("scores").child(myUid).setValue(myFinalScore);
+        // ── ZAJEDNIČKI UPIS SKORA U REALTIME DATABASE (Radi i za turnir i za običan meč) ──
+        if (matchRef != null) {
+            matchRef.child("scores").child(myUid).setValue(myFinalScore);
 
-        // ── Samo player1 inkremantira currentGame ─────────────────────────────
-        if ("player1".equals(myRole)) {
-            matchRef.child("status").setValue("finished");
+            // Samo player1 menja status meča na završen
+            if ("player1".equals(myRole)) {
+                matchRef.child("status").setValue("finished");
+            }
         }
 
-        // ── Zvezdice, tokeni i statistika (Firestore, transakciono) ──────────
-        applyStarsTokensAndStats(myUid, iWon, myFinalScore,
-                myConnectedCorrect, myConnectedTotal);
+        // ── GRANANJE LOGIKE NAGRAĐIVANJA ──
+        boolean isTournament = getArguments() != null && getArguments().getBoolean("IS_TOURNAMENT", false);
+        if (isTournament) {
+            // Turnirski mod koristi posebna pravila nagrađivanja
+            handleTournamentEnd(myUid, iWon, myFinalScore);
+        } else {
+            // Regularni mod ažurira standardne zvezdice, tokene, statistike i dnevne misije
+            applyStarsTokensAndStats(myUid, iWon, myFinalScore, myConnectedCorrect, myConnectedTotal);
+        }
 
-        // ── UI prikaz rezultata ───────────────────────────────────────────────
+        // ── ZAJEDNIČKO KORISNIČKO INTERFEJS OSVEŽAVANJE (Radi i za turnir) ──
         tvRound.setText("Kraj igre!");
         tvTimer.setText("—");
-        tvKriterijum.setText("");
+        if (tvKriterijum != null) tvKriterijum.setText("");
 
         String p1Label = "player1".equals(myRole) ? "Ti" : "Protivnik";
         String p2Label = "player2".equals(myRole) ? "Ti" : "Protivnik";
 
         if (scorePlayer1 > scorePlayer2)
-            tvStatus.setText("🏆 " + p1Label + " si pobedio!\n"
-                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+            tvStatus.setText("🏆 " + p1Label + " si pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
         else if (scorePlayer2 > scorePlayer1)
-            tvStatus.setText("🏆 " + p2Label + " je pobedio!\n"
-                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+            tvStatus.setText("🏆 " + p2Label + " je pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
         else
-            tvStatus.setText("Nerešeno!\n"
-                    + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+            tvStatus.setText("Nerešeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
 
         if (btnHomePage != null) btnHomePage.setVisibility(View.VISIBLE);
         updateScoreUI();
+    }
+    private void handleTournamentEnd(String uid, boolean won, int score) {
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        // Direktno gađamo čvor gde je upisana faza tog konkretnog meča
+        DatabaseReference phaseRef = FirebaseDatabase.getInstance().getReference("matches")
+                .child(matchId).child("tournamentPhase");
+
+        phaseRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String phase = snapshot.getValue(String.class);
+                if (phase == null) phase = "semi_finals";
+
+                final String currentPhase = phase;
+                DocumentReference userRef = firestore.collection("users").document(uid);
+
+                firestore.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot userSnap = transaction.get(userRef);
+
+                    // Računanje zvezda iz bodova partije (40 bodova = 1 zvezda)
+                    int starsFromScore = score / POINTS_PER_STAR;
+
+                    long starsDelta = 0;
+                    long tokensDelta = 0;
+
+                    if ("semi_finals".equals(currentPhase)) {
+                        if (won) {
+                            tokensDelta = 2;
+                            starsDelta = starsFromScore;
+                        } else {
+                            tokensDelta = 0;
+                            starsDelta = 0;
+                        }
+                    } else if ("finals".equals(currentPhase)) {
+                        if (won) {
+                            tokensDelta = 3;
+                            starsDelta = starsFromScore + 10;
+                        } else {
+                            tokensDelta = 0;
+                            starsDelta = starsFromScore;
+                        }
+                    }
+
+                    // Bezbedno ažuriranje profila
+                    transaction.update(userRef, "stars", FieldValue.increment(starsDelta));
+                    transaction.update(userRef, "tokens", FieldValue.increment(tokensDelta));
+
+                    // Prosleđivanje rezultata u strukturu turnira
+                    updateTournamentStructure(uid, won, currentPhase);
+
+                    return null;
+                }).addOnSuccessListener(unused -> {
+                    Log.d("TournamentEnd", "Uspešno ažurirani turnirski podaci za korisnika.");
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "Partija završena! Turnir ažuriran.", Toast.LENGTH_SHORT).show();
+                    }
+                }).addOnFailureListener(e -> {
+                    Log.e("TournamentEnd", "Greška pri transakciji turnira: ", e);
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "Greška pri čuvanju: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("TournamentEnd", "Otkazano čitanje faze meča: " + error.getMessage());
+            }
+        });
+    }
+
+    private void updateTournamentStructure(String uid, boolean won, String phase) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String tournamentId = getArguments().getString("TOURNAMENT_ID");
+        if (tournamentId == null) return;
+
+        DocumentReference tourRef = db.collection("tournaments").document(tournamentId);
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot tourSnap = transaction.get(tourRef);
+
+            if ("semi_finals".equals(phase)) {
+                if (won) {
+                    Map<String, String> finals = (Map<String, String>) tourSnap.get("finals");
+                    if (finals == null) finals = new HashMap<>();
+
+                    // Postavi pobednika polufinala na upražnjeno mesto u finalu
+                    if (finals.get("player1Id") == null || finals.get("player1Id").isEmpty()) {
+                        transaction.update(tourRef, "finals.player1Id", uid);
+                    } else if (finals.get("player2Id") == null || finals.get("player2Id").isEmpty()) {
+                        transaction.update(tourRef, "finals.player2Id", uid);
+
+                        // Oba finalista su poznata! Automatski generiši finalni meč u RTDB-u
+                        String finalMatchId = FirebaseDatabase.getInstance().getReference().child("matches").push().getKey();
+                        String p1 = finals.get("player1Id");
+
+                        // Kreiraj finalni meč u Realtime Database-u
+                        repo.createTournamentMatchInRTDB(finalMatchId, p1, uid, tournamentId, "finals");
+
+                        transaction.update(tourRef, "finals.matchId", finalMatchId);
+                        transaction.update(tourRef, "status", "finals"); // Menja se faza turnira!
+                    }
+                }
+            } else if ("finals".equals(phase)) {
+                if (won) {
+                    transaction.update(tourRef, "finals.winnerId", uid);
+                    transaction.update(tourRef, "status", "finished");
+                }
+            }
+            return null;
+        });
     }
 
 

@@ -17,6 +17,9 @@
         <action
             android:id="@+id/action_home_to_friends"
             app:destination="@id/nav_friends" />
+        <action
+            android:id="@+id/action_home_to_tournament"
+            app:destination="@id/nav_tournament"/>
     </fragment>
 
     <fragment
@@ -164,5 +167,9 @@
         tools:layout="@layout/fragment_leaderboard"
         app:popUpTo="@+id/nav_home"
         app:popUpToInclusive="false" />
-
+    <fragment
+        android:id="@+id/nav_tournament"
+        android:name="com.example.slagalica.fragments.TournamentFragment"
+        android:label="Turnir"
+        tools:layout="@layout/fragment_tournament" />
 </navigation>

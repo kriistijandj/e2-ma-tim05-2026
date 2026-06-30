@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#121212"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvTourTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Polufinale u toku..."
+        android:textColor="#F2AF14"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <include
+        android:id="@+id/player1"
+        layout="@layout/item_tournament_player"
+        android:layout_width="140dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="32dp"
+        android:layout_marginStart="16dp"
+        app:layout_constraintTop_toBottomOf="@id/tvTourTitle"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/tvVs1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="VS"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="@id/player1"
+        app:layout_constraintBottom_toBottomOf="@id/player1"
+        app:layout_constraintStart_toEndOf="@id/player1"
+        app:layout_constraintEnd_toStartOf="@id/player2" />
+
+    <include
+        android:id="@+id/player2"
+        layout="@layout/item_tournament_player"
+        android:layout_width="140dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="32dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintTop_toBottomOf="@id/tvTourTitle"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <include
+        android:id="@+id/player3"
+        layout="@layout/item_tournament_player"
+        android:layout_width="140dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="32dp"
+        app:layout_constraintTop_toBottomOf="@id/player1"
+        app:layout_constraintStart_toStartOf="@id/player1" />
+
+    <TextView
+        android:id="@+id/tvVs2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="VS"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="@id/player3"
+        app:layout_constraintBottom_toBottomOf="@id/player3"
+        app:layout_constraintStart_toEndOf="@id/player3"
+        app:layout_constraintEnd_toStartOf="@id/player4" />
+
+    <include
+        android:id="@+id/player4"
+        layout="@layout/item_tournament_player"
+        android:layout_width="140dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="32dp"
+        app:layout_constraintTop_toBottomOf="@id/player2"
+        app:layout_constraintEnd_toEndOf="@id/player2" />
+
+    <View
+        android:id="@+id/divider"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="#333333"
+        android:layout_marginTop="32dp"
+        app:layout_constraintTop_toBottomOf="@id/player3"/>
+
+    <TextView
+        android:id="@+id/tvFinalsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FINALE"
+        android:textColor="#F2AF14"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/divider"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <include
+        android:id="@+id/finalist1"
+        layout="@layout/item_tournament_player"
+        android:layout_width="140dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="16dp"
+        android:alpha="0.3"
+        app:layout_constraintTop_toBottomOf="@id/tvFinalsTitle"
+        app:layout_constraintStart_toStartOf="@id/player1" />
+
+    <TextView
+        android:id="@+id/tvVsFinals"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="VS"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="@id/finalist1"
+        app:layout_constraintBottom_toBottomOf="@id/finalist1"
+        app:layout_constraintStart_toEndOf="@id/finalist1"
+        app:layout_constraintEnd_toStartOf="@id/finalist2" />
+
+    <include
+        android:id="@+id/finalist2"
+        layout="@layout/item_tournament_player"
+        android:layout_width="140dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="16dp"
+        android:alpha="0.3"
+        app:layout_constraintTop_toBottomOf="@id/tvFinalsTitle"
+        app:layout_constraintEnd_toEndOf="@id/player2" />
+
+    <!-- NOVO: Dugme za prijavu na turnir i ulazak u red (Matchmaking) -->
+    <Button
+        android:id="@+id/btnJoinQueue"
+        android:layout_width="200dp"
+        android:layout_height="55dp"
+        android:text="Uđi u red za turnir"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:backgroundTint="#FF9800"
+        android:textColor="#FFFFFF"
+        android:visibility="visible"
+        android:layout_marginBottom="24dp"
+        app:cornerRadius="12dp"
+        app:layout_constraintBottom_toTopOf="@id/btnEnterMatch"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Dugme za direktan ulazak u aktivnu partiju (polufinale ili finale) -->
+    <Button
+        android:id="@+id/btnEnterMatch"
+        android:layout_width="200dp"
+        android:layout_height="55dp"
+        android:text="Uđi u meč"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:backgroundTint="#4CAF50"
+        android:textColor="#FFFFFF"
+        android:visibility="gone"
+        android:layout_marginBottom="32dp"
+        app:cornerRadius="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

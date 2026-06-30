@@ -30,6 +30,9 @@
             android:icon="@drawable/ic_launcher_foreground"
             android:title="Regioni"
             android:orderInCategory="200"/>
+        <item
+            android:id="@+id/nav_tournament"
+            android:title="Turnir" />
 
         <item
             android:id="@+id/nav_chat"
