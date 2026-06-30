@@ -33,46 +33,44 @@ public class TournamentRepository {
         DocumentReference queueRef = firestore.collection("tournament_matchmaking").document("waiting");
 
         firestore.runTransaction((Transaction.Function<Void>) transaction -> {
-            // ==========================================
-            // 1. SVA ČITANJA MORAJU IĆI NA POČETAK!
-            // ==========================================
+            // 1. SVA ČITANJA
             DocumentSnapshot userSnapshot = transaction.get(userRef);
             DocumentSnapshot queueSnapshot = transaction.get(queueRef);
 
-            // ==========================================
-            // 2. LOGIKA I PROVERE (Nakon što je sve pročitano)
-            // ==========================================
+            // Defanzivna provera: Da li uopšte postoji korisnik u bazi?
+            if (!userSnapshot.exists()) {
+                throw new IllegalStateException("USER_DOCUMENT_MISSING");
+            }
+
+            // 2. LOGIKA I PROVERE
             Long tokens = userSnapshot.getLong("tokens");
             if (tokens == null || tokens < TOURNAMENT_COST) {
                 throw new IllegalStateException("INSUFFICIENT_TOKENS");
             }
 
-            List<String> waitingPlayers = (List<String>) queueSnapshot.get("players");
+            List<String> waitingPlayers = null;
+            if (queueSnapshot.exists()) {
+                waitingPlayers = (List<String>) queueSnapshot.get("players");
+            }
             if (waitingPlayers == null) {
                 waitingPlayers = new ArrayList<>();
             }
 
-            // Ako je igrač već u redu, nemoj ga ponovo dodavati niti mu skidati tokene
             if (waitingPlayers.contains(currentUid)) {
                 return null;
             }
 
-            // Dodaj trenutnog igrača u lokalnu listu
             waitingPlayers.add(currentUid);
 
-            // ==========================================
-            // 3. SVI UPISI IDU NA KRAJ!
-            // ==========================================
+            // 3. SVI UPISI
 
-            // Skini tokene (Zahtev c)
+            // Skidanje tokena sa korisničkog naloga
             transaction.update(userRef, "tokens", FieldValue.increment(-TOURNAMENT_COST));
 
             // Da li imamo 4 igrača?
             if (waitingPlayers.size() == 4) {
-                // KREIRAJ TURNIR!
                 String tournamentId = firestore.collection("tournaments").document().getId();
 
-                // Promešaj igrače nasumično (Zahtev a)
                 Collections.shuffle(waitingPlayers);
 
                 String p1 = waitingPlayers.get(0);
@@ -80,14 +78,12 @@ public class TournamentRepository {
                 String p3 = waitingPlayers.get(2);
                 String p4 = waitingPlayers.get(3);
 
-                // Kreiraj mečeve u Realtime Database-u
                 String match1Id = rtdb.child("matches").push().getKey();
                 String match2Id = rtdb.child("matches").push().getKey();
 
                 createTournamentMatchInRTDB(match1Id, p1, p2, tournamentId, "semi_finals");
                 createTournamentMatchInRTDB(match2Id, p3, p4, tournamentId, "semi_finals");
 
-                // Snimi strukturu turnira u Firestore
                 Map<String, Object> tournamentData = new HashMap<>();
                 tournamentData.put("tournamentId", tournamentId);
                 tournamentData.put("status", "semi_finals");
@@ -107,12 +103,16 @@ public class TournamentRepository {
 
                 transaction.set(firestore.collection("tournaments").document(tournamentId), tournamentData);
 
-                // Isprazni red za čekanje za sledeći turnir
-                transaction.update(queueRef, "players", new ArrayList<>());
+                // Rešenje: Čistimo red koristeći set sa merge opcijom
+                Map<String, Object> resetQueue = new HashMap<>();
+                resetQueue.put("players", new ArrayList<>());
+                transaction.set(queueRef, resetQueue, com.google.firebase.firestore.SetOptions.merge());
 
             } else {
-                // Nema 4 igrača, samo ažuriraj red za čekanje
-                transaction.update(queueRef, "players", waitingPlayers);
+                // Rešenje: Upisujemo novi red koristeći set sa merge opcijom (kreiraće dokument ako ne postoji)
+                Map<String, Object> updateQueue = new HashMap<>();
+                updateQueue.put("players", waitingPlayers);
+                transaction.set(queueRef, updateQueue, com.google.firebase.firestore.SetOptions.merge());
             }
 
             return null;
@@ -122,6 +122,8 @@ public class TournamentRepository {
         }).addOnFailureListener(e -> {
             if (e instanceof IllegalStateException && e.getMessage().equals("INSUFFICIENT_TOKENS")) {
                 listener.onNoTokens();
+            } else if (e instanceof IllegalStateException && e.getMessage().equals("USER_DOCUMENT_MISSING")) {
+                Log.e("Tournament", "Korisnički dokument ne postoji u kolekciji 'users'!");
             } else {
                 Log.e("Tournament", "Greška pri ulasku u turnir", e);
             }
