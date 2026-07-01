@@ -63,6 +63,8 @@ public class KoZnaZnaFragment extends Fragment {
     private String myUid;
     private boolean isTournament;
     private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     // ====== FIREBASE ======
     private DatabaseReference gameRef;      // games/{matchId}/koznaZna
@@ -133,6 +135,8 @@ public class KoZnaZnaFragment extends Fragment {
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
             isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
             tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
         myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
@@ -175,6 +179,7 @@ public class KoZnaZnaFragment extends Fragment {
 
     private void setupPresence() {
         presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
         presenceHelper.markPresent();
 
         matchRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -581,6 +586,8 @@ public class KoZnaZnaFragment extends Fragment {
                     args.putString("PLAYER_ROLE", myRole);
                     args.putBoolean("IS_TOURNAMENT", isTournament);
                     args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
 
                     androidx.navigation.Navigation
                             .findNavController(requireView())

@@ -48,6 +48,8 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
     private String myRole;
     private boolean isTournament;
     private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     // FIX: listener koji čeka da currentGame poraste u Firebase pre navigacije
     private ValueEventListener gameAdvanceListener;
@@ -85,6 +87,8 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             myRole  = getArguments().getString("PLAYER_ROLE", myRole);
             isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
             tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
         viewModel.init(matchId, myRole);
@@ -129,6 +133,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
     private void setupPresence() {
         String myUid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
         presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
         presenceHelper.markPresent();
 
         FirebaseDatabase.getInstance()
@@ -186,6 +191,8 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
                     args.putString("PLAYER_ROLE", myRole);
                     args.putBoolean("IS_TOURNAMENT", isTournament);
                     args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
 
                     Navigation.findNavController(requireView())
                             .navigate(R.id.nav_game, args);
