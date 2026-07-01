@@ -62,6 +62,8 @@ public class SkockoViewModel extends ViewModel {
     private boolean lastOpponentChanceState = false;
     private int lastRoundState = -1;
 
+    private boolean opponentLeft = false;
+
     // ----------------------------------------------------------------
     // INIT
     // ----------------------------------------------------------------
@@ -88,6 +90,45 @@ public class SkockoViewModel extends ViewModel {
                         loadMatchScores();
                     }
                 });
+    }
+
+    private boolean isHost() {
+        return "player1".equals(myRole) || (opponentLeft && "player2".equals(myRole));
+    }
+
+    private void forceOpponentTimeout(SkockoGameState state) {
+        if (!state.isOpponentChance) {
+            state.isOpponentChance = true;
+            state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
+            state.roundEndTime = serverNow() + 10_000;
+            repository.updateGameState(state);
+        } else {
+            endRoundLogic(state);
+        }
+    }
+
+    public void onOpponentLeft() {
+        opponentLeft = true;
+
+        SkockoGameState state = gameState.getValue();
+        if (state == null || "finished".equals(state.status)) return;
+
+        // 1) Protivnik je bio na potezu -> odmah preskoči na sledeću fazu/kraj runde
+        //    umesto da se čeka pun tajmer (30s / 10s)
+        if (!amIActive(state)) {
+            if (timer != null) { timer.cancel(); timer = null; }
+            forceOpponentTimeout(state);
+            return;
+        }
+
+        // 2) Runda je gotova i čeka na host-prelaz koji je trebalo da pokrene
+        //    player1, a on je taj koji je otišao
+        if (isHost() && state.showingRoundResult && state.round == 1 && !roundTransitionInProgress) {
+            roundTransitionInProgress = true;
+            final Map<String, Integer> scoresSnapshot =
+                    state.scores != null ? new HashMap<>(state.scores) : new HashMap<>();
+            transitionToRound2(state, scoresSnapshot);
+        }
     }
 
     private long serverNow() {
@@ -145,7 +186,7 @@ public class SkockoViewModel extends ViewModel {
 
             // Player1 detektuje kraj runde 1 i pokreće prelaz
             if (state.showingRoundResult && state.round == 1
-                    && "player1".equals(myRole) && !roundTransitionInProgress) {
+                    && isHost() && !roundTransitionInProgress) {
                 roundTransitionInProgress = true;
                 final Map<String, Integer> scoresSnapshot =
                         state.scores != null ? new HashMap<>(state.scores) : new HashMap<>();
@@ -264,7 +305,7 @@ public class SkockoViewModel extends ViewModel {
             repository.updateGameState(state);
 
             // Samo player1 pokreće prelaz
-            if ("player1".equals(myRole)) {
+            if (isHost()) {
                 roundTransitionInProgress = true;
                 new CountDownTimer(3000, 1000) {
                     public void onTick(long ms) {}
@@ -324,7 +365,7 @@ public class SkockoViewModel extends ViewModel {
                 .setValue(myScore);
 
         // Samo player1 inkrementira currentGame
-        if ("player1".equals(myRole)) {
+        if (isHost()) {
             FirebaseDatabase.getInstance()
                     .getReference("matches")
                     .child(matchId)

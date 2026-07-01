@@ -57,6 +57,8 @@ public class AsocijacijeViewModel extends ViewModel {
     // Keširani server time offset (ms) koji dobijamo iz Firebase .info/serverTimeOffset
     private long serverTimeOffset = 0;
 
+    private boolean opponentLeft = false;
+
     // ----------------------------------------------------------------
     // INIT
     // ----------------------------------------------------------------
@@ -96,6 +98,37 @@ public class AsocijacijeViewModel extends ViewModel {
      */
     private long serverNow() {
         return System.currentTimeMillis() + serverTimeOffset;
+    }
+
+    private boolean isHost() {
+        return "player1".equals(myRole) || (opponentLeft && "player2".equals(myRole));
+    }
+
+    public void onOpponentLeft() {
+        opponentLeft = true;
+
+        AsocijacijeGameState state = gameState.getValue();
+        if (state == null || "finished".equals(state.status)) return;
+
+        // 1) Protivnik je bio aktivan igrač (na potezu) -> odmah završi njegovu turu
+        //    umesto da se čeka do kraja pune 2-minutne runde
+        if (!amIActive(state)) {
+            if (roundTimer != null) {
+                roundTimer.cancel();
+                roundTimer = null;
+            }
+            endRoundLogic(state);
+            return;
+        }
+
+        // 2) Runda je već označena kao završena (showingRoundResult), ali host
+        //    (player1) koji je trebalo da pokrene prelaz je upravo taj koji je otišao
+        if (isHost() && state.showingRoundResult && state.round == 1 && !roundTransitionInProgress) {
+            roundTransitionInProgress = true;
+            final Map<String, Integer> scoresFromRoundOne = state.scores != null
+                    ? new HashMap<>(state.scores) : new HashMap<>();
+            transitionToRound2(state, scoresFromRoundOne);
+        }
     }
 
     private void loadMatchScores() {
@@ -159,7 +192,7 @@ public class AsocijacijeViewModel extends ViewModel {
 
             // Ako je rundu2 treba da pokrene Player1, a Player2 je pogodio final u rundi 1,
             // state.showingRoundResult == true i rundaZapocinje == 1 → Player1 preuzima prelaz
-            if (state.showingRoundResult && state.round == 1 && "player1".equals(myRole) && !roundTransitionInProgress) {
+            if (state.showingRoundResult && state.round == 1 && isHost() && !roundTransitionInProgress) {
                 roundTransitionInProgress = true;
                 final Map<String, Integer> scoresFromRoundOne = state.scores != null
                         ? new HashMap<>(state.scores)
@@ -420,7 +453,7 @@ public class AsocijacijeViewModel extends ViewModel {
 
             // Samo Player1 pokreće tajmer za prelaz
             // Ako je Player2 pogodio, Player1 će detektovati showingRoundResult u listeneru
-            if ("player1".equals(myRole)) {
+            if (isHost()) {
                 roundTransitionInProgress = true;
                 new CountDownTimer(5000, 1000) {
                     public void onTick(long ms) {}
@@ -492,7 +525,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 .setValue(score);
 
         // Samo player1 inkrementira currentGame da lobi sistem pređe na sledeću igru
-        if ("player1".equals(myRole)) {
+        if (isHost()) {
             FirebaseDatabase.getInstance()
                     .getReference("matches")
                     .child(matchId)
