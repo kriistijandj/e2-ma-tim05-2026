@@ -61,6 +61,8 @@ public class KoZnaZnaFragment extends Fragment {
     private String matchId;
     private String myRole;      // "player1" ili "player2"
     private String myUid;
+    private boolean isTournament;
+    private String tournamentId;
 
     // ====== FIREBASE ======
     private DatabaseReference gameRef;      // games/{matchId}/koznaZna
@@ -129,6 +131,8 @@ public class KoZnaZnaFragment extends Fragment {
         if (getArguments() != null) {
             matchId = getArguments().getString("MATCH_ID",     "test_game_001");
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
         }
 
         myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
@@ -564,6 +568,8 @@ public class KoZnaZnaFragment extends Fragment {
                     Bundle args = new Bundle();
                     args.putString("MATCH_ID",    matchId);
                     args.putString("PLAYER_ROLE", myRole);
+                    args.putBoolean("IS_TOURNAMENT", isTournament);
+                    args.putString("TOURNAMENT_ID", tournamentId);
 
                     androidx.navigation.Navigation
                             .findNavController(requireView())

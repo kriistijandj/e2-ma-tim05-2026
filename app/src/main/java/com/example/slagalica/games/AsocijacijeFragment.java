@@ -41,6 +41,8 @@ public class AsocijacijeFragment extends Fragment {
 
     private String matchId;
     private String myRole;
+    private boolean isTournament;
+    private String tournamentId;
 
     private ValueEventListener gameAdvanceListener;
     private boolean navigationScheduled = false;
@@ -76,6 +78,8 @@ public class AsocijacijeFragment extends Fragment {
         if (getArguments() != null) {
             matchId = getArguments().getString("MATCH_ID", "test_game_001");
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
         }
 
         viewModel.init(matchId, myRole);
@@ -179,6 +183,8 @@ public class AsocijacijeFragment extends Fragment {
                     Bundle args = new Bundle();
                     args.putString("MATCH_ID", matchId);
                     args.putString("PLAYER_ROLE", myRole);
+                    args.putBoolean("IS_TOURNAMENT", isTournament);
+                    args.putString("TOURNAMENT_ID", tournamentId);
 
                     Navigation.findNavController(requireView())
                             .navigate(R.id.nav_game, args);
