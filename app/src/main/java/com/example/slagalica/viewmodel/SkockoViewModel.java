@@ -110,6 +110,14 @@ public class SkockoViewModel extends ViewModel {
     public void onOpponentLeft() {
         opponentLeft = true;
 
+        // Ako igra još nije inicijalizovana (protivnik je otišao pre nego što je
+        // ova igra i počela), preuzimam ulogu domaćina i pokrećem je odmah -
+        // inače bi ostala zauvek neinicijalizovana jer je nju mogao da pokrene
+        // samo player1.
+        if (isHost()) {
+            initializeGameIfNeeded();
+        }
+
         SkockoGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return;
 
@@ -280,7 +288,9 @@ public class SkockoViewModel extends ViewModel {
         SkockoGameState state = gameState.getValue();
         if (state == null || !amIActive(state)) return;
 
-        if (!state.isOpponentChance) {
+        // Ako je protivnik otišao, nema ko da iskoristi bonus šansu od 10s -
+        // runda se odmah završava, umesto da se čeka pogodak koji nikad neće doći.
+        if (!state.isOpponentChance && !opponentLeft) {
             state.isOpponentChance = true;
             state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
             state.roundEndTime = serverNow() + 10_000;
@@ -326,7 +336,12 @@ public class SkockoViewModel extends ViewModel {
     private void transitionToRound2(SkockoGameState state, Map<String, Integer> scoresFromRound1) {
         state.round = 2;
         state.rundaZapocinje = 2;
-        state.activePlayer = 2;
+        // Ako je protivnik otišao, preostali igrač (domaćin) ostaje aktivan i u
+        // rundi 2, umesto da se red dodeli igraču koga više nema (čime bi igra
+        // zauvek ostala zaglavljena).
+        state.activePlayer = opponentLeft
+                ? ("player1".equals(myRole) ? 1 : 2)
+                : 2;
         state.isOpponentChance = false;
         state.showingRoundResult = false;
         state.attempts.clear();
@@ -456,6 +471,12 @@ public class SkockoViewModel extends ViewModel {
         }
 
         if (state.attempts.size() == 6) {
+            // Ako je protivnik otišao, nema ko da iskoristi bonus šansu od 10s -
+            // runda se odmah završava umesto da se prelazi u tu fazu.
+            if (opponentLeft) {
+                endRoundLogic(state);
+                return;
+            }
             state.isOpponentChance = true;
             state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
             state.roundEndTime = serverNow() + 10_000;
@@ -477,20 +498,41 @@ public class SkockoViewModel extends ViewModel {
     // ----------------------------------------------------------------
 
     public void setupInitialGameIfHost() {
-        if ("player1".equals(myRole)) {
-            SkockoGameState initialState = new SkockoGameState();
-
-            List<SkockoSymbol> initialSol = skockoHelper.generateSolution();
-            for (SkockoSymbol s : initialSol) initialState.solution.add(s.name());
-
-            initialState.player1Id = myUid;
-            initialState.roundEndTime = serverNow() + 30_000;
-            initialState.scores = new HashMap<>();
-            initialState.scores.put(myUid, matchStartingScoreP1);
-
-            selfRegistered = true;
-            repository.updateGameState(initialState);
+        if (isHost()) {
+            initializeGameIfNeeded();
         }
+    }
+
+    // Postaje true čim je poziv za inicijalizaciju igre pokrenut, da se izbjegne
+    // duplo (re)generisanje rešenja pri ponovljenim pozivima.
+    private boolean gameInitStarted = false;
+
+    private void initializeGameIfNeeded() {
+        if (gameInitStarted) return;
+
+        // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
+        // igra već inicijalizovana kroz normalan tok).
+        SkockoGameState current = gameState.getValue();
+        if (current != null && current.scores != null && !current.scores.isEmpty()) {
+            gameInitStarted = true;
+            return;
+        }
+
+        gameInitStarted = true;
+
+        SkockoGameState initialState = new SkockoGameState();
+
+        List<SkockoSymbol> initialSol = skockoHelper.generateSolution();
+        for (SkockoSymbol s : initialSol) initialState.solution.add(s.name());
+
+        initialState.player1Id = myUid;
+        initialState.roundEndTime = serverNow() + 30_000;
+        initialState.scores = new HashMap<>();
+        int myStartScore = "player1".equals(myRole) ? matchStartingScoreP1 : matchStartingScoreP2;
+        initialState.scores.put(myUid, myStartScore);
+
+        selfRegistered = true;
+        repository.updateGameState(initialState);
     }
 
     // ----------------------------------------------------------------

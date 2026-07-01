@@ -107,22 +107,28 @@ public class AsocijacijeViewModel extends ViewModel {
     public void onOpponentLeft() {
         opponentLeft = true;
 
+        // Ako igra još nije inicijalizovana (protivnik je otišao pre nego što je
+        // ova igra i počela), preuzimam ulogu domaćina i pokrećem je odmah -
+        // inače bi ostala zauvek neinicijalizovana jer je nju mogao da pokrene
+        // samo player1.
+        if (isHost()) {
+            initializeGameIfNeeded();
+        }
+
         AsocijacijeGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return;
 
-        // 1) Protivnik je bio aktivan igrač (na potezu) -> odmah završi njegovu turu
-        //    umesto da se čeka do kraja pune 2-minutne runde
+        // Protivnik nije (više) na potezu -> preuzimam kontrolu odmah kako bih
+        // sve vreme mogao da pogađam i otvaram nova polja, umesto da se runda
+        // prevremeno završi ili da čekam njegov red koji nikad neće doći.
         if (!amIActive(state)) {
-            if (roundTimer != null) {
-                roundTimer.cancel();
-                roundTimer = null;
-            }
-            endRoundLogic(state);
-            return;
+            state.activePlayer = "player1".equals(myRole) ? 1 : 2;
+            state.isGuessOnlyMode = false;
+            repository.updateGameState(state);
         }
 
-        // 2) Runda je već označena kao završena (showingRoundResult), ali host
-        //    (player1) koji je trebalo da pokrene prelaz je upravo taj koji je otišao
+        // Runda je već označena kao završena (showingRoundResult), ali host
+        // (player1) koji je trebalo da pokrene prelaz je upravo taj koji je otišao
         if (isHost() && state.showingRoundResult && state.round == 1 && !roundTransitionInProgress) {
             roundTransitionInProgress = true;
             final Map<String, Integer> scoresFromRoundOne = state.scores != null
@@ -423,7 +429,11 @@ public class AsocijacijeViewModel extends ViewModel {
 
     private void switchPlayer(AsocijacijeGameState state) {
         state.isGuessOnlyMode = false;
-        state.activePlayer = (state.activePlayer == 1) ? 2 : 1;
+        // Ako je protivnik otišao, ostajem aktivan - nema kome da se preda red,
+        // pa nastavljam da pogađam i otvaram polja sve vreme.
+        if (!opponentLeft) {
+            state.activePlayer = (state.activePlayer == 1) ? 2 : 1;
+        }
         repository.updateGameState(state);
     }
 
@@ -483,7 +493,11 @@ public class AsocijacijeViewModel extends ViewModel {
 
         currentState.round = 2;
         currentState.rundaZapocinje = 2;
-        currentState.activePlayer = 2;
+        // Ako je protivnik otišao, domaćin (jedini preostali igrač) ostaje
+        // aktivan i u rundi 2, umesto da se red dodeli igraču koga više nema.
+        currentState.activePlayer = opponentLeft
+                ? ("player1".equals(myRole) ? 1 : 2)
+                : 2;
         currentState.isGuessOnlyMode = false;
         currentState.finalResolved = false;
         currentState.showingRoundResult = false;
@@ -575,21 +589,42 @@ public class AsocijacijeViewModel extends ViewModel {
     // ----------------------------------------------------------------
 
     public void setupInitialGameIfHost() {
-        if ("player1".equals(myRole)) {
-            AsocijacijeGameState initialState = new AsocijacijeGameState();
-
-            // serverNow() garantuje konzistentno vreme za oba igrača
-            initialState.roundEndTime = serverNow() + 120000;
-            initialState.player1Id = myUid;
-
-            selfRegistered = true;
-            initialState.scores = new HashMap<>();
-            initialState.scores.put(myUid, matchStartingScoreP1);
-
-            android.util.Log.d("ASOCIJACIJE_LOG", "[Host] Kreiram igru, startni skor P1: " + matchStartingScoreP1);
-
-            repository.updateGameState(initialState);
+        if (isHost()) {
+            initializeGameIfNeeded();
         }
+    }
+
+    // Postaje true čim je poziv za inicijalizaciju igre pokrenut, da se izbjegne
+    // duplo (re)generisanje početnog stanja pri ponovljenim pozivima.
+    private boolean gameInitStarted = false;
+
+    private void initializeGameIfNeeded() {
+        if (gameInitStarted) return;
+
+        // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
+        // igra već inicijalizovana kroz normalan tok).
+        AsocijacijeGameState current = gameState.getValue();
+        if (current != null && current.scores != null && !current.scores.isEmpty()) {
+            gameInitStarted = true;
+            return;
+        }
+
+        gameInitStarted = true;
+
+        AsocijacijeGameState initialState = new AsocijacijeGameState();
+
+        // serverNow() garantuje konzistentno vreme za oba igrača
+        initialState.roundEndTime = serverNow() + 120000;
+        initialState.player1Id = myUid;
+
+        selfRegistered = true;
+        initialState.scores = new HashMap<>();
+        int myStartScore = "player1".equals(myRole) ? matchStartingScoreP1 : matchStartingScoreP2;
+        initialState.scores.put(myUid, myStartScore);
+
+        android.util.Log.d("ASOCIJACIJE_LOG", "[Host] Kreiram igru, startni skor: " + myStartScore);
+
+        repository.updateGameState(initialState);
     }
 
     // ----------------------------------------------------------------

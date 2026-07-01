@@ -262,6 +262,18 @@ public class SpojniceFragment extends Fragment {
 
     private void onOpponentLeft() {
         opponentLeft = true;
+        autoSkipIfOpponentAbsent();
+    }
+
+    /**
+     * Preskače fazu runde koja pripada protivniku koji je napustio partiju,
+     * umesto da se zauvijek čeka njegov (nepostojeći) potez. Poziva se i odmah
+     * po detekciji odlaska, i pri svakoj kasnijoj promeni faze/runde (npr. na
+     * početku runde 2), jer se Firebase event o prisustvu okine samo jednom, a
+     * preostali igrač treba da može da rešava igru sve vreme u obe runde.
+     */
+    private void autoSkipIfOpponentAbsent() {
+        if (!opponentLeft) return;
 
         boolean iAmActive = (currentRound == 0 && "player1".equals(myRole))
                 || (currentRound == 1 && "player2".equals(myRole));
@@ -270,12 +282,12 @@ public class SpojniceFragment extends Fragment {
 
         if ("active".equals(myPhase) && !iAmActive) {
             // protivnik je trebalo da igra aktivnu fazu -> odmah pređi na "fixing"
-            if (roundTimer != null) roundTimer.cancel();
+            if (roundTimer != null) { roundTimer.cancel(); roundTimer = null; }
             gameRef.child("rounds").child(String.valueOf(currentRound))
                     .child("phase").setValue("fixing");
         } else if ("fixing".equals(myPhase) && !iAmFixing) {
             // protivnik je trebalo da ispravlja -> odmah pređi na "done"
-            if (roundTimer != null) roundTimer.cancel();
+            if (roundTimer != null) { roundTimer.cancel(); roundTimer = null; }
             gameRef.child("rounds").child(String.valueOf(currentRound))
                     .child("phase").setValue("done");
         }
@@ -339,8 +351,8 @@ public class SpojniceFragment extends Fragment {
         scorePlayer2 = matchStartingScoreP2;
         updateScoreUI();
 
-        if ("player1".equals(myRole)) {
-            // Player1 briše staro stanje i inicijalizuje igru
+        if (isHost()) {
+            // Domaćin briše staro stanje i inicijalizuje igru
             gameRef.removeValue((error, ref) -> startRound(0));
         } else {
             startRound(0);
@@ -392,6 +404,7 @@ public class SpojniceFragment extends Fragment {
 
         updateScoreUI();
         updateStatusAndTimer();
+        autoSkipIfOpponentAbsent();
 
         listenForRoundState(round);
     }
@@ -622,6 +635,7 @@ public class SpojniceFragment extends Fragment {
                     myPhase = "fixing";
                     if (roundTimer != null) roundTimer.cancel();
                     updateStatusAndTimer();
+                    autoSkipIfOpponentAbsent();
                 } else if ("done".equals(phase) && !"done".equals(myPhase)) {
                     myPhase = "done";
                     if (roundTimer != null) roundTimer.cancel();

@@ -179,8 +179,12 @@ public class MojBrojViewModel extends ViewModel {
 
         // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
         // igra već inicijalizovana kroz normalan ready-handshake).
+        // NAPOMENA: "status" ne može da posluži kao provera jer mu je podrazumevana
+        // vrednost u konstruktoru već "active" - i polupopunjen state (npr. onaj koji
+        // stigne odmah nakon što se upiše samo "ready" čvor) bi lažno izgledao kao
+        // već inicijalizovan. Proveravamo umesto toga da li su brojevi stvarno stigli.
         MojBrojGameState current = gameState.getValue();
-        if (current != null && "active".equals(current.status)) {
+        if (current != null && current.availableNumbers != null && current.availableNumbers.size() == 6) {
             gameInitStarted = true;
             return;
         }
