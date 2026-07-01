@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import com.example.slagalica.R;
+import com.example.slagalica.helper.MatchPresenceHelper;
 import com.example.slagalica.models.mojbroj.MojBrojGameState;
 import com.example.slagalica.viewmodel.MojBrojViewModel;
 import com.google.firebase.database.DataSnapshot;
@@ -58,6 +59,8 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
     private static final float SHAKE_THRESHOLD = 12f;
     private static final int SHAKE_SLOP_TIME_MS = 500;
 
+    private MatchPresenceHelper presenceHelper;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -85,7 +88,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         }
 
         viewModel.init(matchId, myRole);
-        viewModel.signalReadyAndInit();
+        //viewModel.signalReadyAndInit();
 
         viewModel.getTimerText().observe(getViewLifecycleOwner(),
                 t -> tvTimer.setText(t));
@@ -93,16 +96,69 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         viewModel.getGameState().observe(getViewLifecycleOwner(),
                 this::renderUiFromState);
 
-        // FIX: Kada igra završi, ne navigujemo odmah — čekamo da currentGame
-        // stvarno poraste u Firebase (isti pattern kao KorakPoKorakFragment).
-        // Na taj način sprečavamo da GameFragment pročita staru vrednost i
-        // zaglavimo se na istoj igri.
         viewModel.getGameState().observe(getViewLifecycleOwner(), state -> {
             if (state != null && "finished".equals(state.status) && !navigationScheduled) {
                 navigationScheduled = true;
                 listenForNextGame();
             }
         });
+
+        // ===== PRISUSTVO / NAPUŠTANJE =====
+        setupPresence();
+
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(),
+                new androidx.activity.OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                .setTitle("Napusti partiju")
+                                .setMessage("Ako izađeš, gubiš partiju i ne dobijaš zvezde. Nastaviti?")
+                                .setPositiveButton("Napusti", (d, w) -> {
+                                    if (presenceHelper != null) presenceHelper.leaveMatch();
+                                    Navigation.findNavController(requireView())
+                                            .navigate(R.id.nav_home);
+                                })
+                                .setNegativeButton("Otkaži", null)
+                                .show();
+                    }
+                }
+        );
+    }
+
+    private void setupPresence() {
+        String myUid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        presenceHelper.markPresent();
+
+        FirebaseDatabase.getInstance()
+                .getReference("matches").child(matchId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String p1 = snapshot.child("player1Id").getValue(String.class);
+                        String p2 = snapshot.child("player2Id").getValue(String.class);
+                        String opponentUid = "player1".equals(myRole) ? p2 : p1;
+
+                        if (opponentUid != null && presenceHelper != null) {
+                            presenceHelper.listenForOpponentLeft(opponentUid, () -> {
+                                if (viewModel != null) viewModel.onOpponentLeft();
+
+                                // SIGURNOST: Ako igra još nije inicijalizovana, a preuzeli smo host ulogu
+                                if (viewModel != null) {
+                                    viewModel.signalReadyAndInit();
+                                }
+                            });
+                        }
+
+                        // Pokrećemo inicijalizaciju tek nakon što su se postavili prisustvo i listeneri
+                        if (viewModel != null) {
+                            viewModel.signalReadyAndInit();
+                        }
+                    }
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {}
+                });
     }
 
     // ─── Čekanje na Firebase pre navigacije ──────────────────────────────────
@@ -403,7 +459,6 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // FIX: uvek ukloni listener kada fragment odlazi, da ne bi curio memoriju
         if (gameAdvanceListener != null) {
             FirebaseDatabase.getInstance()
                     .getReference("matches")
@@ -412,6 +467,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
                     .removeEventListener(gameAdvanceListener);
             gameAdvanceListener = null;
         }
+        if (presenceHelper != null) presenceHelper.detach();   // ← dodato
     }
 
     @Override

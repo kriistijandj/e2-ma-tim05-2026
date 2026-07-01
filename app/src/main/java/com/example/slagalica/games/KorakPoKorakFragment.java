@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import com.example.slagalica.R;
+import com.example.slagalica.helper.MatchPresenceHelper;
 import com.example.slagalica.models.korak.KorakGameState;
 import com.example.slagalica.viewmodel.KorakViewModel;
 import com.google.firebase.auth.FirebaseAuth;
@@ -43,6 +44,8 @@ public class KorakPoKorakFragment extends Fragment {
     private String tournamentId;
 
     private ValueEventListener gameAdvanceListener;
+
+    private MatchPresenceHelper presenceHelper;
 
     @Nullable
     @Override
@@ -92,11 +95,24 @@ public class KorakPoKorakFragment extends Fragment {
             }
         });
 
+        setupPresence();
+
         requireActivity().getOnBackPressedDispatcher().addCallback(
                 getViewLifecycleOwner(),
                 new OnBackPressedCallback(true) {
                     @Override
-                    public void handleOnBackPressed() {}
+                    public void handleOnBackPressed() {
+                        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                .setTitle("Napusti partiju")
+                                .setMessage("Ako izađeš, gubiš partiju i ne dobijaš zvezde. Nastaviti?")
+                                .setPositiveButton("Napusti", (d, w) -> {
+                                    if (presenceHelper != null) presenceHelper.leaveMatch();
+                                    Navigation.findNavController(requireView())
+                                            .navigate(R.id.nav_home);
+                                })
+                                .setNegativeButton("Otkaži", null)
+                                .show();
+                    }
                 }
         );
 
@@ -116,6 +132,32 @@ public class KorakPoKorakFragment extends Fragment {
 
             etAnswer.setText("");
         });
+    }
+
+    private void setupPresence() {
+        String myUid = FirebaseAuth.getInstance().getUid();
+        presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        presenceHelper.markPresent();
+
+        // Pročitaj player1Id/player2Id direktno iz meča (ne iz KorakGameState)
+        FirebaseDatabase.getInstance()
+                .getReference("matches").child(matchId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String p1 = snapshot.child("player1Id").getValue(String.class);
+                        String p2 = snapshot.child("player2Id").getValue(String.class);
+                        String opponentUid = "player1".equals(playerRole) ? p2 : p1;
+
+                        if (opponentUid != null && presenceHelper != null) {
+                            presenceHelper.listenForOpponentLeft(opponentUid, () -> {
+                                if (viewModel != null) viewModel.onOpponentLeft();
+                            });
+                        }
+                    }
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {}
+                });
     }
 
     private void listenForNextGame() {

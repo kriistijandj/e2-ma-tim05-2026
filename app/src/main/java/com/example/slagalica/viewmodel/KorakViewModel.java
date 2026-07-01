@@ -40,6 +40,12 @@ public class KorakViewModel extends ViewModel {
 
     private boolean matchFinishedRegistered = false;
 
+    // Pamti da je protivnik napustio partiju. Firebase event za promenu prisustva
+    // se okine samo JEDNOM, pa ovaj fleg mora da preživi i kasnije promene stanja
+    // (npr. prelazak u novu rundu) da bismo mogli da preuzmemo njegov red kad god
+    // dođe na red, a ne samo u trenutku kada je fizički napustio partiju.
+    private boolean opponentHasLeft = false;
+
     public void init(String matchId, String role) {
         this.matchId = matchId;
         this.myRole = role;
@@ -66,6 +72,17 @@ public class KorakViewModel extends ViewModel {
             }
 
             gameState.setValue(state);
+
+            // Ako je protivnik već otišao (ranije zabeleženo), na svaki novi state
+            // proveravamo da li je sada na potezu i, ako jeste, preuzimamo njegov red
+            // umesto da čekamo da nam se ponovo javi event o prisustvu (on se okine
+            // samo jednom, pa se ova provera mora raditi ovde, pri svakoj promeni stanja).
+            if (handleAbsentOpponent(state)) {
+                // Stanje je upravo izmenjeno (preuzimanje reda ili završetak runde) -
+                // sačekaj sledeći update iz baze pre nego što ponovo sinhronizuješ tajmer.
+                return;
+            }
+
             handleTimerSync(state);
         });
     }
@@ -244,6 +261,16 @@ public class KorakViewModel extends ViewModel {
         KorakGameState state = gameState.getValue();
         if (state == null) return;
 
+        if (opponentHasLeft) {
+            // Protivnik je napustio partiju - nema ko da iskoristi bonus šansu od 10s,
+            // pa se runda jednostavno završava (isto kao regularan istek vremena).
+            state.revealedAnswer = state.answer;
+            endRoundLogic(state);
+            repository.updateGameState(state);
+            return;
+        }
+
+        state.revealedHints = 7;
         state.isOpponentChance = true;
         state.lastHintShowing = false;
         state.activePlayer = state.activePlayer == 1 ? 2 : 1;
@@ -389,5 +416,43 @@ public class KorakViewModel extends ViewModel {
         super.onCleared();
         cancelAllTimers();
         if (repository != null) repository.removeListener();
+    }
+
+    public void onOpponentLeft() {
+        opponentHasLeft = true;
+        handleAbsentOpponent(gameState.getValue());
+    }
+
+    /**
+     * Proverava da li protivnik (koji je napustio partiju) treba trenutno da bude na potezu
+     * i, ako je tako, preuzima njegov red umesto njega. Poziva se i odmah po detekciji
+     * odlaska protivnika, i pri svakoj kasnijoj promeni stanja igre (npr. na početku nove
+     * runde), jer se Firebase event o prisustvu okine samo jednom.
+     *
+     * @return true ako je stanje upravo izmenjeno (pa treba sačekati sledeći update),
+     *         false ako nema šta da se preuzme.
+     */
+    private boolean handleAbsentOpponent(KorakGameState state) {
+        if (!opponentHasLeft) return false;
+        if (state == null || "finished".equals(state.status)) return false;
+
+        if (amIActive(state)) return false; // ja sam već na potezu, nema šta da se preuzima
+
+        cancelAllTimers();
+
+        if (state.isOpponentChance) {
+            // Protivnik je otišao dok je koristio svoju bonus šansu od 10s -
+            // niko drugi je ne može iskoristiti umesto njega, runda se završava.
+            opponentTimeout();
+        } else {
+            // Protivnik je otišao dok je trebalo da igra svoju (regularnu) rundu ->
+            // preuzimam njegov red i imam mogućnost da pogađam sve dok ne istekne
+            // vreme te runde (normalno bodovanje po broju otkrivenih koraka),
+            // umesto da čekam istek pa dobijem samo 10 sekundi bonus šanse.
+            state.activePlayer = "player1".equals(myRole) ? 1 : 2;
+            repository.updateGameState(state);
+        }
+
+        return true;
     }
 }

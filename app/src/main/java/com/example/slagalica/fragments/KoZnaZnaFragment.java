@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalica.R;
+import com.example.slagalica.helper.MatchPresenceHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -91,6 +92,10 @@ public class KoZnaZnaFragment extends Fragment {
 
     private CountDownTimer questionTimer;
 
+    private MatchPresenceHelper presenceHelper;
+    private boolean opponentLeft = false;
+    private boolean waitingForFirstQuestion = false;
+
     public KoZnaZnaFragment() {}
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -139,7 +144,74 @@ public class KoZnaZnaFragment extends Fragment {
         // ── Korak 1: učitaj početne skorove iz meča, pa tek pokreni igru ─────
         loadMatchScores();
 
+        setupPresence();
+
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(),
+                new androidx.activity.OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                .setTitle("Napusti partiju")
+                                .setMessage("Ako izađeš, gubiš partiju i ne dobijaš zvezde. Nastaviti?")
+                                .setPositiveButton("Napusti", (d, w) -> {
+                                    if (presenceHelper != null) presenceHelper.leaveMatch();
+                                    androidx.navigation.Navigation
+                                            .findNavController(requireView())
+                                            .navigate(R.id.nav_home);
+                                })
+                                .setNegativeButton("Otkaži", null)
+                                .show();
+                    }
+                }
+        );
+
         return view;
+    }
+
+    private boolean isHost() {
+        return "player1".equals(myRole) || (opponentLeft && "player2".equals(myRole));
+    }
+
+    private void setupPresence() {
+        presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        presenceHelper.markPresent();
+
+        matchRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String p1 = snapshot.child("player1Id").getValue(String.class);
+                String p2 = snapshot.child("player2Id").getValue(String.class);
+                String opponentUid = "player1".equals(myRole) ? p2 : p1;
+
+                if (opponentUid != null && presenceHelper != null) {
+                    presenceHelper.listenForOpponentLeft(opponentUid, KoZnaZnaFragment.this::onOpponentLeft);
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void onOpponentLeft() {
+        opponentLeft = true;
+
+        // 1) Igra još nije ni počela (čekam prvo pitanje), a upravo sam postao host
+        if (isHost() && waitingForFirstQuestion) {
+            waitingForFirstQuestion = false;
+            gameRef.removeValue((error, ref) -> loadQuestion(0));
+            return;
+        }
+
+        // 2) Trenutno pitanje čeka na protivnikov odgovor -> upiši mu "nema odgovora"
+        //    umesto da čekam njegov (nepostojeći) tajmer
+        if (!questionResolved) {
+            String opponentRole = "player1".equals(myRole) ? "player2" : "player1";
+            gameRef.child("answers").child(String.valueOf(currentQuestion))
+                    .child(opponentRole).child("answerIndex").setValue(-1);
+            gameRef.child("answers").child(String.valueOf(currentQuestion))
+                    .child(opponentRole).child("answerTime").setValue(9999L);
+        }
     }
 
     @Override
@@ -155,6 +227,7 @@ public class KoZnaZnaFragment extends Fragment {
             matchRef.child("currentGame").removeEventListener(gameAdvanceListener);
             gameAdvanceListener = null;
         }
+        if (presenceHelper != null) presenceHelper.detach();   // ← dodato
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -198,7 +271,7 @@ public class KoZnaZnaFragment extends Fragment {
         scorePlayer2 = matchStartingScoreP2;
         updateScoreUI();
 
-        if ("player1".equals(myRole)) {
+        if (isHost()) {
             // Player1 briše staro stanje i inicijalizuje igru
             gameRef.removeValue((error, ref) -> loadQuestion(0));
         } else {
@@ -212,6 +285,7 @@ public class KoZnaZnaFragment extends Fragment {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void waitForQuestion() {
+        waitingForFirstQuestion = true;   // ← dodato
         tvStatus.setText("Čekanje...");
         setAllButtonsEnabled(false);
 
@@ -220,6 +294,7 @@ public class KoZnaZnaFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 Integer idx = snapshot.getValue(Integer.class);
                 if (idx != null) {
+                    waitingForFirstQuestion = false;   // ← dodato
                     gameRef.child("currentQuestion").removeEventListener(this);
                     loadQuestion(idx);
                 }
@@ -228,7 +303,6 @@ public class KoZnaZnaFragment extends Fragment {
             public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
-
     // ─────────────────────────────────────────────────────────────────────────
     // UČITAVANJE PITANJA
     // ─────────────────────────────────────────────────────────────────────────
@@ -434,7 +508,7 @@ public class KoZnaZnaFragment extends Fragment {
         matchRef.child("scores").child(myUid).setValue(myFinalScore);
 
         // ── Samo player1 inkremantira currentGame ─────────────────────────────
-        if ("player1".equals(myRole)) {
+        if (isHost()) {
             matchRef.child("currentGame").setValue(ServerValue.increment(1));
         }
 

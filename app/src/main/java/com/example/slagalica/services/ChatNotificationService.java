@@ -1,8 +1,5 @@
 package com.example.slagalica.services;
 
-import static android.content.Context.NOTIFICATION_SERVICE;
-import static androidx.core.content.ContextCompat.getSystemService;
-
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
