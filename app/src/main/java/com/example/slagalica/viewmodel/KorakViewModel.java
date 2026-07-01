@@ -39,6 +39,11 @@ public class KorakViewModel extends ViewModel {
     private boolean selfRegistered = false;
 
     private boolean matchFinishedRegistered = false;
+    private boolean currentGameIncremented = false;
+
+    // Sprečava da se runda 2 pripremi dva puta (i iz endRoundLogic-a i iz
+    // listener-a ispod).
+    private boolean roundTransitionInProgress = false;
 
     // Pamti da je protivnik napustio partiju. Firebase event za promenu prisustva
     // se okine samo JEDNOM, pa ovaj fleg mora da preživi i kasnije promene stanja
@@ -65,6 +70,11 @@ public class KorakViewModel extends ViewModel {
                     && !selfRegistered) {
                 selfRegistered = true;
                 state.scores.put(myUid, 0);
+                if ("player1".equals(myRole)) {
+                    state.player1Id = myUid;
+                } else {
+                    state.player2Id = myUid;
+                }
                 repository.updateGameState(state);
                 // ne pozivamo gameState.setValue ovde — Firebase ce odmah
                 // vratiti azurirano stanje kroz listener
@@ -83,6 +93,32 @@ public class KorakViewModel extends ViewModel {
                 return;
             }
 
+            // BEKAP: runda 1 je završena i čeka se domaćin da pripremi rundu 2.
+            // Ovo se poziva i direktno iz endRoundLogic-a (u istom pozivu kad se
+            // runda završi), ali ako je runda završio igrač koji TADA formalno
+            // nije bio domaćin (npr. zbog kratkog zakašnjenja u detekciji da je
+            // protivnik otišao), taj poziv bi tiho preskočio pripremu runde 2 i
+            // igra bi ostala zaglavljena. Ovaj listener se ponovo poziva pri
+            // svakoj promeni stanja, pa ovde "dohvatamo" propušten prelaz čim
+            // isHost() postane tačno.
+            if (state.showingRoundResult && state.round == 1
+                    && isHost() && !roundTransitionInProgress) {
+                roundTransitionInProgress = true;
+                final Map<String, Integer> scoresFromRoundOne = state.scores != null
+                        ? new HashMap<>(state.scores)
+                        : new HashMap<>();
+
+                new CountDownTimer(1000, 1000) {
+                    public void onTick(long ms) {}
+                    public void onFinish() {
+                        KorakGameState currentState = gameState.getValue();
+                        if (currentState == null) currentState = state;
+                        buildRound2(currentState, scoresFromRoundOne);
+                    }
+                }.start();
+                return;
+            }
+
             handleTimerSync(state);
         });
     }
@@ -97,28 +133,68 @@ public class KorakViewModel extends ViewModel {
 
     // ---------------- INIT GAME ----------------
 
+    // Postaje true čim je poziv za inicijalizaciju igre pokrenut, da se izbjegne
+    // duplo (re)generisanje pitanja pri ponovljenim pozivima signalReadyAndInit().
+    private boolean gameInitStarted = false;
+
+    private boolean isHost() {
+        return "player1".equals(myRole) || (opponentHasLeft && "player2".equals(myRole));
+    }
+
     public void signalReadyAndInit() {
         repository.setReady(myRole, () -> {
-
-            if (!"player1".equals(myRole)) return;
-
-            KorakHelper.KorakQuestion q = helper.getRandomQuestion();
-
-            KorakGameState state = new KorakGameState();
-            state.answer = q.answer;
-            state.hints = q.hints;
-            state.revealedHints = 1;
-            state.round = 1;
-            state.activePlayer = 1;
-            state.status = "active";
-            state.scores = new HashMap<>();
-            state.player1Id = myUid;
-            // FIX: player1 odmah oznacava sebe kao registered
-            selfRegistered = true;
-            state.scores.put(myUid, 0);
-
-            repository.updateGameState(state);
+            if (isHost()) {
+                initializeGameIfNeeded();
+            }
         });
+
+        // FIX: ako je protivnik (player1) napustio meč pre ove igre (u nekoj od
+        // prethodnih igara u partiji), njegov "ready" fleg za OVU igru nikad
+        // neće stići, pa bi setReady-jev bothReadyCallback zauvek čekao. Čim
+        // preuzmemo ulogu domaćina zbog njegovog odsustva, inicijalizujemo
+        // igru odmah umesto da čekamo ready koji nikad neće stići.
+        if (opponentHasLeft && isHost()) {
+            initializeGameIfNeeded();
+        }
+    }
+
+    private void initializeGameIfNeeded() {
+        if (gameInitStarted) return;
+
+        // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
+        // igra već inicijalizovana kroz normalan ready-handshake).
+        // NAPOMENA: "status" ne može da posluži kao provera jer mu je podrazumevana
+        // vrednost u konstruktoru već "active" - i polupopunjen state (npr. onaj koji
+        // stigne odmah nakon što se upiše samo "ready" čvor) bi lažno izgledao kao
+        // već inicijalizovan. Proveravamo umesto toga da li su hints stvarno stigli.
+        KorakGameState current = gameState.getValue();
+        if (current != null && current.hints != null && !current.hints.isEmpty()) {
+            gameInitStarted = true;
+            return;
+        }
+
+        gameInitStarted = true;
+
+        KorakHelper.KorakQuestion q = helper.getRandomQuestion();
+
+        KorakGameState state = new KorakGameState();
+        state.answer = q.answer;
+        state.hints = q.hints;
+        state.revealedHints = 1;
+        state.round = 1;
+        state.activePlayer = 1;
+        state.status = "active";
+        state.scores = new HashMap<>();
+        if ("player1".equals(myRole)) {
+            state.player1Id = myUid;
+        } else {
+            state.player2Id = myUid;
+        }
+        // FIX: domaćin odmah oznacava sebe kao registered
+        selfRegistered = true;
+        state.scores.put(myUid, 0);
+
+        repository.updateGameState(state);
     }
 
     // ---------------- GUESS ----------------
@@ -294,10 +370,8 @@ public class KorakViewModel extends ViewModel {
         android.util.Log.d("KORAK_LOG", "[" + myRole + "] endRoundLogic -> Ulaz u metodu. Trenutna runda: " + state.round + ", Trenutni bodovi u state: " + state.scores);
 
         if (state.round == 1) {
-            if ("player1".equals(myRole)) {
-                state.showingRoundResult = true;
-                repository.updateGameState(state);
-            }
+            state.showingRoundResult = true;
+            repository.updateGameState(state);
 
             final Map<String, Integer> scoresFromRoundOne = state.scores != null
                     ? new HashMap<>(state.scores)
@@ -305,39 +379,23 @@ public class KorakViewModel extends ViewModel {
 
             android.util.Log.d("KORAK_LOG", "[" + myRole + "] endRoundLogic -> Zaključani bodovi za tajmer (scoresFromRoundOne): " + scoresFromRoundOne);
 
-            new CountDownTimer(5000, 1000) {
-                public void onTick(long ms) {}
+            // Samo domaćin priprema rundu 2. Ako TRENUTNO nismo domaćin (npr.
+            // zato što je detekcija protivnikovog odlaska stigla sa malim
+            // zakašnjenjem), ne pravimo ništa ovde - listener u init() će
+            // uhvatiti ovaj propušteni prelaz čim isHost() postane tačno, pošto
+            // je "showingRoundResult" već upisan u bazu.
+            if (isHost() && !roundTransitionInProgress) {
+                roundTransitionInProgress = true;
+                new CountDownTimer(5000, 1000) {
+                    public void onTick(long ms) {}
 
-                public void onFinish() {
-                    android.util.Log.d("KORAK_LOG", "[" + myRole + "] Tajmer završio. Ja sam: " + myRole);
-
-                    if (!"player1".equals(myRole)) {
-                        android.util.Log.d("KORAK_LOG", "[" + myRole + "] Ja nisam player1, preskačem inicijalizaciju runde 2.");
-                        return;
+                    public void onFinish() {
+                        KorakGameState currentState = gameState.getValue();
+                        if (currentState == null) currentState = state;
+                        buildRound2(currentState, scoresFromRoundOne);
                     }
-
-                    KorakGameState currentState = gameState.getValue();
-                    if (currentState == null) currentState = state;
-
-                    KorakHelper.KorakQuestion q = helper.getRandomQuestion();
-
-                    currentState.round = 2;
-                    currentState.activePlayer = 2;
-                    currentState.revealedHints = 1;
-                    currentState.isOpponentChance = false;
-                    currentState.lastHintShowing = false;
-                    currentState.showingRoundResult = false;
-                    currentState.revealedAnswer = "";
-                    currentState.answer = q.answer;
-                    currentState.hints = q.hints;
-
-                    // Vraćamo bodove
-                    currentState.scores = scoresFromRoundOne;
-
-                    android.util.Log.d("KORAK_LOG", "[" + myRole + "] player1 šalje u bazu za RUNDU 2 bodove: " + currentState.scores);
-                    repository.updateGameState(currentState);
-                }
-            }.start();
+                }.start();
+            }
 
         } else {
             android.util.Log.d("KORAK_LOG", "[" + myRole + "] Runda 2 završena. Postavljam status na finished.");
@@ -348,31 +406,53 @@ public class KorakViewModel extends ViewModel {
         }
     }
 
+    private void buildRound2(KorakGameState currentState, Map<String, Integer> scoresFromRoundOne) {
+        KorakHelper.KorakQuestion q = helper.getRandomQuestion();
+
+        currentState.round = 2;
+        currentState.activePlayer = 2;
+        currentState.revealedHints = 1;
+        currentState.isOpponentChance = false;
+        currentState.lastHintShowing = false;
+        currentState.showingRoundResult = false;
+        currentState.revealedAnswer = "";
+        currentState.answer = q.answer;
+        currentState.hints = q.hints;
+
+        // Vraćamo bodove
+        currentState.scores = scoresFromRoundOne;
+
+        android.util.Log.d("KORAK_LOG", "[" + myRole + "] šaljem u bazu za RUNDU 2 bodove: " + currentState.scores);
+        repository.updateGameState(currentState);
+    }
+
     // ---------------- FINISH MATCH ----------------
 
     private void finishMatch(KorakGameState state) {
-        // Ako je ovaj klijent već jednom procesirao kraj, preskoči dupliranje
-        if (matchFinishedRegistered) return;
-        matchFinishedRegistered = true;
-
-        android.util.Log.d("KORAK_LOG", "[" + myRole + "] finishMatch -> Ulaz sa bodovima iz objekta: " + state.scores);
         int score = (state.scores != null && state.scores.containsKey(myUid) && state.scores.get(myUid) != null)
                 ? state.scores.get(myUid)
                 : 0;
 
-        android.util.Log.d("KORAK_LOG", "[" + myRole + "] finishMatch -> Moj UID: " + myUid + " | Bodovi koje šaljem u /matches: " + score);
+        // 1. Svako bezbedno upisuje svoj lični skor (idempotentno, može se ponoviti)
+        if (!matchFinishedRegistered) {
+            matchFinishedRegistered = true;
+            android.util.Log.d("KORAK_LOG", "[" + myRole + "] finishMatch -> Moj UID: " + myUid + " | Bodovi koje šaljem u /matches: " + score);
+            FirebaseDatabase.getInstance()
+                    .getReference("matches")
+                    .child(matchId)
+                    .child("scores")
+                    .child(myUid)
+                    .setValue(score);
+        }
 
-        // 1. Svako bezbedno upisuje svoj lični skor
-        FirebaseDatabase.getInstance()
-                .getReference("matches")
-                .child(matchId)
-                .child("scores")
-                .child(myUid)
-                .setValue(score);
-
-        // 2. STRIKTNA KONTROLA: Samo player1 ima pravo da uveća broj trenutne igre u meču
-        if ("player1".equals(myRole)) {
-            android.util.Log.d("KORAK_LOG", "[" + myRole + "] Ja sam player1, uvećavam currentGame za +1");
+        // 2. STRIKTNA KONTROLA: Samo domaćin ima pravo da uveća broj trenutne igre u meču.
+        // NAPOMENA: ovo se namerno NE gate-uje istim flagom kao gore - handleTimerSync
+        // poziva finishMatch pri svakoj promeni stanja dok je status "finished", pa ako
+        // isHost() nije bio tačan pri PRVOM pozivu (npr. kratko zakašnjenje u detekciji
+        // da je protivnik otišao), sledeći poziv ipak treba da uspe da pomeri meč dalje.
+        if (isHost() && !currentGameIncremented) {
+            currentGameIncremented = true;
+            android.util.Log.d("KORAK_LOG", "[" + myRole + "] Ja sam domaćin, uvećavam currentGame za +1");
             FirebaseDatabase.getInstance()
                     .getReference("matches")
                     .child(matchId)
@@ -420,7 +500,32 @@ public class KorakViewModel extends ViewModel {
 
     public void onOpponentLeft() {
         opponentHasLeft = true;
-        handleAbsentOpponent(gameState.getValue());
+
+        KorakGameState state = gameState.getValue();
+
+        // Ako je meč već završen i čeka se domaćin da pomeri currentGame, a
+        // upravo smo (zbog odlaska protivnika) postali domaćin, uradimo to
+        // odmah - Firebase listener se neće ponovo okinuti sam od sebe ako se
+        // stanje u međuvremenu nije menjalo.
+        if (state != null && "finished".equals(state.status)) {
+            finishMatch(state);
+            return;
+        }
+
+        // Ako je runda 1 već završena i čeka se domaćin da pripremi rundu 2, a
+        // upravo smo (zbog odlaska protivnika) postali domaćin, pokrenimo taj
+        // prelaz odmah - iz istog razloga kao gore.
+        if (state != null && state.showingRoundResult && state.round == 1
+                && isHost() && !roundTransitionInProgress) {
+            roundTransitionInProgress = true;
+            final Map<String, Integer> scoresFromRoundOne = state.scores != null
+                    ? new HashMap<>(state.scores)
+                    : new HashMap<>();
+            buildRound2(state, scoresFromRoundOne);
+            return;
+        }
+
+        handleAbsentOpponent(state);
     }
 
     /**

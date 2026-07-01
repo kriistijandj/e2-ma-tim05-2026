@@ -16,10 +16,23 @@ public class MatchPresenceHelper {
     private ValueEventListener opponentListener;
     private ValueEventListener leftByListener;
 
+    // Postavlja se samo ako je ovo solo partija u okviru Izazova - vidi setChallengeContext().
+    private String challengeId;
+
     public MatchPresenceHelper(String matchId, String myUid) {
         this.matchId = matchId;
         this.myUid = myUid;
         this.matchRef = FirebaseDatabase.getInstance().getReference("matches").child(matchId);
+    }
+
+    /**
+     * Poziva se iz igara kada je partija deo Izazova. Ako igrač napusti partiju
+     * (leaveMatch) pre nego što je stigao da je završi, njegov rezultat se nikad
+     * ne bi predao u challenges/{challengeId}, pa bi obračun nagrada zauvek čekao
+     * njega - zato ovde odmah upisujemo "nije završio" (dnf) rezultat.
+     */
+    public void setChallengeContext(String challengeId) {
+        this.challengeId = challengeId;
     }
 
     /** Pozvati jednom kad igrač uđe u partiju (npr. u GameFragment/GameActivity). */
@@ -48,6 +61,18 @@ public class MatchPresenceHelper {
             @Override
             public void onComplete(DatabaseError e, boolean committed, DataSnapshot d) {}
         });
+
+        // Izazov: pošto igrač napušta partiju pre kraja, njegov rezultat nikad ne bi
+        // stigao do challenges/{challengeId} (to se inače predaje tek na kraju poslednje
+        // igre) - upisujemo "nije završio" odmah, da obračun nagrada ne čeka zauvek.
+        if (challengeId != null && !challengeId.isEmpty()) {
+            new com.example.slagalica.repository.ChallengeRepository().submitDnfResult(
+                    challengeId, myUid,
+                    new com.example.slagalica.repository.ChallengeRepository.OnChallengeActionListener() {
+                        @Override public void onSuccess() {}
+                        @Override public void onFailure(String message) {}
+                    });
+        }
 
         // ── Tačka 3.f: napuštanjem gubim partiju i NE dobijam/gubim zvezde ──────
         // (zvezde se namerno ne diraju - samo statistika partija/poraza)

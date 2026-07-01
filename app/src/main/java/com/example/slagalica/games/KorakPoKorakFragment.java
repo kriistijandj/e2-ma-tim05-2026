@@ -42,6 +42,8 @@ public class KorakPoKorakFragment extends Fragment {
     private String playerRole;
     private boolean isTournament;
     private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     private ValueEventListener gameAdvanceListener;
 
@@ -67,6 +69,8 @@ public class KorakPoKorakFragment extends Fragment {
             playerRole = getArguments().getString("PLAYER_ROLE");
             isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
             tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
         if (matchId == null || playerRole == null) {
@@ -137,6 +141,7 @@ public class KorakPoKorakFragment extends Fragment {
     private void setupPresence() {
         String myUid = FirebaseAuth.getInstance().getUid();
         presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
         presenceHelper.markPresent();
 
         // Pročitaj player1Id/player2Id direktno iz meča (ne iz KorakGameState)
@@ -181,6 +186,8 @@ public class KorakPoKorakFragment extends Fragment {
                     args.putString("PLAYER_ROLE", playerRole);
                     args.putBoolean("IS_TOURNAMENT", isTournament);
                     args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
 
                     Navigation.findNavController(requireView())
                             .navigate(R.id.nav_mojbroj, args);
