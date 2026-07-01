@@ -152,20 +152,49 @@ public class MojBrojViewModel extends ViewModel {
         handleTimerSync(state);
     }
 
+    // Postaje true čim je poziv za inicijalizaciju igre pokrenut, da se izbjegne
+    // duplo (re)generisanje brojeva pri ponovljenim pozivima signalReadyAndInit().
+    private boolean gameInitStarted = false;
+
     public void signalReadyAndInit() {
         repository.setReady(myPlayerId, () -> {
             // Koristimo isHost() umesto "player1".equals(myPlayerId)
             if (isHost()) {
-                MojBrojGameState initial = new MojBrojGameState();
-                initial.targetNumber      = helper.generateTargetNumber();
-                initial.availableNumbers  = helper.generateAvailableNumbers();
-                initial.stopPlayer        = 1;
-                initial.round             = 1;
-                initial.status            = "active";
-                repository.updateGameState(initial);
-                Log.d(TAG, "Igra uspešno inicijalizovana od strane domaćina/preostalog igrača.");
+                initializeGameIfNeeded();
             }
         });
+
+        // FIX: ako je protivnik napustio meč (npr. u nekoj od prethodnih igara),
+        // njegov "ready" fleg za OVU igru nikad neće stići jer je njegov klijent
+        // otišao - setReady-jev bothReadyCallback bi zauvek čekao. Čim preuzmemo
+        // ulogu domaćina zbog odsustva protivnika, inicijalizujemo igru odmah
+        // umesto da čekamo ready koji nikad neće stići.
+        if (opponentLeft && isHost()) {
+            initializeGameIfNeeded();
+        }
+    }
+
+    private void initializeGameIfNeeded() {
+        if (gameInitStarted) return;
+
+        // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
+        // igra već inicijalizovana kroz normalan ready-handshake).
+        MojBrojGameState current = gameState.getValue();
+        if (current != null && "active".equals(current.status)) {
+            gameInitStarted = true;
+            return;
+        }
+
+        gameInitStarted = true;
+
+        MojBrojGameState initial = new MojBrojGameState();
+        initial.targetNumber      = helper.generateTargetNumber();
+        initial.availableNumbers  = helper.generateAvailableNumbers();
+        initial.stopPlayer        = 1;
+        initial.round             = 1;
+        initial.status            = "active";
+        repository.updateGameState(initial);
+        Log.d(TAG, "Igra uspešno inicijalizovana od strane domaćina/preostalog igrača.");
     }
 
     // -------------------------------------------------------------------------
