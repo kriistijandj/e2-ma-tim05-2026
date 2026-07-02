@@ -166,7 +166,7 @@ public class AsocijacijeFragment extends Fragment {
                 });
     }
 
-    // ─── Čekanje na Firebase pre navigacije ──────────────────────────────────
+
 
     private void listenForNextGame() {
         DatabaseReference ref = FirebaseDatabase.getInstance()
@@ -205,7 +205,7 @@ public class AsocijacijeFragment extends Fragment {
         ref.addValueEventListener(gameAdvanceListener);
     }
 
-    // ─── Cleanup ─────────────────────────────────────────────────────────────
+
 
     @Override
     public void onDestroyView() {
@@ -221,7 +221,7 @@ public class AsocijacijeFragment extends Fragment {
         if (presenceHelper != null) presenceHelper.detach();   // ← dodato
     }
 
-    // ─── Setup kolona ─────────────────────────────────────────────────────────
+
 
     private void setupColumnViews(View v, int col, int[] fieldIds, int solutionId) {
         for (int i = 0; i < 4; i++) {
@@ -251,7 +251,7 @@ public class AsocijacijeFragment extends Fragment {
         });
     }
 
-    // ─── Renderovanje UI-ja ───────────────────────────────────────────────────
+
 
     private void renderScreenFromState(AsocijacijeGameState state) {
         isClickPending = false;

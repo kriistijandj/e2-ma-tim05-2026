@@ -40,9 +40,7 @@ public class ChallengeRepository {
         void onFailure(String message);
     }
 
-    // -------------------------------------------------------------------------
-    // KREIRANJE IZAZOVA
-    // -------------------------------------------------------------------------
+
 
     public void createChallenge(long stakeStars, long stakeTokens, OnChallengeCreateListener listener) {
         final long stars = clamp(stakeStars, 0, MAX_STAKE_STARS);
@@ -82,9 +80,7 @@ public class ChallengeRepository {
         }).addOnFailureListener(e -> listener.onFailure(e.getMessage()));
     }
 
-    // -------------------------------------------------------------------------
-    // PRIDRUŽIVANJE / NAPUŠTANJE ČEKAONICE
-    // -------------------------------------------------------------------------
+
 
     public void joinChallenge(String challengeId, OnChallengeActionListener listener) {
         DocumentReference challengeRef = firestore.collection("challenges").document(challengeId);
@@ -149,17 +145,12 @@ public class ChallengeRepository {
           .addOnFailureListener(e -> listener.onFailure(messageOf(e)));
     }
 
-    // -------------------------------------------------------------------------
-    // POKRETANJE IZAZOVA
-    // -------------------------------------------------------------------------
 
-    /** Poziva domaćin (kreator) klikom na dugme, kada ima bar 2 učesnika. */
     public void startChallengeManually(String challengeId, OnChallengeActionListener listener) {
         claimAndStart(challengeId, 2, listener);
     }
 
-    /** Pasivna provera pozvana na svaku promenu čekaonice - tiho ne radi ništa
-     * ako uslov (4 učesnika) još nije ispunjen ili je izazov već pokrenut. */
+
     public void autoStartIfReady(String challengeId) {
         claimAndStart(challengeId, MAX_PARTICIPANTS, new OnChallengeActionListener() {
             @Override public void onSuccess() {}
@@ -237,16 +228,13 @@ public class ChallengeRepository {
         });
     }
 
-    // -------------------------------------------------------------------------
-    // PREDAJA REZULTATA + OBRAČUN NAGRADA
-    // -------------------------------------------------------------------------
+
 
     public void submitChallengeResult(String challengeId, String uid, int score, OnChallengeActionListener listener) {
         submitResult(challengeId, uid, score, false, listener);
     }
 
-    /** Poziva se kada učesnik napusti solo partiju pre kraja - tretira se kao
-     * neuspešno završena partija (0 poena) i isključuje se iz rangiranja/nagrada. */
+
     public void submitDnfResult(String challengeId, String uid, OnChallengeActionListener listener) {
         submitResult(challengeId, uid, 0, true, listener);
     }
@@ -320,11 +308,7 @@ public class ChallengeRepository {
             scores.put(p, s);
         }
 
-        // Rangiranje po broju bodova opadajuće (učesnici koji nisu završili partiju
-        // - "dnf" - isključeni su iz rangiranja i ne dobijaju ništa nazad). Nerešeno
-        // se razrešava redosledom pridruživanja (stabilno sortiranje) - precizno
-        // poređenje po vremenu završetka nije moguće unutar iste transakcije, pošto
-        // se FieldValue.serverTimestamp() za MOJ rezultat razrešava tek posle commit-a.
+
         List<String> ranking = new ArrayList<>();
         for (String p : participants) {
             if (!dnfUids.contains(p)) ranking.add(p);
@@ -375,9 +359,7 @@ public class ChallengeRepository {
         transaction.update(challengeRef, "finishedAt", FieldValue.serverTimestamp());
     }
 
-    // -------------------------------------------------------------------------
-    // HELPERI
-    // -------------------------------------------------------------------------
+
 
     private static long clamp(long value, long min, long max) {
         return Math.max(min, Math.min(max, value));

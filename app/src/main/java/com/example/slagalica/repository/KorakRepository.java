@@ -63,16 +63,7 @@ public class KorakRepository {
         gameRef.setValue(state);
     }
 
-    /**
-     * Atomski (server-side) pokušaj da se "otključa" pravo na uvećanje
-     * matches/{matchId}/currentGame za OVU partiju/igru. Firebase transakcija
-     * garantuje da će, čak i ako više klijenata (ili isti klijent više puta)
-     * pozove ovu metodu istovremeno, samo JEDAN poziv uspeti da postavi
-     * lock na true - taj poziv treba da stvarno uveća currentGame.
-     *
-     * Lock je vezan za matchId, što je dovoljno jedinstveno jer se Korak
-     * igra tačno jednom po partiji.
-     */
+
     public void tryClaimCurrentGameIncrement(String matchId, IncrementResultCallback callback) {
         DatabaseReference lockRef = FirebaseDatabase.getInstance()
                 .getReference("matches")

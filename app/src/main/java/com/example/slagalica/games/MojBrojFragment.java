@@ -51,7 +51,6 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
     private boolean isChallenge;
     private String challengeId;
 
-    // FIX: listener koji čeka da currentGame poraste u Firebase pre navigacije
     private ValueEventListener gameAdvanceListener;
     private boolean navigationScheduled = false;
 
@@ -107,7 +106,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             }
         });
 
-        // ===== PRISUSTVO / NAPUŠTANJE =====
+
         setupPresence();
 
         requireActivity().getOnBackPressedDispatcher().addCallback(
@@ -166,7 +165,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
                 });
     }
 
-    // ─── Čekanje na Firebase pre navigacije ──────────────────────────────────
+
 
     private void listenForNextGame() {
         DatabaseReference ref = FirebaseDatabase.getInstance()
@@ -179,8 +178,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 Integer game = snapshot.getValue(Integer.class);
 
-                // currentGame == 2 znači da smo završili igru na indeksu 1 (MojBroj)
-                // i treba da idemo na sledeću (Asocijacije = index 2)
+
                 if (game != null && game >= 2) {
                     ref.removeEventListener(this);
 
@@ -206,7 +204,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         ref.addValueEventListener(gameAdvanceListener);
     }
 
-    // ─── Renderovanje UI-ja ───────────────────────────────────────────────────
+
 
     private void renderUiFromState(MojBrojGameState state) {
         if (state == null) return;
@@ -277,11 +275,9 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             tvRightNumber.setText(state.p2Submitted ? formatResult(state.p2Result) : "???");
         }
 
-        // =========================================================================
-        // KRITIČNI FIX: Provere stanja kraja ekrana IDU NA VRH (Pre provera čekanja)
-        // =========================================================================
 
-        // Ekran "Runda 1 završena"
+
+
         if (state.showingRoundResult) {
             tvStatusMessage.setText("Runda 1 završena!\nPrelazak na rundu 2...");
             tvStatusMessage.setVisibility(View.VISIBLE);
@@ -290,7 +286,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             return;
         }
 
-        // Ekran kraja igre
+
         if ("finished".equals(state.status)) {
             int finalScoreP1 = viewModel.getMatchStartingScoreP1() + state.p1Score;
             int finalScoreP2 = viewModel.getMatchStartingScoreP2() + state.p2Score;
@@ -308,14 +304,14 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
             return;
         }
 
-        // Tek ako igra NIJE gotova, proveravamo da li neko nekog čeka
+
         if (mySubmitted && !bothSubmitted) {
             tvStatusMessage.setText("Čeka se protivnik...");
             tvStatusMessage.setVisibility(View.VISIBLE);
             return;
         }
 
-        // Čeka se stop
+
         if (!state.numbersRevealed) {
             if (iAmStopPlayer) {
                 tvStatusMessage.setText("Pritisni STOP da otkriješ "
@@ -352,13 +348,28 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         btnNum6.setEnabled(enabled);
     }
 
-    // ─── Tastatura ────────────────────────────────────────────────────────────
+
+
+    private static class TokenEntry {
+        final String text;
+        final Button button; // null ako je operator (+, -, *, /, (, ))
+        TokenEntry(String text, Button button) {
+            this.text = text;
+            this.button = button;
+        }
+    }
+
+    private final List<TokenEntry> insertedTokens = new java.util.ArrayList<>();
 
     private void setupKeyboard() {
         List<Button> numButtons = Arrays.asList(
                 btnNum1, btnNum2, btnNum3, btnNum4, btnNum5, btnNum6);
 
-        View.OnClickListener insertOp = v -> etExpression.append(((Button) v).getText());
+        View.OnClickListener insertOp = v -> {
+            String text = ((Button) v).getText().toString();
+            etExpression.append(text);
+            insertedTokens.add(new TokenEntry(text, null));
+        };
         btnPlus.setOnClickListener(insertOp);
         btnMinus.setOnClickListener(insertOp);
         btnMul.setOnClickListener(insertOp);
@@ -368,27 +379,30 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
 
         for (Button btn : numButtons) {
             btn.setOnClickListener(v -> {
-                etExpression.append(btn.getText());
+                String text = btn.getText().toString();
+                etExpression.append(text);
                 btn.setEnabled(false);
                 btn.setAlpha(0.4f);
+                insertedTokens.add(new TokenEntry(text, btn));
             });
         }
 
         btnDelete.setOnClickListener(v -> {
-            String t = etExpression.getText().toString();
-            if (!t.isEmpty()) {
-                etExpression.setText(t.substring(0, t.length() - 1));
+            if (insertedTokens.isEmpty()) return;
+
+            TokenEntry last = insertedTokens.remove(insertedTokens.size() - 1);
+
+            // Ukloni CEO taj token sa kraja teksta, ne samo jedan karakter
+            String current = etExpression.getText().toString();
+            if (current.endsWith(last.text)) {
+                etExpression.setText(current.substring(0, current.length() - last.text.length()));
                 etExpression.setSelection(etExpression.getText().length());
             }
-            for (Button btn : numButtons) {
-                MojBrojGameState state = viewModel.getGameState().getValue();
-                boolean mySubmitted = state != null && (
-                        "player1".equals(viewModel.getMyPlayerId())
-                                ? state.p1Submitted : state.p2Submitted);
-                if (!mySubmitted) {
-                    btn.setEnabled(true);
-                    btn.setAlpha(1.0f);
-                }
+
+            // Vrati samo TO dugme (ako je token bio broj), ne svu dugmad
+            if (last.button != null) {
+                last.button.setEnabled(true);
+                last.button.setAlpha(1.0f);
             }
         });
 
@@ -402,6 +416,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
                 String expr = etExpression.getText().toString().trim();
                 viewModel.submitExpression(expr);
                 etExpression.setText("");
+                insertedTokens.clear();
                 for (Button btn : numButtons) {
                     btn.setEnabled(true);
                     btn.setAlpha(1.0f);
@@ -437,7 +452,7 @@ public class MojBrojFragment extends Fragment implements SensorEventListener {
         tvStatusMessage = view.findViewById(R.id.tvStatusMessage);
     }
 
-    // ─── Shake senzor ─────────────────────────────────────────────────────────
+
 
     private void setupSensor() {
         sensorManager = (SensorManager) requireActivity().getSystemService(SENSOR_SERVICE);

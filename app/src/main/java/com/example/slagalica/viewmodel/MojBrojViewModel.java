@@ -37,7 +37,6 @@ public class MojBrojViewModel extends ViewModel {
     private String myPlayerId;
     private String matchId;
 
-    // Istorija bodova iz prethodnih igara u meču
     private int matchStartingScoreP1 = 0;
     private int matchStartingScoreP2 = 0;
     private boolean isMatchScoreLoaded = false;
@@ -58,8 +57,6 @@ public class MojBrojViewModel extends ViewModel {
     private int myRoundsPlayed = 0;
     private int myRoundsSolved = 0;
 
-    // Postaje trajno true čim se detektuje da je protivnik napustio meč
-    // (bilo u ovoj igri, bilo u nekoj od prethodnih igara u meču).
     private boolean opponentLeft = false;
 
     // -------------------------------------------------------------------------
@@ -71,7 +68,7 @@ public class MojBrojViewModel extends ViewModel {
         this.myPlayerId = playerId;
         this.repository = new MojBrojRepository(matchId);
 
-        // Učitaj trenutne akumulirane bodove iz celog meča pre početka ove igre
+
         FirebaseDatabase.getInstance()
                 .getReference("matches")
                 .child(matchId)
@@ -118,17 +115,7 @@ public class MojBrojViewModel extends ViewModel {
         return "player1".equals(myPlayerId) || (opponentLeft && "player2".equals(myPlayerId));
     }
 
-    /**
-     * Poziva ga MojBrojFragment (preko MatchPresenceHelper-a) čim se detektuje
-     * da je protivnik napustio meč — bilo u ovoj igri, bilo u nekoj od prethodnih
-     * igara u meču (Firebase listener okine odmah pri vezivanju ako je stanje
-     * već "otišao").
-     *
-     * Ova metoda samo postavlja fleg i pokušava da odmah "odblokira" trenutnu
-     * fazu igre. Glavna logika koja stalno proverava opponentLeft i preuzima
-     * reveal/predaju živi u handleTimerSync() i submitExpression(), tako da
-     * fix radi ispravno i kad se pređe u rundu 2 (gde se ponovo čeka "stop").
-     */
+
     public void onOpponentLeft() {
         opponentLeft = true;
 
@@ -139,21 +126,17 @@ public class MojBrojViewModel extends ViewModel {
         boolean opponentSubmitted = "player1".equals(myPlayerId) ? state.p2Submitted : state.p1Submitted;
 
         if (mySubmitted && !opponentSubmitted) {
-            // Ja sam već predao izraz, samo se čekalo na protivnika koji je sad otišao.
-            // Popuni njegovu predaju i odmah pokušaj da završiš rundu.
+
             fillOpponentAsAbsent(state);
             advanceIfNeeded(state);
             return;
         }
 
-        // Inače prepusti handleTimerSync-u da preuzme reveal/tajmer logiku za
-        // trenutnu fazu (target / brojevi / igra) - pozivamo ga odmah da ne
-        // čekamo sledeći Firebase update.
+
         handleTimerSync(state);
     }
 
-    // Postaje true čim je poziv za inicijalizaciju igre pokrenut, da se izbjegne
-    // duplo (re)generisanje brojeva pri ponovljenim pozivima signalReadyAndInit().
+
     private boolean gameInitStarted = false;
 
     public void signalReadyAndInit() {
@@ -164,11 +147,7 @@ public class MojBrojViewModel extends ViewModel {
             }
         });
 
-        // FIX: ako je protivnik napustio meč (npr. u nekoj od prethodnih igara),
-        // njegov "ready" fleg za OVU igru nikad neće stići jer je njegov klijent
-        // otišao - setReady-jev bothReadyCallback bi zauvek čekao. Čim preuzmemo
-        // ulogu domaćina zbog odsustva protivnika, inicijalizujemo igru odmah
-        // umesto da čekamo ready koji nikad neće stići.
+
         if (opponentLeft && isHost()) {
             initializeGameIfNeeded();
         }
@@ -177,12 +156,7 @@ public class MojBrojViewModel extends ViewModel {
     private void initializeGameIfNeeded() {
         if (gameInitStarted) return;
 
-        // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
-        // igra već inicijalizovana kroz normalan ready-handshake).
-        // NAPOMENA: "status" ne može da posluži kao provera jer mu je podrazumevana
-        // vrednost u konstruktoru već "active" - i polupopunjen state (npr. onaj koji
-        // stigne odmah nakon što se upiše samo "ready" čvor) bi lažno izgledao kao
-        // već inicijalizovan. Proveravamo umesto toga da li su brojevi stvarno stigli.
+
         MojBrojGameState current = gameState.getValue();
         if (current != null && current.availableNumbers != null && current.availableNumbers.size() == 6) {
             gameInitStarted = true;
@@ -201,9 +175,7 @@ public class MojBrojViewModel extends ViewModel {
         Log.d(TAG, "Igra uspešno inicijalizovana od strane domaćina/preostalog igrača.");
     }
 
-    // -------------------------------------------------------------------------
-    // GETTERI
-    // -------------------------------------------------------------------------
+
 
     public LiveData<MojBrojGameState> getGameState() { return gameState; }
     public LiveData<String>           getTimerText()  { return timerText; }
@@ -211,9 +183,7 @@ public class MojBrojViewModel extends ViewModel {
     public int getMatchStartingScoreP1()              { return matchStartingScoreP1; }
     public int getMatchStartingScoreP2()              { return matchStartingScoreP2; }
 
-    // -------------------------------------------------------------------------
-    // STOP DUGME
-    // -------------------------------------------------------------------------
+
 
     public void onStopPressed() {
         MojBrojGameState state = gameState.getValue();
@@ -229,9 +199,7 @@ public class MojBrojViewModel extends ViewModel {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // PREDAJA IZRAZA
-    // -------------------------------------------------------------------------
+
 
     public void submitExpression(String expression) {
         MojBrojGameState state = gameState.getValue();
@@ -256,9 +224,7 @@ public class MojBrojViewModel extends ViewModel {
         myRoundsPlayed++;
         if (result == state.targetNumber) myRoundsSolved++;
 
-        // FIX: ako je protivnik napustio meč, ne čekamo njegovu predaju -
-        // popuni je automatski kao "nije rešio" da bi advanceIfNeeded odmah
-        // mogao da završi rundu.
+
         if (opponentLeft) {
             fillOpponentAsAbsent(state);
         }
@@ -267,11 +233,7 @@ public class MojBrojViewModel extends ViewModel {
         advanceIfNeeded(state);
     }
 
-    /**
-     * Popunjava protivnikovu predaju sa Integer.MIN_VALUE (nije rešio) ako je
-     * već nije predao - koristi se kada je protivnik napustio meč, pa se ne
-     * čeka njegova (nikad neće stići) predaja.
-     */
+
     private void fillOpponentAsAbsent(MojBrojGameState state) {
         if ("player1".equals(myPlayerId)) {
             if (!state.p2Submitted) {
@@ -286,9 +248,7 @@ public class MojBrojViewModel extends ViewModel {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // TAJMER SINHRONIZACIJA
-    // -------------------------------------------------------------------------
+
 
     private void handleTimerSync(MojBrojGameState state) {
         if (state == null) return;
@@ -432,9 +392,7 @@ public class MojBrojViewModel extends ViewModel {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // TOK IGRE — GLAVNI FIX
-    // -------------------------------------------------------------------------
+
 
     private void advanceIfNeeded(MojBrojGameState state) {
         boolean bothSubmitted = state.p1Submitted && state.p2Submitted;
@@ -452,7 +410,7 @@ public class MojBrojViewModel extends ViewModel {
         if (state.round == 2) round2Processed = true;
 
         if (state.round == 1) {
-            // Bodove računa svaki lokalno, ali SAMO player1 ih upisuje u bazu
+
             if (isHost()) {
                 awardRoundPoints(state); // ← premesti ovde
             }
@@ -481,25 +439,22 @@ public class MojBrojViewModel extends ViewModel {
                 }.start();
 
             } else {
-                // Player2 upisuje svoje stanje kako bi player1 imao tačan p2Result
+
                 repository.updateGameState(state);
             }
 
         } else {
-            // ============================================================
-            // RUNDA 2 KRAJ
-            // ============================================================
+
             if (gameFinished) return;
             gameFinished = true;
 
             if (!isHost()) {
-                // Player2 samo upisuje svoju predaju i čeka player1 da završi igru
+
                 repository.updateGameState(state);
                 return;
             }
 
-            // Samo player1 odavde nastavlja — ali mora da sačeka
-            // da listener donese svež state sa tačnim p2Result iz baze
+
             new android.os.Handler(android.os.Looper.getMainLooper())
                     .postDelayed(() -> {
                         MojBrojGameState freshState = gameState.getValue();
@@ -513,8 +468,7 @@ public class MojBrojViewModel extends ViewModel {
                                 + " | p1Score: " + freshState.p1Score
                                 + " | p2Score: " + freshState.p2Score);
 
-                        // Sigurnosna provera — ako p2Result još nije stigao, čekamo još malo
-                        // (osim ako je protivnik otišao — tada nema smisla čekati, popuni odmah)
+
                         if (!freshState.p2Submitted && !opponentLeft) {
                             new android.os.Handler(android.os.Looper.getMainLooper())
                                     .postDelayed(() -> {
@@ -651,9 +605,7 @@ public class MojBrojViewModel extends ViewModel {
         state.p2Expression       = "";
     }
 
-    // -------------------------------------------------------------------------
-    // STATISTIKA
-    // -------------------------------------------------------------------------
+
 
     private void saveMojBrojStats(MojBrojGameState state) {
         String uid = FirebaseAuth.getInstance().getCurrentUser() != null

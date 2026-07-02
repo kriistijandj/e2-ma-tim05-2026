@@ -39,29 +39,27 @@ public class AsocijacijeViewModel extends ViewModel {
 
     private AssociationGame associationDataStatic;
 
-    // Lokalne varijable za statistiku na nivou partije
+
     private int mySolvedColumns = 0;
     private boolean myFinalSolved = false;
 
-    // Flags za sprečavanje dupliranja i petlji
+
     private boolean selfRegistered = false;
     private boolean matchFinishedRegistered = false;
 
-    // Flag koji sprečava da oba igrača istovremeno pokušaju prelaz na rundu 2
+
     private boolean roundTransitionInProgress = false;
 
     private int matchStartingScoreP1 = 0;
     private int matchStartingScoreP2 = 0;
     private boolean isMatchScoreLoaded = false;
 
-    // Keširani server time offset (ms) koji dobijamo iz Firebase .info/serverTimeOffset
+
     private long serverTimeOffset = 0;
 
     private boolean opponentLeft = false;
 
-    // ----------------------------------------------------------------
-    // INIT
-    // ----------------------------------------------------------------
+
 
     public void init(String matchId, String role) {
         this.matchId = matchId;
@@ -91,11 +89,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 });
     }
 
-    /**
-     * Vraća trenutno vreme usklađeno sa serverskim satom.
-     * Oba igrača koriste ovo umesto System.currentTimeMillis() direktno
-     * kako bi imali konzistentno računanje preostalog vremena.
-     */
+
     private long serverNow() {
         return System.currentTimeMillis() + serverTimeOffset;
     }
@@ -107,10 +101,7 @@ public class AsocijacijeViewModel extends ViewModel {
     public void onOpponentLeft() {
         opponentLeft = true;
 
-        // Ako igra još nije inicijalizovana (protivnik je otišao pre nego što je
-        // ova igra i počela), preuzimam ulogu domaćina i pokrećem je odmah -
-        // inače bi ostala zauvek neinicijalizovana jer je nju mogao da pokrene
-        // samo player1.
+
         if (isHost()) {
             initializeGameIfNeeded();
         }
@@ -118,17 +109,14 @@ public class AsocijacijeViewModel extends ViewModel {
         AsocijacijeGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return;
 
-        // Protivnik nije (više) na potezu -> preuzimam kontrolu odmah kako bih
-        // sve vreme mogao da pogađam i otvaram nova polja, umesto da se runda
-        // prevremeno završi ili da čekam njegov red koji nikad neće doći.
+
         if (!amIActive(state)) {
             state.activePlayer = "player1".equals(myRole) ? 1 : 2;
             state.isGuessOnlyMode = false;
             repository.updateGameState(state);
         }
 
-        // Runda je već označena kao završena (showingRoundResult), ali host
-        // (player1) koji je trebalo da pokrene prelaz je upravo taj koji je otišao
+
         if (isHost() && state.showingRoundResult && state.round == 1 && !roundTransitionInProgress) {
             roundTransitionInProgress = true;
             final Map<String, Integer> scoresFromRoundOne = state.scores != null
@@ -177,9 +165,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 });
     }
 
-    // ----------------------------------------------------------------
-    // LISTENER
-    // ----------------------------------------------------------------
+
 
     private void startListeningToGameState() {
         this.repository.listenToGameState(state -> {
@@ -225,9 +211,7 @@ public class AsocijacijeViewModel extends ViewModel {
         });
     }
 
-    // ----------------------------------------------------------------
-    // GETTERS
-    // ----------------------------------------------------------------
+
 
     public LiveData<AsocijacijeGameState> getGameState() { return gameState; }
     public LiveData<String> getTimerText()               { return timerText; }
@@ -258,9 +242,7 @@ public class AsocijacijeViewModel extends ViewModel {
         return associationDataStatic.rounds[roundIdx].finalSolution;
     }
 
-    // ----------------------------------------------------------------
-    // TIMER
-    // ----------------------------------------------------------------
+
 
     private void handleTimerAndTurnSync(AsocijacijeGameState state) {
         if ("finished".equals(state.status)) {
@@ -322,9 +304,7 @@ public class AsocijacijeViewModel extends ViewModel {
         endRoundLogic(state);
     }
 
-    // ----------------------------------------------------------------
-    // AKCIJE IGRAČA
-    // ----------------------------------------------------------------
+
 
     public void openField(int col, int row) {
         AsocijacijeGameState state = gameState.getValue();
@@ -429,17 +409,14 @@ public class AsocijacijeViewModel extends ViewModel {
 
     private void switchPlayer(AsocijacijeGameState state) {
         state.isGuessOnlyMode = false;
-        // Ako je protivnik otišao, ostajem aktivan - nema kome da se preda red,
-        // pa nastavljam da pogađam i otvaram polja sve vreme.
+
         if (!opponentLeft) {
             state.activePlayer = (state.activePlayer == 1) ? 2 : 1;
         }
         repository.updateGameState(state);
     }
 
-    // ----------------------------------------------------------------
-    // KRAJ RUNDE
-    // ----------------------------------------------------------------
+
 
     private void endRoundLogic(AsocijacijeGameState state) {
         if (roundTimer != null) {
@@ -448,21 +425,19 @@ public class AsocijacijeViewModel extends ViewModel {
         }
 
         if (state.round == 1) {
-            // Sačuvaj bodove pre prelaza
+
             final Map<String, Integer> scoresFromRoundOne = state.scores != null
                     ? new HashMap<>(state.scores)
                     : new HashMap<>();
 
-            // Postavi showingRoundResult = true tako da PLAYER1 može da detektuje
-            // da treba pokrenuti prelaz, bez obzira ko je pogodio final
+
             state.showingRoundResult = true;
             repository.updateGameState(state);
 
             android.util.Log.d("ASOCIJACIJE_LOG", "[endRoundLogic] Runda 1 završena, ko sam: " + myRole
                     + " | showingRoundResult postavljen na true");
 
-            // Samo Player1 pokreće tajmer za prelaz
-            // Ako je Player2 pogodio, Player1 će detektovati showingRoundResult u listeneru
+
             if (isHost()) {
                 roundTransitionInProgress = true;
                 new CountDownTimer(5000, 1000) {
@@ -483,11 +458,7 @@ public class AsocijacijeViewModel extends ViewModel {
         }
     }
 
-    /**
-     * Prelaz na rundu 2 — uvijek ga izvršava Player1.
-     * Poziva se ili direktno (ako je Player1 završio rundu 1)
-     * ili kroz listener (ako je Player2 završio rundu 1).
-     */
+
     private void transitionToRound2(AsocijacijeGameState currentState, Map<String, Integer> scoresFromRoundOne) {
         android.util.Log.d("ASOCIJACIJE_LOG", "[transitionToRound2] Player1 pokreće rundu 2.");
 
@@ -518,9 +489,7 @@ public class AsocijacijeViewModel extends ViewModel {
         repository.updateGameState(currentState);
     }
 
-    // ----------------------------------------------------------------
-    // ZAVRŠETAK MEČA
-    // ----------------------------------------------------------------
+
 
     private void finishMatch(AsocijacijeGameState state) {
         if (matchFinishedRegistered) return;
@@ -530,7 +499,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 ? state.scores.get(myUid)
                 : 0;
 
-        // Upis u zajednički čvor meča u Realtime bazi
+
         FirebaseDatabase.getInstance()
                 .getReference("matches")
                 .child(matchId)
@@ -538,7 +507,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 .child(myUid)
                 .setValue(score);
 
-        // Samo player1 inkrementira currentGame da lobi sistem pređe na sledeću igru
+
         if (isHost()) {
             FirebaseDatabase.getInstance()
                     .getReference("matches")
@@ -548,9 +517,7 @@ public class AsocijacijeViewModel extends ViewModel {
         }
     }
 
-    // ----------------------------------------------------------------
-    // FIRESTORE STATISTIKA
-    // ----------------------------------------------------------------
+
 
     private void calculateAndSaveFirestoreStats(AsocijacijeGameState state) {
         if (myUid == null || state.scores == null) return;
@@ -584,9 +551,7 @@ public class AsocijacijeViewModel extends ViewModel {
                 .update(updates);
     }
 
-    // ----------------------------------------------------------------
-    // SETUP (HOST)
-    // ----------------------------------------------------------------
+
 
     public void setupInitialGameIfHost() {
         if (isHost()) {
@@ -594,8 +559,7 @@ public class AsocijacijeViewModel extends ViewModel {
         }
     }
 
-    // Postaje true čim je poziv za inicijalizaciju igre pokrenut, da se izbjegne
-    // duplo (re)generisanje početnog stanja pri ponovljenim pozivima.
+
     private boolean gameInitStarted = false;
 
     private void initializeGameIfNeeded() {
@@ -626,9 +590,7 @@ public class AsocijacijeViewModel extends ViewModel {
         repository.updateGameState(initialState);
     }
 
-    // ----------------------------------------------------------------
-    // HELPERS
-    // ----------------------------------------------------------------
+
 
     private boolean amIActive(AsocijacijeGameState state) {
         return (state.activePlayer == 1 && "player1".equals(myRole))

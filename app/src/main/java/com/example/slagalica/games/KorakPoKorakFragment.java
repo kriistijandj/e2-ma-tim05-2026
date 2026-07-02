@@ -204,13 +204,12 @@ public class KorakPoKorakFragment extends Fragment {
     private void renderUi(KorakGameState state) {
         if (state == null) return;
 
-        // FIX: ako hints još nisu stigli iz Firebase-a, ne renderuj ništa
+
         if (state.hints == null || state.hints.isEmpty()) return;
 
         String uid = FirebaseAuth.getInstance().getUid();
 
-        // ---------------- SCORE ----------------
-        // FIX: koristimo int umesto Integer da izbegnemo NullPointerException
+
         int myScore = (state.scores != null && state.scores.get(uid) != null)
                 ? state.scores.get(uid)
                 : 0;
@@ -237,7 +236,7 @@ public class KorakPoKorakFragment extends Fragment {
             tvRightScore.setText("Bodovi: " + myScore);
         }
 
-        // ---------------- ACTIVE PLAYER ----------------
+
         boolean iAmPlayer1 = "player1".equals(playerRole);
         boolean iAmActive = (state.activePlayer == 1 && iAmPlayer1)
                 || (state.activePlayer == 2 && !iAmPlayer1);
@@ -245,7 +244,7 @@ public class KorakPoKorakFragment extends Fragment {
         tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ✎" : ""));
         tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ✎" : ""));
 
-        // ---------------- HINTS ----------------
+
         tvHintTitle.setText("Korak " + state.revealedHints + "/7");
 
         for (int i = 0; i < hintViews.size(); i++) {
@@ -259,7 +258,7 @@ public class KorakPoKorakFragment extends Fragment {
             }
         }
 
-        // ---------------- SOLUTION ----------------
+
         if (state.revealedAnswer != null && !state.revealedAnswer.isEmpty()) {
             tvSolution.setText("Rešenje: " + state.revealedAnswer);
             tvSolution.setVisibility(View.VISIBLE);
@@ -267,7 +266,7 @@ public class KorakPoKorakFragment extends Fragment {
             tvSolution.setVisibility(View.GONE);
         }
 
-        // ---------------- INPUT ----------------
+
         boolean canAnswer =
                 iAmActive &&
                         "active".equals(state.status) &&
@@ -276,7 +275,7 @@ public class KorakPoKorakFragment extends Fragment {
         etAnswer.setEnabled(canAnswer);
         btnPotvrdi.setEnabled(canAnswer);
 
-        // ---------------- STATUS ----------------
+
         if ("finished".equals(state.status)) {
 
             int p1 = (state.scores != null && state.player1Id != null && state.scores.get(state.player1Id) != null)

@@ -201,7 +201,7 @@ public class SkockoFragment extends Fragment {
         ref.addValueEventListener(gameAdvanceListener);
     }
 
-    // ─── Cleanup ─────────────────────────────────────────────────────────────
+
 
     @Override
     public void onDestroyView() {
@@ -217,7 +217,7 @@ public class SkockoFragment extends Fragment {
         if (presenceHelper != null) presenceHelper.detach();   // ← dodato
     }
 
-    // ─── Renderovanje UI-ja ───────────────────────────────────────────────────
+
 
     private void renderUiFromState(SkockoGameState state) {
         if (state == null) return;
@@ -282,7 +282,7 @@ public class SkockoFragment extends Fragment {
         }
     }
 
-    // ─── Unos simbola ─────────────────────────────────────────────────────────
+
 
     private void addSymbol(int drawableId) {
         SkockoGameState state = viewModel.getGameState().getValue();
@@ -321,7 +321,7 @@ public class SkockoFragment extends Fragment {
         currentCol = 0;
     }
 
-    // ─── Grid i feedback ──────────────────────────────────────────────────────
+
 
     private void clearGridGraphics() {
         for (int i = 0; i < 7; i++) {

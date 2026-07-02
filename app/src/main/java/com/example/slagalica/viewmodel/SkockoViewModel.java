@@ -110,10 +110,7 @@ public class SkockoViewModel extends ViewModel {
     public void onOpponentLeft() {
         opponentLeft = true;
 
-        // Ako igra još nije inicijalizovana (protivnik je otišao pre nego što je
-        // ova igra i počela), preuzimam ulogu domaćina i pokrećem je odmah -
-        // inače bi ostala zauvek neinicijalizovana jer je nju mogao da pokrene
-        // samo player1.
+
         if (isHost()) {
             initializeGameIfNeeded();
         }
@@ -121,16 +118,14 @@ public class SkockoViewModel extends ViewModel {
         SkockoGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return;
 
-        // 1) Protivnik je bio na potezu -> odmah preskoči na sledeću fazu/kraj runde
-        //    umesto da se čeka pun tajmer (30s / 10s)
+
         if (!amIActive(state)) {
             if (timer != null) { timer.cancel(); timer = null; }
             forceOpponentTimeout(state);
             return;
         }
 
-        // 2) Runda je gotova i čeka na host-prelaz koji je trebalo da pokrene
-        //    player1, a on je taj koji je otišao
+
         if (isHost() && state.showingRoundResult && state.round == 1 && !roundTransitionInProgress) {
             roundTransitionInProgress = true;
             final Map<String, Integer> scoresSnapshot =
