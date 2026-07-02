@@ -63,6 +63,53 @@ public class KorakRepository {
         gameRef.setValue(state);
     }
 
+    /**
+     * Atomski (server-side) pokušaj da se "otključa" pravo na uvećanje
+     * matches/{matchId}/currentGame za OVU partiju/igru. Firebase transakcija
+     * garantuje da će, čak i ako više klijenata (ili isti klijent više puta)
+     * pozove ovu metodu istovremeno, samo JEDAN poziv uspeti da postavi
+     * lock na true - taj poziv treba da stvarno uveća currentGame.
+     *
+     * Lock je vezan za matchId, što je dovoljno jedinstveno jer se Korak
+     * igra tačno jednom po partiji.
+     */
+    public void tryClaimCurrentGameIncrement(String matchId, IncrementResultCallback callback) {
+        DatabaseReference lockRef = FirebaseDatabase.getInstance()
+                .getReference("matches")
+                .child(matchId)
+                .child("korakIncrementLock");
+
+        lockRef.runTransaction(new Transaction.Handler() {
+            @NonNull
+            @Override
+            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
+                if (Boolean.TRUE.equals(currentData.getValue(Boolean.class))) {
+                    return Transaction.abort();
+                }
+                currentData.setValue(true);
+                return Transaction.success(currentData);
+            }
+
+            @Override
+            public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (committed) {
+                    FirebaseDatabase.getInstance()
+                            .getReference("matches")
+                            .child(matchId)
+                            .child("currentGame")
+                            .setValue(ServerValue.increment(1));
+                }
+                if (callback != null) {
+                    callback.onResult(committed);
+                }
+            }
+        });
+    }
+
+    public interface IncrementResultCallback {
+        void onResult(boolean iAmTheOneWhoIncremented);
+    }
+
     public void removeListener() {
         if (listener != null) {
             gameRef.removeEventListener(listener);

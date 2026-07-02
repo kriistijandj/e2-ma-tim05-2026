@@ -9,7 +9,6 @@ import com.example.slagalica.models.korak.KorakGameState;
 import com.example.slagalica.repository.KorakRepository;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ServerValue;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -454,18 +453,35 @@ public class KorakViewModel extends ViewModel {
         }
 
         // 2. STRIKTNA KONTROLA: Samo domaćin ima pravo da uveća broj trenutne igre u meču.
-        // NAPOMENA: ovo se namerno NE gate-uje istim flagom kao gore - handleTimerSync
-        // poziva finishMatch pri svakoj promeni stanja dok je status "finished", pa ako
-        // isHost() nije bio tačan pri PRVOM pozivu (npr. kratko zakašnjenje u detekciji
-        // da je protivnik otišao), sledeći poziv ipak treba da uspe da pomeri meč dalje.
+        // NAPOMENA: ovo se namerno NE gate-uje istim lokalnim flagom kao gore -
+        // handleTimerSync poziva finishMatch pri svakoj promeni stanja dok je status
+        // "finished", pa ako isHost() nije bio tačan pri PRVOM pozivu (npr. kratko
+        // zakašnjenje u detekciji da je protivnik otišao), sledeći poziv ipak treba
+        // da uspe da pomeri meč dalje.
+        //
+        // VAŽNO: currentGameIncremented ovde SAM PO SEBI nije dovoljan da spreči
+        // duplo uvećanje, jer je to lokalna promenljiva po klijentu/instanci
+        // ViewModel-a - ako "domaćinstvo" pređe sa jednog klijenta na drugi (npr.
+        // player1 napusti partiju NAKON što je on već uvećao currentGame, a
+        // player2 potom postane domaćin i i sam pozove finishMatch), svaki od njih
+        // ima svoj sopstveni fleg = false i oba bi uvećala currentGame. Zato se
+        // pravo na uvećanje "otključava" atomskom Firebase transakcijom na serveru
+        // (KorakRepository#tryClaimCurrentGameIncrement) - transakcija garantuje
+        // da će, bez obzira koji i koliko klijenata pozove ovu metodu, currentGame
+        // biti uvećan TAČNO JEDNOM po partiji.
         if (isHost() && !currentGameIncremented) {
-            currentGameIncremented = true;
-            android.util.Log.d("KORAK_LOG", "[" + myRole + "] Ja sam domaćin, uvećavam currentGame za +1");
-            FirebaseDatabase.getInstance()
-                    .getReference("matches")
-                    .child(matchId)
-                    .child("currentGame")
-                    .setValue(ServerValue.increment(1));
+            android.util.Log.d("KORAK_LOG", "[" + myRole + "] Ja sam domaćin, pokušavam da otključam uvećanje currentGame");
+            repository.tryClaimCurrentGameIncrement(matchId, iAmTheOneWhoIncremented -> {
+                // Fleg postavljamo u svakom slučaju (uspeh ili ne) da izbegnemo
+                // nepotrebno ponovno pozivanje transakcije sa OVOG ISTOG klijenta
+                // pri narednim pozivima finishMatch().
+                currentGameIncremented = true;
+                if (iAmTheOneWhoIncremented) {
+                    android.util.Log.d("KORAK_LOG", "[" + myRole + "] Osvojio lock, currentGame uvećan za +1");
+                } else {
+                    android.util.Log.d("KORAK_LOG", "[" + myRole + "] Lock je već zauzet, currentGame NIJE ponovo uvećan");
+                }
+            });
         }
     }
 
