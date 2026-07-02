@@ -601,8 +601,6 @@ public class AsocijacijeViewModel extends ViewModel {
     private void initializeGameIfNeeded() {
         if (gameInitStarted) return;
 
-        // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
-        // igra već inicijalizovana kroz normalan tok).
         AsocijacijeGameState current = gameState.getValue();
         if (current != null && current.scores != null && !current.scores.isEmpty()) {
             gameInitStarted = true;
@@ -612,17 +610,18 @@ public class AsocijacijeViewModel extends ViewModel {
         gameInitStarted = true;
 
         AsocijacijeGameState initialState = new AsocijacijeGameState();
-
-        // serverNow() garantuje konzistentno vreme za oba igrača
         initialState.roundEndTime = serverNow() + 120000;
-        initialState.player1Id = myUid;
+
+        // FIX: activePlayer i player1Id se postavljaju prema STVARNOJ ulozi domaćina,
+        // ne uvek na 1/moj-uid - inače, kad player2 preuzme domaćinstvo (player1 otišao),
+        // igra bi mislila da je red na player1 koga više nema, i zauvek bi čekala.
+        initialState.activePlayer = "player1".equals(myRole) ? 1 : 2;
+        initialState.player1Id = "player1".equals(myRole) ? myUid : "";
 
         selfRegistered = true;
         initialState.scores = new HashMap<>();
         int myStartScore = "player1".equals(myRole) ? matchStartingScoreP1 : matchStartingScoreP2;
         initialState.scores.put(myUid, myStartScore);
-
-        android.util.Log.d("ASOCIJACIJE_LOG", "[Host] Kreiram igru, startni skor: " + myStartScore);
 
         repository.updateGameState(initialState);
     }

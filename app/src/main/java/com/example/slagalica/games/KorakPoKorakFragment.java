@@ -80,7 +80,7 @@ public class KorakPoKorakFragment extends Fragment {
 
         viewModel = new ViewModelProvider(this).get(KorakViewModel.class);
         viewModel.init(matchId, playerRole);
-        viewModel.signalReadyAndInit();
+        viewModel.signalReadyAndInit(isChallenge);
 
         viewModel.getTimerText().observe(getViewLifecycleOwner(),
                 t -> tvTimer.setText(t));

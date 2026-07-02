@@ -510,8 +510,6 @@ public class SkockoViewModel extends ViewModel {
     private void initializeGameIfNeeded() {
         if (gameInitStarted) return;
 
-        // Ne gazi već aktivnu igru (npr. ako je ovaj poziv stigao nakon što je
-        // igra već inicijalizovana kroz normalan tok).
         SkockoGameState current = gameState.getValue();
         if (current != null && current.scores != null && !current.scores.isEmpty()) {
             gameInitStarted = true;
@@ -525,7 +523,10 @@ public class SkockoViewModel extends ViewModel {
         List<SkockoSymbol> initialSol = skockoHelper.generateSolution();
         for (SkockoSymbol s : initialSol) initialState.solution.add(s.name());
 
-        initialState.player1Id = myUid;
+        // FIX: isto obrazloženje kao kod Asocijacija
+        initialState.activePlayer = "player1".equals(myRole) ? 1 : 2;
+        initialState.player1Id = "player1".equals(myRole) ? myUid : "";
+
         initialState.roundEndTime = serverNow() + 30_000;
         initialState.scores = new HashMap<>();
         int myStartScore = "player1".equals(myRole) ? matchStartingScoreP1 : matchStartingScoreP2;

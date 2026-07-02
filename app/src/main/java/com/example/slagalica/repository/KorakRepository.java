@@ -68,4 +68,10 @@ public class KorakRepository {
             gameRef.removeEventListener(listener);
         }
     }
+
+    public void setReadySolo(Runnable readyCallback) {
+        gameRef.child("ready").child("player1").setValue(true);
+        gameRef.child("ready").child("player2").setValue(true);
+        readyCallback.run();
+    }
 }

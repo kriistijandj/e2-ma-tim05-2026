@@ -141,7 +141,15 @@ public class KorakViewModel extends ViewModel {
         return "player1".equals(myRole) || (opponentHasLeft && "player2".equals(myRole));
     }
 
-    public void signalReadyAndInit() {
+    public void signalReadyAndInit(boolean isSolo) {
+
+        if (isSolo) {
+            // Nema stvarnog player2 (partija je deo Izazova) - ne čekamo handshake,
+            // odmah inicijalizujemo igru kao domaćin.
+            repository.setReadySolo(this::initializeGameIfNeeded);
+            return;
+        }
+
         repository.setReady(myRole, () -> {
             if (isHost()) {
                 initializeGameIfNeeded();
