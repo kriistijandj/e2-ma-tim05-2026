@@ -40,6 +40,9 @@ public class RegionListFragment extends Fragment {
         RecyclerView rv = view.findViewById(R.id.rvRegions);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
 
+        view.findViewById(R.id.btnIzazovi).setOnClickListener(v ->
+                Navigation.findNavController(view).navigate(R.id.nav_challenge_list));
+
         viewModel = new ViewModelProvider(this).get(RegionViewModel.class);
 
         loadMyRegion(rv);

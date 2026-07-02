@@ -16,7 +16,7 @@ public class MojBrojRepository {
 
     private final DatabaseReference gameRef;
     private ValueEventListener listener;
-    private final String gameId; // Čuvamo gameId za izolaciju čvorova ako zatreba
+    private final String gameId;
 
     public interface GameStateCallback {
         void onStateChanged(MojBrojGameState state);
@@ -48,9 +48,7 @@ public class MojBrojRepository {
         gameRef.addValueEventListener(listener);
     }
 
-    // FIX: Umesto setValue(state) koji gazi ceo čvor (i briše "ready"),
-    // koristimo updateChildren kako bismo promenili samo polja objekta,
-    // ostavljajući "ready" čvor netaknutim!
+
     public void updateGameState(MojBrojGameState state) {
         if (state == null) return;
 
@@ -63,26 +61,26 @@ public class MojBrojRepository {
         updates.put("numbersRevealed", state.numbersRevealed);
         updates.put("showingRoundResult", state.showingRoundResult);
 
-        // Bodovi
+
         updates.put("p1Score", state.p1Score);
         updates.put("p2Score", state.p2Score);
 
-        // Statusi predaje
+
         updates.put("p1Submitted", state.p1Submitted);
         updates.put("p2Submitted", state.p2Submitted);
 
-        // Rezultati i izrazi
+
         updates.put("p1Result", state.p1Result);
         updates.put("p2Result", state.p2Result);
         updates.put("p1Expression", state.p1Expression);
         updates.put("p2Expression", state.p2Expression);
 
-        // Niz ponuđenih brojeva
+
         if (state.availableNumbers != null) {
             updates.put("availableNumbers", state.availableNumbers);
         }
 
-        // updateChildren garantuje atomski upis bez brisanja paralelnih čvorova poput /ready
+
         gameRef.updateChildren(updates);
     }
 
@@ -93,7 +91,7 @@ public class MojBrojRepository {
     }
 
     public void setReady(String role, Runnable bothReadyCallback) {
-        // Upisujemo direktno u granu spremnosti
+
         gameRef.child("ready").child(role).setValue(true);
         gameRef.child("ready").addValueEventListener(new ValueEventListener() {
             @Override

@@ -63,9 +63,53 @@ public class KorakRepository {
         gameRef.setValue(state);
     }
 
+
+    public void tryClaimCurrentGameIncrement(String matchId, IncrementResultCallback callback) {
+        DatabaseReference lockRef = FirebaseDatabase.getInstance()
+                .getReference("matches")
+                .child(matchId)
+                .child("korakIncrementLock");
+
+        lockRef.runTransaction(new Transaction.Handler() {
+            @NonNull
+            @Override
+            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
+                if (Boolean.TRUE.equals(currentData.getValue(Boolean.class))) {
+                    return Transaction.abort();
+                }
+                currentData.setValue(true);
+                return Transaction.success(currentData);
+            }
+
+            @Override
+            public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (committed) {
+                    FirebaseDatabase.getInstance()
+                            .getReference("matches")
+                            .child(matchId)
+                            .child("currentGame")
+                            .setValue(ServerValue.increment(1));
+                }
+                if (callback != null) {
+                    callback.onResult(committed);
+                }
+            }
+        });
+    }
+
+    public interface IncrementResultCallback {
+        void onResult(boolean iAmTheOneWhoIncremented);
+    }
+
     public void removeListener() {
         if (listener != null) {
             gameRef.removeEventListener(listener);
         }
+    }
+
+    public void setReadySolo(Runnable readyCallback) {
+        gameRef.child("ready").child("player1").setValue(true);
+        gameRef.child("ready").child("player2").setValue(true);
+        readyCallback.run();
     }
 }

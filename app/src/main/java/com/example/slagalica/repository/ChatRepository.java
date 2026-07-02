@@ -13,14 +13,14 @@ public class ChatRepository {
     private static final String COLLECTION = "messages";
 
     public void sendMessage(String region, String senderId, String senderUsername, String text) {
-        // 1. Pošalji poruku u čet (postojeći kod)
+
         ChatMessage message = new ChatMessage(senderId, senderUsername, text, Timestamp.now());
         db.collection(COLLECTION)
                 .document(region)
                 .collection("chats")
                 .add(message);
 
-        // 2. Upiši notifikaciju svim korisnicima u regionu osim pošiljaoca
+
         db.collection("users")
                 .whereEqualTo("region", region)
                 .whereEqualTo("online", false)

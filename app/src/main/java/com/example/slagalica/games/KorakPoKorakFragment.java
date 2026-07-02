@@ -42,6 +42,8 @@ public class KorakPoKorakFragment extends Fragment {
     private String playerRole;
     private boolean isTournament;
     private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     private ValueEventListener gameAdvanceListener;
 
@@ -67,6 +69,8 @@ public class KorakPoKorakFragment extends Fragment {
             playerRole = getArguments().getString("PLAYER_ROLE");
             isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
             tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
         if (matchId == null || playerRole == null) {
@@ -76,7 +80,7 @@ public class KorakPoKorakFragment extends Fragment {
 
         viewModel = new ViewModelProvider(this).get(KorakViewModel.class);
         viewModel.init(matchId, playerRole);
-        viewModel.signalReadyAndInit();
+        viewModel.signalReadyAndInit(isChallenge);
 
         viewModel.getTimerText().observe(getViewLifecycleOwner(),
                 t -> tvTimer.setText(t));
@@ -137,6 +141,7 @@ public class KorakPoKorakFragment extends Fragment {
     private void setupPresence() {
         String myUid = FirebaseAuth.getInstance().getUid();
         presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
         presenceHelper.markPresent();
 
         // Pročitaj player1Id/player2Id direktno iz meča (ne iz KorakGameState)
@@ -181,6 +186,8 @@ public class KorakPoKorakFragment extends Fragment {
                     args.putString("PLAYER_ROLE", playerRole);
                     args.putBoolean("IS_TOURNAMENT", isTournament);
                     args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
 
                     Navigation.findNavController(requireView())
                             .navigate(R.id.nav_mojbroj, args);
@@ -197,13 +204,12 @@ public class KorakPoKorakFragment extends Fragment {
     private void renderUi(KorakGameState state) {
         if (state == null) return;
 
-        // FIX: ako hints još nisu stigli iz Firebase-a, ne renderuj ništa
+
         if (state.hints == null || state.hints.isEmpty()) return;
 
         String uid = FirebaseAuth.getInstance().getUid();
 
-        // ---------------- SCORE ----------------
-        // FIX: koristimo int umesto Integer da izbegnemo NullPointerException
+
         int myScore = (state.scores != null && state.scores.get(uid) != null)
                 ? state.scores.get(uid)
                 : 0;
@@ -230,7 +236,7 @@ public class KorakPoKorakFragment extends Fragment {
             tvRightScore.setText("Bodovi: " + myScore);
         }
 
-        // ---------------- ACTIVE PLAYER ----------------
+
         boolean iAmPlayer1 = "player1".equals(playerRole);
         boolean iAmActive = (state.activePlayer == 1 && iAmPlayer1)
                 || (state.activePlayer == 2 && !iAmPlayer1);
@@ -238,7 +244,7 @@ public class KorakPoKorakFragment extends Fragment {
         tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ✎" : ""));
         tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ✎" : ""));
 
-        // ---------------- HINTS ----------------
+
         tvHintTitle.setText("Korak " + state.revealedHints + "/7");
 
         for (int i = 0; i < hintViews.size(); i++) {
@@ -252,7 +258,7 @@ public class KorakPoKorakFragment extends Fragment {
             }
         }
 
-        // ---------------- SOLUTION ----------------
+
         if (state.revealedAnswer != null && !state.revealedAnswer.isEmpty()) {
             tvSolution.setText("Rešenje: " + state.revealedAnswer);
             tvSolution.setVisibility(View.VISIBLE);
@@ -260,7 +266,7 @@ public class KorakPoKorakFragment extends Fragment {
             tvSolution.setVisibility(View.GONE);
         }
 
-        // ---------------- INPUT ----------------
+
         boolean canAnswer =
                 iAmActive &&
                         "active".equals(state.status) &&
@@ -269,7 +275,7 @@ public class KorakPoKorakFragment extends Fragment {
         etAnswer.setEnabled(canAnswer);
         btnPotvrdi.setEnabled(canAnswer);
 
-        // ---------------- STATUS ----------------
+
         if ("finished".equals(state.status)) {
 
             int p1 = (state.scores != null && state.player1Id != null && state.scores.get(state.player1Id) != null)

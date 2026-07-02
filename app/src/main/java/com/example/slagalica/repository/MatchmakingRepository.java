@@ -23,7 +23,7 @@ public class MatchmakingRepository {
 
     private ValueEventListener player1MatchListener;
 
-    // Poziva se kada igrač klikne "Igraj"
+
     public void startMatchmaking(OnMatchFoundListener listener) {
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
@@ -68,7 +68,7 @@ public class MatchmakingRepository {
                         return;
                     }
 
-                    // Nađen protivnik – kreiraj meč
+
                     String matchId = db.child("matches").push().getKey();
                     Match match = new Match();
                     match.player1Id = waitingPlayerId;
@@ -82,14 +82,13 @@ public class MatchmakingRepository {
                     match.player2Id = currentUid;
                     match.createdAt = System.currentTimeMillis();
 
-                    // Atomičan upis: meč + brisanje lobija + troši token oba igrača
+
                     Map<String, Object> updates = new HashMap<>();
                     updates.put("/matches/" + matchId, match);
                     updates.put("/matchmaking/waiting", null); // obriši čekaoca
                     updates.put("/players/" + waitingPlayerId + "/inMatch", true);
                     updates.put("/players/" + currentUid + "/inMatch", true);
-                    //updates.put("/players/" + waitingPlayerId + "/tokens", ServerValue.increment(-1));
-                    //updates.put("/players/" + currentUid + "/tokens", ServerValue.increment(-1));
+
 
                     db.updateChildren(updates).addOnSuccessListener(unused -> {
                         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
@@ -103,7 +102,7 @@ public class MatchmakingRepository {
                     });
 
                 } else {
-                    // Niko ne čeka – dodaj sebe u lobi
+
                     Map<String, Object> waiting = new HashMap<>();
                     waiting.put("playerId", currentUid);
                     waiting.put("timestamp", System.currentTimeMillis());

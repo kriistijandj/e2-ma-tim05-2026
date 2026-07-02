@@ -81,6 +81,8 @@ public class SpojniceFragment extends Fragment {
     private String myUid;
     private boolean isTournament;
     private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     // ====== FIREBASE ======
     private DatabaseReference gameRef;      // games/{matchId}/spojnice
@@ -163,7 +165,15 @@ public class SpojniceFragment extends Fragment {
                     .navigate(R.id.nav_home);
             // U turniru, pobednik polufinala treba da se vrati na ekran turnira
             // (da prati/odigra finale), ne na početnu stranicu.
-            if (isTournament && tournamentId != null && !tournamentId.isEmpty()) {
+            if (isChallenge && challengeId != null && !challengeId.isEmpty()) {
+                // U izazovu, posle partije se ide na ekran sa rezultatom izazova
+                // (koji čeka da svi učesnici završe svoju solo partiju).
+                Bundle challengeArgs = new Bundle();
+                challengeArgs.putString("CHALLENGE_ID", challengeId);
+                androidx.navigation.Navigation
+                        .findNavController(requireView())
+                        .navigate(R.id.nav_challenge_result, challengeArgs);
+            } else if (isTournament && tournamentId != null && !tournamentId.isEmpty()) {
                 Bundle tourArgs = new Bundle();
                 tourArgs.putString("TOURNAMENT_ID", tournamentId);
                 androidx.navigation.Navigation
@@ -184,6 +194,8 @@ public class SpojniceFragment extends Fragment {
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
             isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
             tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
         myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
@@ -242,6 +254,7 @@ public class SpojniceFragment extends Fragment {
 
     private void setupPresence() {
         presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
         presenceHelper.markPresent();
 
         matchRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -262,6 +275,18 @@ public class SpojniceFragment extends Fragment {
 
     private void onOpponentLeft() {
         opponentLeft = true;
+        autoSkipIfOpponentAbsent();
+    }
+
+    /**
+     * Preskače fazu runde koja pripada protivniku koji je napustio partiju,
+     * umesto da se zauvijek čeka njegov (nepostojeći) potez. Poziva se i odmah
+     * po detekciji odlaska, i pri svakoj kasnijoj promeni faze/runde (npr. na
+     * početku runde 2), jer se Firebase event o prisustvu okine samo jednom, a
+     * preostali igrač treba da može da rešava igru sve vreme u obe runde.
+     */
+    private void autoSkipIfOpponentAbsent() {
+        if (!opponentLeft) return;
 
         boolean iAmActive = (currentRound == 0 && "player1".equals(myRole))
                 || (currentRound == 1 && "player2".equals(myRole));
@@ -270,12 +295,12 @@ public class SpojniceFragment extends Fragment {
 
         if ("active".equals(myPhase) && !iAmActive) {
             // protivnik je trebalo da igra aktivnu fazu -> odmah pređi na "fixing"
-            if (roundTimer != null) roundTimer.cancel();
+            if (roundTimer != null) { roundTimer.cancel(); roundTimer = null; }
             gameRef.child("rounds").child(String.valueOf(currentRound))
                     .child("phase").setValue("fixing");
         } else if ("fixing".equals(myPhase) && !iAmFixing) {
             // protivnik je trebalo da ispravlja -> odmah pređi na "done"
-            if (roundTimer != null) roundTimer.cancel();
+            if (roundTimer != null) { roundTimer.cancel(); roundTimer = null; }
             gameRef.child("rounds").child(String.valueOf(currentRound))
                     .child("phase").setValue("done");
         }
@@ -339,8 +364,8 @@ public class SpojniceFragment extends Fragment {
         scorePlayer2 = matchStartingScoreP2;
         updateScoreUI();
 
-        if ("player1".equals(myRole)) {
-            // Player1 briše staro stanje i inicijalizuje igru
+        if (isHost()) {
+            // Domaćin briše staro stanje i inicijalizuje igru
             gameRef.removeValue((error, ref) -> startRound(0));
         } else {
             startRound(0);
@@ -392,6 +417,7 @@ public class SpojniceFragment extends Fragment {
 
         updateScoreUI();
         updateStatusAndTimer();
+        autoSkipIfOpponentAbsent();
 
         listenForRoundState(round);
     }
@@ -622,6 +648,7 @@ public class SpojniceFragment extends Fragment {
                     myPhase = "fixing";
                     if (roundTimer != null) roundTimer.cancel();
                     updateStatusAndTimer();
+                    autoSkipIfOpponentAbsent();
                 } else if ("done".equals(phase) && !"done".equals(myPhase)) {
                     myPhase = "done";
                     if (roundTimer != null) roundTimer.cancel();
@@ -705,9 +732,26 @@ public class SpojniceFragment extends Fragment {
 
             // ── GRANANJE LOGIKE NAGRAĐIVANJA ──
             boolean isTournament = getArguments() != null && getArguments().getBoolean("IS_TOURNAMENT", false);
+            boolean isChallengeMatch = getArguments() != null && getArguments().getBoolean("IS_CHALLENGE", false);
+            String challengeMatchId = getArguments() != null ? getArguments().getString("CHALLENGE_ID") : null;
             if (isTournament) {
                 // Turnirski mod koristi posebna pravila nagrađivanja
                 handleTournamentEnd(myUid, iWon, myFinalScore);
+            } else if (isChallengeMatch && challengeMatchId != null) {
+                // Izazov: samo predajemo konačan rezultat solo partije - obračun zvezdica/tokena
+                // (75%/nazad-uloženo) radi se tek kad svi učesnici izazova završe, u
+                // ChallengeRepository, a ne ovde po analogiji sa normalnim mečom.
+                new com.example.slagalica.repository.ChallengeRepository()
+                        .submitChallengeResult(challengeMatchId, myUid, myFinalScore,
+                                new com.example.slagalica.repository.ChallengeRepository.OnChallengeActionListener() {
+                                    @Override public void onSuccess() {}
+                                    @Override public void onFailure(String message) {
+                                        if (getContext() != null) {
+                                            Toast.makeText(getContext(), "Greška pri predaji rezultata izazova: " + message,
+                                                    Toast.LENGTH_LONG).show();
+                                        }
+                                    }
+                                });
             } else {
                 // Regularni mod ažurira standardne zvezdice, tokene, statistike i dnevne misije
                 applyStarsTokensAndStats(myUid, iWon, myFinalScore, myConnectedCorrect, myConnectedTotal);
@@ -718,15 +762,22 @@ public class SpojniceFragment extends Fragment {
             tvTimer.setText("—");
             if (tvKriterijum != null) tvKriterijum.setText("");
 
-            String p1Label = "player1".equals(myRole) ? "Ti" : "Protivnik";
-            String p2Label = "player2".equals(myRole) ? "Ti" : "Protivnik";
+            if (isChallengeMatch) {
+                // Solo partija u izazovu - nema "protivnika" za poređenje, samo prikazujemo
+                // sopstveni konačan rezultat; rangiranje u odnosu na ostale učesnike se
+                // vidi na ekranu rezultata izazova.
+                tvStatus.setText("Partija u izazovu završena!\nTvoj rezultat: " + myFinalScore + " poena.");
+            } else {
+                String p1Label = "player1".equals(myRole) ? "Ti" : "Protivnik";
+                String p2Label = "player2".equals(myRole) ? "Ti" : "Protivnik";
 
-            if (scorePlayer1 > scorePlayer2)
-                tvStatus.setText("🏆 " + p1Label + " si pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
-            else if (scorePlayer2 > scorePlayer1)
-                tvStatus.setText("🏆 " + p2Label + " je pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
-            else
-                tvStatus.setText("Nerešeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+                if (scorePlayer1 > scorePlayer2)
+                    tvStatus.setText("🏆 " + p1Label + " si pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+                else if (scorePlayer2 > scorePlayer1)
+                    tvStatus.setText("🏆 " + p2Label + " je pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+                else
+                    tvStatus.setText("Nerešeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+            }
 
             if (btnHomePage != null) btnHomePage.setVisibility(View.VISIBLE);
             updateScoreUI();

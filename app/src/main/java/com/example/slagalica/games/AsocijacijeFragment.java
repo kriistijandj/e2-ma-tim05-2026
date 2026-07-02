@@ -43,6 +43,8 @@ public class AsocijacijeFragment extends Fragment {
     private String myRole;
     private boolean isTournament;
     private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     private ValueEventListener gameAdvanceListener;
     private boolean navigationScheduled = false;
@@ -80,6 +82,8 @@ public class AsocijacijeFragment extends Fragment {
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
             isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
             tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
         viewModel.init(matchId, myRole);
@@ -139,6 +143,7 @@ public class AsocijacijeFragment extends Fragment {
     private void setupPresence() {
         String myUid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
         presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
         presenceHelper.markPresent();
 
         FirebaseDatabase.getInstance()
@@ -161,7 +166,7 @@ public class AsocijacijeFragment extends Fragment {
                 });
     }
 
-    // ─── Čekanje na Firebase pre navigacije ──────────────────────────────────
+
 
     private void listenForNextGame() {
         DatabaseReference ref = FirebaseDatabase.getInstance()
@@ -185,6 +190,8 @@ public class AsocijacijeFragment extends Fragment {
                     args.putString("PLAYER_ROLE", myRole);
                     args.putBoolean("IS_TOURNAMENT", isTournament);
                     args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
 
                     Navigation.findNavController(requireView())
                             .navigate(R.id.nav_game, args);
@@ -198,7 +205,7 @@ public class AsocijacijeFragment extends Fragment {
         ref.addValueEventListener(gameAdvanceListener);
     }
 
-    // ─── Cleanup ─────────────────────────────────────────────────────────────
+
 
     @Override
     public void onDestroyView() {
@@ -214,7 +221,7 @@ public class AsocijacijeFragment extends Fragment {
         if (presenceHelper != null) presenceHelper.detach();   // ← dodato
     }
 
-    // ─── Setup kolona ─────────────────────────────────────────────────────────
+
 
     private void setupColumnViews(View v, int col, int[] fieldIds, int solutionId) {
         for (int i = 0; i < 4; i++) {
@@ -244,7 +251,7 @@ public class AsocijacijeFragment extends Fragment {
         });
     }
 
-    // ─── Renderovanje UI-ja ───────────────────────────────────────────────────
+
 
     private void renderScreenFromState(AsocijacijeGameState state) {
         isClickPending = false;

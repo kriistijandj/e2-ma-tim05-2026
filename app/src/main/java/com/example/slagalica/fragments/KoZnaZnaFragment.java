@@ -63,6 +63,8 @@ public class KoZnaZnaFragment extends Fragment {
     private String myUid;
     private boolean isTournament;
     private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     // ====== FIREBASE ======
     private DatabaseReference gameRef;      // games/{matchId}/koznaZna
@@ -133,6 +135,8 @@ public class KoZnaZnaFragment extends Fragment {
             myRole  = getArguments().getString("PLAYER_ROLE", "player1");
             isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
             tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
         myUid    = FirebaseAuth.getInstance().getCurrentUser().getUid();
@@ -175,6 +179,7 @@ public class KoZnaZnaFragment extends Fragment {
 
     private void setupPresence() {
         presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
         presenceHelper.markPresent();
 
         matchRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -326,7 +331,7 @@ public class KoZnaZnaFragment extends Fragment {
         setAllButtonsEnabled(true);
         updateScoreUI();
 
-        if ("player1".equals(myRole)) {
+        if (isHost()) {
             gameRef.child("currentQuestion").setValue(idx);
             gameRef.child("answers").child(String.valueOf(idx)).removeValue();
         }
@@ -380,6 +385,17 @@ public class KoZnaZnaFragment extends Fragment {
                 .child(myRole).child("answerIndex").setValue(answerIdx);
         gameRef.child("answers").child(String.valueOf(currentQuestion))
                 .child(myRole).child("answerTime").setValue(answerTime);
+
+        // FIX: ako je protivnik već otišao, njegov odgovor za ovo (i svako naredno)
+        // pitanje nikad neće stići - upisujemo mu "nema odgovora" odmah čim ja
+        // odgovorim, umesto da se runda zaglavi čekajući ga zauvijek.
+        if (opponentLeft) {
+            String opponentRole = "player1".equals(myRole) ? "player2" : "player1";
+            gameRef.child("answers").child(String.valueOf(currentQuestion))
+                    .child(opponentRole).child("answerIndex").setValue(-1);
+            gameRef.child("answers").child(String.valueOf(currentQuestion))
+                    .child(opponentRole).child("answerTime").setValue(9999L);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -469,8 +485,8 @@ public class KoZnaZnaFragment extends Fragment {
                     ? "Niko nije odgovorio." : "✗ Netačno!");
         }
 
-        // Samo player1 upisuje scorove u Firebase (kao u Skočko)
-        if ("player1".equals(myRole)) {
+        // Samo domaćin upisuje scorove u Firebase (kao u Skočko)
+        if (isHost()) {
             gameRef.child("scores").child("player1").setValue(scorePlayer1);
             gameRef.child("scores").child("player2").setValue(scorePlayer2);
         }
@@ -570,6 +586,8 @@ public class KoZnaZnaFragment extends Fragment {
                     args.putString("PLAYER_ROLE", myRole);
                     args.putBoolean("IS_TOURNAMENT", isTournament);
                     args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
 
                     androidx.navigation.Navigation
                             .findNavController(requireView())
