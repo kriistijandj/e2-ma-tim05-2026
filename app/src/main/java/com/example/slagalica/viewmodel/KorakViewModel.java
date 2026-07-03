@@ -1,7 +1,5 @@
 package com.example.slagalica.viewmodel;
 
-import android.os.CountDownTimer;
-
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -10,12 +8,12 @@ import com.example.slagalica.helper.KorakHelper;
 import com.example.slagalica.models.korak.KorakGameState;
 import com.example.slagalica.repository.KorakRepository;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FieldValue;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import android.os.CountDownTimer;
 
 public class KorakViewModel extends ViewModel {
 
@@ -25,346 +23,442 @@ public class KorakViewModel extends ViewModel {
     private final MutableLiveData<KorakGameState> gameState = new MutableLiveData<>();
     private final MutableLiveData<String> timerText = new MutableLiveData<>();
 
+    private String matchId;
+    private String myRole;
+    private String myUid;
 
     private CountDownTimer hintTimer;
-
     private CountDownTimer opponentTimer;
-
-    private String myPlayerId;
-
-
-    private final int[] myHintWhenSolved = {0, 0};
-
 
     private boolean timerRunningForLastHint = false;
     private boolean timerRunningForOpponent = false;
     private int timerRunningForHintCount = -1;
 
-    public void init(String gameId, String playerId) {
-        this.myPlayerId = playerId;
-        this.repository = new KorakRepository(gameId);
-        this.repository.listenToGameState(state -> {
+    private boolean selfRegistered = false;
+
+    private boolean matchFinishedRegistered = false;
+    private boolean currentGameIncremented = false;
+
+
+    private boolean roundTransitionInProgress = false;
+
+
+    private boolean opponentHasLeft = false;
+
+    public void init(String matchId, String role) {
+        this.matchId = matchId;
+        this.myRole = role;
+        this.myUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+
+        repository = new KorakRepository(matchId);
+
+        repository.listenToGameState(state -> {
+            if (state == null) return;
+
+
+            if (state.scores != null
+                    && !state.scores.containsKey(myUid)
+                    && state.hints != null
+                    && !state.hints.isEmpty()
+                    && !selfRegistered) {
+                selfRegistered = true;
+                state.scores.put(myUid, 0);
+                if ("player1".equals(myRole)) {
+                    state.player1Id = myUid;
+                } else {
+                    state.player2Id = myUid;
+                }
+                repository.updateGameState(state);
+
+                return;
+            }
+
             gameState.setValue(state);
+
+
+            if (handleAbsentOpponent(state)) {
+
+                return;
+            }
+
+
+            if (state.showingRoundResult && state.round == 1
+                    && isHost() && !roundTransitionInProgress) {
+                roundTransitionInProgress = true;
+                final Map<String, Integer> scoresFromRoundOne = state.scores != null
+                        ? new HashMap<>(state.scores)
+                        : new HashMap<>();
+
+                new CountDownTimer(1000, 1000) {
+                    public void onTick(long ms) {}
+                    public void onFinish() {
+                        KorakGameState currentState = gameState.getValue();
+                        if (currentState == null) currentState = state;
+                        buildRound2(currentState, scoresFromRoundOne);
+                    }
+                }.start();
+                return;
+            }
+
             handleTimerSync(state);
         });
     }
 
-    public LiveData<KorakGameState> getGameState() { return gameState; }
-    public LiveData<String> getTimerText()         { return timerText; }
-    public String getMyPlayerId()                  { return myPlayerId; }
+    public LiveData<KorakGameState> getGameState() {
+        return gameState;
+    }
 
-
-    public void setupInitialGameIfHost() {
-        if (!"player1".equals(myPlayerId)) return;
-
-        KorakHelper.KorakQuestion q = helper.getRandomQuestion();
-        KorakGameState initial = new KorakGameState();
-        initial.answer = q.answer;
-        initial.hints = q.hints;
-        initial.revealedHints = 1;
-        initial.activePlayer = 1;
-        initial.rundaZapocinje = 1;
-        repository.updateGameState(initial);
+    public LiveData<String> getTimerText() {
+        return timerText;
     }
 
 
+    private boolean gameInitStarted = false;
+
+    private boolean isHost() {
+        return "player1".equals(myRole) || (opponentHasLeft && "player2".equals(myRole));
+    }
+
+    public void signalReadyAndInit(boolean isSolo) {
+
+        if (isSolo) {
+
+            repository.setReadySolo(this::initializeGameIfNeeded);
+            return;
+        }
+
+        repository.setReady(myRole, () -> {
+            if (isHost()) {
+                initializeGameIfNeeded();
+            }
+        });
+
+
+        if (opponentHasLeft && isHost()) {
+            initializeGameIfNeeded();
+        }
+    }
+
+    private void initializeGameIfNeeded() {
+        if (gameInitStarted) return;
+
+
+        KorakGameState current = gameState.getValue();
+        if (current != null && current.hints != null && !current.hints.isEmpty()) {
+            gameInitStarted = true;
+            return;
+        }
+
+        gameInitStarted = true;
+
+        KorakHelper.KorakQuestion q = helper.getRandomQuestion();
+
+        KorakGameState state = new KorakGameState();
+        state.answer = q.answer;
+        state.hints = q.hints;
+        state.revealedHints = 1;
+        state.round = 1;
+        state.activePlayer = 1;
+        state.status = "active";
+        state.scores = new HashMap<>();
+        if ("player1".equals(myRole)) {
+            state.player1Id = myUid;
+        } else {
+            state.player2Id = myUid;
+        }
+        // FIX: domaćin odmah oznacava sebe kao registered
+        selfRegistered = true;
+        state.scores.put(myUid, 0);
+
+        repository.updateGameState(state);
+    }
+
+
+
     public boolean submitGuess(String guess) {
+
         KorakGameState state = gameState.getValue();
         if (state == null || "finished".equals(state.status)) return false;
+
         if (!amIActive(state)) return false;
 
         boolean correct = state.answer.trim().equalsIgnoreCase(guess.trim());
+        if (!correct) return false;
 
-        if (correct) {
-            int points;
-            if (state.isOpponentChance) {
-                points = 5;
-            } else {
-                points = helper.calculateScore(state.revealedHints);
-            }
+        int points = state.isOpponentChance
+                ? 5
+                : helper.calculateScore(state.revealedHints);
 
-            if ("player1".equals(myPlayerId)) {
-                state.p1Score += points;
-                state.p1Solved = true;
-                state.p1SolvedOnHint = state.revealedHints;
-            } else {
-                state.p2Score += points;
-                state.p2Solved = true;
-                state.p2SolvedOnHint = state.revealedHints;
-            }
-
-            int roundIdx = state.round - 1;
-            if (roundIdx >= 0 && roundIdx < 2) {
-                myHintWhenSolved[roundIdx] = state.revealedHints;
-            }
-
-            // Prikaži rešenje i završi rundu
-            state.revealedAnswer = state.answer;
-            cancelAllTimers();
-            endRoundLogic(state);
-            repository.updateGameState(state);
+        if (state.scores == null) {
+            state.scores = new HashMap<>();
         }
 
-        return correct;
+        int current = state.scores.containsKey(myUid)
+                ? state.scores.get(myUid)
+                : 0;
+
+        Map<String, Integer> newScores = new HashMap<>(state.scores);
+        newScores.put(myUid, current + points);
+        state.scores = newScores;
+
+        android.util.Log.d("KORAK_LOG", "[" + myRole + "] submitGuess -> Novi lokalni skor pre slanja u bazu: " + state.scores);
+
+        //state.scores.put(myUid, current + points);
+        state.revealedAnswer = state.answer;
+
+        cancelAllTimers();
+        endRoundLogic(state);
+
+        repository.updateGameState(state);
+
+        return true;
     }
 
 
 
     private void handleTimerSync(KorakGameState state) {
 
-        if (state.showingRoundResult) {
-            cancelAllTimers();
-            // Tajmer tekst već se setuje iz CountDownTimer-a u endRoundLogic
-            return;
-        }
-
         if ("finished".equals(state.status)) {
             cancelAllTimers();
             timerText.setValue("Igra završena");
+            finishMatch(state);
             return;
         }
 
-        boolean iAmActiveNow = amIActive(state);
-
-        if (!iAmActiveNow) {
-            // Nije moj red – ugasi lokalne tajmere, prikaži poruku
+        if (!amIActive(state)) {
             cancelAllTimers();
-            if (state.isOpponentChance) {
-                timerText.setValue("Čeka se protivnikova šansa...");
-            } else {
-                timerText.setValue("Čeka se protivnik...");
-            }
+            timerText.setValue("Čeka se protivnik...");
             return;
         }
 
         if (state.isOpponentChance) {
-
             if (!timerRunningForOpponent) {
                 timerRunningForOpponent = true;
-                timerRunningForLastHint = false;
-                timerRunningForHintCount = -1;
                 startOpponentTimer();
             }
         } else if (state.lastHintShowing) {
-
             if (!timerRunningForLastHint) {
+                cancelAllTimers();
                 timerRunningForLastHint = true;
-                timerRunningForOpponent = false;
-                timerRunningForHintCount = -1;
                 startLastHintTimer();
             }
         } else {
-            // Normalna faza – tajmer između koraka
             if (timerRunningForHintCount != state.revealedHints) {
+                cancelAllTimers();
                 timerRunningForHintCount = state.revealedHints;
-                timerRunningForLastHint = false;
-                timerRunningForOpponent = false;
                 startHintTimer();
             }
         }
     }
 
-
     private void startHintTimer() {
         cancelHintTimer();
-        hintTimer = new CountDownTimer(10_000, 1000) {
-            @Override
+
+        hintTimer = new CountDownTimer(10000, 1000) {
             public void onTick(long ms) {
-                timerText.setValue("Sledeći korak za: " + (ms / 1000) + "s");
+                timerText.setValue("Sledeći korak: " + (ms / 1000));
             }
-            @Override
+
             public void onFinish() {
-                hintTimer = null;
-                timerRunningForHintCount = -1;
-                revealNextHintOrTransition();
+                revealNextHint();
             }
         }.start();
     }
-
 
     private void startLastHintTimer() {
         cancelHintTimer();
-        hintTimer = new CountDownTimer(10_000, 1000) {
-            @Override
+
+        hintTimer = new CountDownTimer(10000, 1000) {
             public void onTick(long ms) {
-                timerText.setValue("Poslednji korak – " + (ms / 1000) + "s");
+                timerText.setValue("Poslednji korak: " + (ms / 1000));
             }
-            @Override
+
             public void onFinish() {
-                hintTimer = null;
-                timerRunningForLastHint = false;
-                // Prelazimo na protivnikovu šansu
-                transitionToOpponentChance();
+                transitionToOpponent();
             }
         }.start();
     }
-
 
     private void startOpponentTimer() {
         cancelOpponentTimer();
-        opponentTimer = new CountDownTimer(10_000, 1000) {
-            @Override
+
+        opponentTimer = new CountDownTimer(10000, 1000) {
             public void onTick(long ms) {
-                timerText.setValue("Tvoja šansa: " + (ms / 1000) + "s");
+                timerText.setValue("Protivnik igra: " + (ms / 1000));
             }
-            @Override
+
             public void onFinish() {
-                opponentTimer = null;
-                timerRunningForOpponent = false;
-                handleOpponentTimeOut();
+                opponentTimeout();
             }
         }.start();
     }
 
 
-    private void revealNextHintOrTransition() {
+
+    private void revealNextHint() {
         KorakGameState state = gameState.getValue();
-        if (state == null || "finished".equals(state.status)) return;
-        if (!amIActive(state) || state.isOpponentChance || state.lastHintShowing) return;
+        if (state == null) return;
 
         state.revealedHints++;
 
         if (state.revealedHints >= 7) {
-            // Otkriven je 7. (poslednji) korak
             state.revealedHints = 7;
             state.lastHintShowing = true;
-            // activePlayer ostaje isti – igrač ima još 10s
-            repository.updateGameState(state);
-            // handleTimerSync će pokrenuti startLastHintTimer
-        } else {
-            // Normalan korak – nastavljamo sa hint tajmerom
-            repository.updateGameState(state);
-            // handleTimerSync će pokrenuti novi startHintTimer za novi revealedHints
         }
-    }
-
-
-    private void transitionToOpponentChance() {
-        KorakGameState state = gameState.getValue();
-        if (state == null || "finished".equals(state.status)) return;
-        if (!amIActive(state)) return;
-
-        state.lastHintShowing = false;
-        state.isOpponentChance = true;
-        // Prebacujemo activePlayer na protivnika
-        state.activePlayer = (state.rundaZapocinje == 1) ? 2 : 1;
 
         repository.updateGameState(state);
     }
 
-
-    private void handleOpponentTimeOut() {
+    private void transitionToOpponent() {
         KorakGameState state = gameState.getValue();
-        if (state == null || "finished".equals(state.status)) return;
-        if (!amIActive(state)) return;
+        if (state == null) return;
 
-        // Niko nije pogodio – prikaži rešenje
+        if (opponentHasLeft) {
+
+            state.revealedAnswer = state.answer;
+            endRoundLogic(state);
+            repository.updateGameState(state);
+            return;
+        }
+
+        state.revealedHints = 7;
+        state.isOpponentChance = true;
+        state.lastHintShowing = false;
+        state.activePlayer = state.activePlayer == 1 ? 2 : 1;
+
+        repository.updateGameState(state);
+    }
+
+    private void opponentTimeout() {
+        KorakGameState state = gameState.getValue();
+        if (state == null) return;
+
         state.revealedAnswer = state.answer;
+
         endRoundLogic(state);
         repository.updateGameState(state);
     }
 
-
     private void endRoundLogic(KorakGameState state) {
         cancelAllTimers();
-        resetTimerFlags();
+
+        android.util.Log.d("KORAK_LOG", "[" + myRole + "] endRoundLogic -> Ulaz u metodu. Trenutna runda: " + state.round + ", Trenutni bodovi u state: " + state.scores);
 
         if (state.round == 1) {
-
             state.showingRoundResult = true;
-
             repository.updateGameState(state);
 
+            final Map<String, Integer> scoresFromRoundOne = state.scores != null
+                    ? new HashMap<>(state.scores)
+                    : new HashMap<>();
 
-            new CountDownTimer(5000, 1000) {
-                @Override public void onTick(long ms) {
-                    timerText.setValue("Rešenje: prikazuje se još " + (ms / 1000) + "s");
-                }
-                @Override public void onFinish() {
-                    KorakGameState s = gameState.getValue();
-                    if (s == null) return;
-                    // Pripremi rundu 2
-                    KorakHelper.KorakQuestion q = helper.getRandomQuestion();
-                    s.showingRoundResult = false;
-                    s.round = 2;
-                    s.rundaZapocinje = 2;
-                    s.activePlayer = 2;
-                    s.isOpponentChance = false;
-                    s.lastHintShowing = false;
-                    s.revealedHints = 1;
-                    s.answer = q.answer;
-                    s.hints.clear();
-                    s.hints.addAll(q.hints);
-                    s.revealedAnswer = "";
-                    s.p1Solved = false;
-                    s.p2Solved = false;
-                    s.p1SolvedOnHint = 0;
-                    s.p2SolvedOnHint = 0;
-                    repository.updateGameState(s);
-                }
-            }.start();
-        } else {
-            state.status = "finished";
-            int myScore  = "player1".equals(myPlayerId) ? state.p1Score : state.p2Score;
-            int oppScore = "player1".equals(myPlayerId) ? state.p2Score : state.p1Score;
-            saveKorakStats(myScore > oppScore);
-            repository.updateGameState(state);
-        }
-    }
+            android.util.Log.d("KORAK_LOG", "[" + myRole + "] endRoundLogic -> Zaključani bodovi za tajmer (scoresFromRoundOne): " + scoresFromRoundOne);
 
 
+            if (isHost() && !roundTransitionInProgress) {
+                roundTransitionInProgress = true;
+                new CountDownTimer(5000, 1000) {
+                    public void onTick(long ms) {}
 
-    private void saveKorakStats(boolean iWon) {
-        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
-                : null;
-        if (uid == null) return;
-
-        Map<String, Object> updates = new HashMap<>();
-        for (int i = 0; i < 2; i++) {
-            int hint = myHintWhenSolved[i];
-            if (hint > 0) {
-                updates.put("stats.korak.solvedOnHint" + hint, FieldValue.increment(1));
-            } else {
-                updates.put("stats.korak.failed", FieldValue.increment(1));
+                    public void onFinish() {
+                        KorakGameState currentState = gameState.getValue();
+                        if (currentState == null) currentState = state;
+                        buildRound2(currentState, scoresFromRoundOne);
+                    }
+                }.start();
             }
-        }
-        updates.put("stats.korak.wins",        FieldValue.increment(iWon ? 1 : 0));
-        updates.put("stats.korak.losses",      FieldValue.increment(iWon ? 0 : 1));
-        updates.put("stats.global.totalGames", FieldValue.increment(1));
-        updates.put("stats.global.wins",       FieldValue.increment(iWon ? 1 : 0));
-        updates.put("stats.global.losses",     FieldValue.increment(iWon ? 0 : 1));
 
-        FirebaseFirestore.getInstance()
-                .collection("users")
-                .document(uid)
-                .update(updates);
+        } else {
+            android.util.Log.d("KORAK_LOG", "[" + myRole + "] Runda 2 završena. Postavljam status na finished.");
+            state.status = "finished";
+            repository.updateGameState(state);
+
+
+        }
+    }
+
+    private void buildRound2(KorakGameState currentState, Map<String, Integer> scoresFromRoundOne) {
+        KorakHelper.KorakQuestion q = helper.getRandomQuestion();
+
+        currentState.round = 2;
+        currentState.activePlayer = 2;
+        currentState.revealedHints = 1;
+        currentState.isOpponentChance = false;
+        currentState.lastHintShowing = false;
+        currentState.showingRoundResult = false;
+        currentState.revealedAnswer = "";
+        currentState.answer = q.answer;
+        currentState.hints = q.hints;
+
+        // Vraćamo bodove
+        currentState.scores = scoresFromRoundOne;
+
+        android.util.Log.d("KORAK_LOG", "[" + myRole + "] šaljem u bazu za RUNDU 2 bodove: " + currentState.scores);
+        repository.updateGameState(currentState);
     }
 
 
+
+    private void finishMatch(KorakGameState state) {
+        int score = (state.scores != null && state.scores.containsKey(myUid) && state.scores.get(myUid) != null)
+                ? state.scores.get(myUid)
+                : 0;
+
+        // 1. Svako bezbedno upisuje svoj lični skor (idempotentno, može se ponoviti)
+        if (!matchFinishedRegistered) {
+            matchFinishedRegistered = true;
+            android.util.Log.d("KORAK_LOG", "[" + myRole + "] finishMatch -> Moj UID: " + myUid + " | Bodovi koje šaljem u /matches: " + score);
+            FirebaseDatabase.getInstance()
+                    .getReference("matches")
+                    .child(matchId)
+                    .child("scores")
+                    .child(myUid)
+                    .setValue(score);
+        }
+
+
+        if (isHost() && !currentGameIncremented) {
+            android.util.Log.d("KORAK_LOG", "[" + myRole + "] Ja sam domaćin, pokušavam da otključam uvećanje currentGame");
+            repository.tryClaimCurrentGameIncrement(matchId, iAmTheOneWhoIncremented -> {
+
+                currentGameIncremented = true;
+                if (iAmTheOneWhoIncremented) {
+                    android.util.Log.d("KORAK_LOG", "[" + myRole + "] Osvojio lock, currentGame uvećan za +1");
+                } else {
+                    android.util.Log.d("KORAK_LOG", "[" + myRole + "] Lock je već zauzet, currentGame NIJE ponovo uvećan");
+                }
+            });
+        }
+    }
+
+    // ---------------- HELPERS ----------------
 
     private boolean amIActive(KorakGameState state) {
-        return (state.activePlayer == 1 && "player1".equals(myPlayerId))
-                || (state.activePlayer == 2 && "player2".equals(myPlayerId));
-    }
-
-    private void resetTimerFlags() {
-        timerRunningForLastHint = false;
-        timerRunningForOpponent = false;
-        timerRunningForHintCount = -1;
+        return (state.activePlayer == 1 && "player1".equals(myRole))
+                || (state.activePlayer == 2 && "player2".equals(myRole));
     }
 
     private void cancelHintTimer() {
-        if (hintTimer != null) { hintTimer.cancel(); hintTimer = null; }
+        if (hintTimer != null) {
+            hintTimer.cancel();
+            hintTimer = null;
+        }
     }
 
     private void cancelOpponentTimer() {
-        if (opponentTimer != null) { opponentTimer.cancel(); opponentTimer = null; }
+        if (opponentTimer != null) {
+            opponentTimer.cancel();
+            opponentTimer = null;
+        }
     }
 
     private void cancelAllTimers() {
         cancelHintTimer();
         cancelOpponentTimer();
+
+        timerRunningForLastHint = false;
+        timerRunningForOpponent = false;
+        timerRunningForHintCount = -1;
     }
 
     @Override
@@ -372,5 +466,51 @@ public class KorakViewModel extends ViewModel {
         super.onCleared();
         cancelAllTimers();
         if (repository != null) repository.removeListener();
+    }
+
+    public void onOpponentLeft() {
+        opponentHasLeft = true;
+
+        KorakGameState state = gameState.getValue();
+
+
+        if (state != null && "finished".equals(state.status)) {
+            finishMatch(state);
+            return;
+        }
+
+
+        if (state != null && state.showingRoundResult && state.round == 1
+                && isHost() && !roundTransitionInProgress) {
+            roundTransitionInProgress = true;
+            final Map<String, Integer> scoresFromRoundOne = state.scores != null
+                    ? new HashMap<>(state.scores)
+                    : new HashMap<>();
+            buildRound2(state, scoresFromRoundOne);
+            return;
+        }
+
+        handleAbsentOpponent(state);
+    }
+
+
+    private boolean handleAbsentOpponent(KorakGameState state) {
+        if (!opponentHasLeft) return false;
+        if (state == null || "finished".equals(state.status)) return false;
+
+        if (amIActive(state)) return false;
+
+        cancelAllTimers();
+
+        if (state.isOpponentChance) {
+
+            opponentTimeout();
+        } else {
+
+            state.activePlayer = "player1".equals(myRole) ? 1 : 2;
+            repository.updateGameState(state);
+        }
+
+        return true;
     }
 }

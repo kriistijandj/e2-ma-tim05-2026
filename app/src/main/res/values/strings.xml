@@ -41,6 +41,12 @@
     <string name="kreirajda">Kreirajte nalog da biste počeli</string>
     <string name="ponovi">Ponovite lozinku</string>
     <string name="imatenalog">Već imate nalog?</string>
+    <string name="dnevne_misije">Dnevne Misije</string>
+    <string name="pobedi_partiju_u_turniru">Pobedi partiju u turniru</string>
+    <string name="odigraj_prijateljsku_partiju">Odigraj prijateljsku partiju</string>
+    <string name="po_alji_poruku_u_et">Pošalji poruku u čet</string>
+    <string name="pobedi_partiju">Pobedi partiju)</string>
+    <string name="re_i_sve_misije_za_glavni_bonus">Reši sve misije za glavni bonus</string>
 
 
 </resources>

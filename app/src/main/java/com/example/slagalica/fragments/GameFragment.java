@@ -1,15 +1,15 @@
 package com.example.slagalica.fragments;
 
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 
 import com.example.slagalica.R;
 import com.google.firebase.database.DataSnapshot;
@@ -20,99 +20,116 @@ import com.google.firebase.database.ValueEventListener;
 
 public class GameFragment extends Fragment {
 
-    public GameFragment() {}
+    private DatabaseReference db;
+
+    private String matchId;
+    private String playerRole;
+    private boolean isTournament;
+    private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
 
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_game, container, false);
+    public View onCreateView(
+            LayoutInflater inflater,
+            ViewGroup container,
+            Bundle savedInstanceState) {
 
-        // Svaka igra ima svoj lobi i svoju sobu
-        CardView cardSkocko = view.findViewById(R.id.cardSkocko);
-        if (cardSkocko != null) {
-            cardSkocko.setOnClickListener(v ->
-                    podeliUloge(view, R.id.nav_gameSkocko,
-                            "lobby_skocko", "room_skocko_001"));
+        View view = inflater.inflate(
+                R.layout.fragment_game,
+                container,
+                false);
+
+        db = FirebaseDatabase.getInstance().getReference();
+
+        if (getArguments() != null) {
+            matchId = getArguments().getString("MATCH_ID");
+            playerRole = getArguments().getString("PLAYER_ROLE");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
-        CardView cardAsocijacije = view.findViewById(R.id.cardAsocijacije);
-        if (cardAsocijacije != null) {
-            cardAsocijacije.setOnClickListener(v ->
-                    podeliUloge(view, R.id.nav_gameAsocijacije,
-                            "lobby_asocijacije", "room_asocijacije_001"));
-        }
-
-        CardView cardKoZnaZna = view.findViewById(R.id.cardKoZnaZna);
-        if (cardKoZnaZna != null) {
-            cardKoZnaZna.setOnClickListener(v ->
-                    podeliUloge(view, R.id.nav_gameKoZnaZna,
-                            "lobby_koznaZna", "room_koznaZna_001"));
-        }
-
-        CardView cardSpojnice = view.findViewById(R.id.cardSpojnice);
-        if (cardSpojnice != null) {
-            cardSpojnice.setOnClickListener(v ->
-                    podeliUloge(view, R.id.nav_gameSpojnice,
-                            "lobby_spojnice", "room_spojnice_001"));
-        }
-
-        CardView cardMojBroj = view.findViewById(R.id.cardMojBroj);
-        if (cardMojBroj != null) cardMojBroj.setOnClickListener(v ->
-                podeliUloge(view, R.id.nav_mojbroj, "lobby_mojbroj", "room_mojbroj_001"));
-
-        CardView cardKorak = view.findViewById(R.id.cardKorak);
-        if (cardKorak != null) cardKorak.setOnClickListener(v ->
-                podeliUloge(view, R.id.nav_korak, "lobby_korak", "room_korak_001"));
+        loadCurrentGame();
 
         return view;
     }
 
-    // ==============================
-    // LOBI SISTEM – svaka igra ima svoj lobi i sobu
-    // ==============================
+    private void loadCurrentGame() {
 
-    private void podeliUloge(View view, int navActionId,
-                             String lobbyKey, String roomId) {
+        db.child("matches")
+                .child(matchId)
+                .child("currentGame")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
 
-        DatabaseReference lobbyRef = FirebaseDatabase.getInstance()
-                .getReference().child(lobbyKey);
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
 
-        lobbyRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String status = snapshot.getValue(String.class);
-                Bundle args = new Bundle();
-                args.putString("ROOM_ID", roomId);
+                        Integer idx = snapshot.getValue(Integer.class);
 
-                if (status == null || "slobodno".equals(status)) {
-                    lobbyRef.setValue("zauzeto");
-                    args.putString("PLAYER_ROLE", "player1");
-                    Toast.makeText(getContext(),
-                            "Ušao si kao Player 1", Toast.LENGTH_SHORT).show();
-                } else {
-                    lobbyRef.setValue("slobodno");
-                    args.putString("PLAYER_ROLE", "player2");
-                    Toast.makeText(getContext(),
-                            "Ušao si kao Player 2", Toast.LENGTH_SHORT).show();
-                }
+                        if (idx == null) {
+                            idx = 0;
+                        }
 
-                Navigation.findNavController(view).navigate(navActionId, args);
-            }
+                        navigateToGame(idx);
+                    }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(getContext(),
-                        "Greška: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                    }
+                });
     }
 
-    private void setupNavigation(View parent, int cardId, int navActionId) {
-        CardView card = parent.findViewById(cardId);
-        if (card != null) {
-            card.setOnClickListener(v ->
-                    Navigation.findNavController(parent).navigate(navActionId)
-            );
+    private void navigateToGame(int idx) {
+
+        if (!isAdded() || getView() == null) {
+            return;
+        }
+
+        Bundle args = new Bundle();
+        args.putString("MATCH_ID", matchId);
+        args.putString("PLAYER_ROLE", playerRole);
+        args.putBoolean("IS_TOURNAMENT", isTournament);
+        args.putString("TOURNAMENT_ID", tournamentId);
+        args.putBoolean("IS_CHALLENGE", isChallenge);
+        args.putString("CHALLENGE_ID", challengeId);
+
+        NavController nav =
+                Navigation.findNavController(requireView());
+
+        switch (idx) {
+
+            case 0:
+                nav.navigate(R.id.nav_korak, args);
+                break;
+
+            case 1:
+                nav.navigate(R.id.nav_mojbroj, args);
+                break;
+
+            case 2:
+                nav.navigate(R.id.nav_gameAsocijacije, args);
+                break;
+
+            case 3:
+                nav.navigate(R.id.nav_gameSkocko, args);
+                break;
+
+            case 4:
+                nav.navigate(R.id.nav_gameKoZnaZna, args);
+                break;
+
+            case 5:
+                nav.navigate(R.id.nav_gameSpojnice, args);
+                break;
+
+            default:
+                Toast.makeText(
+                        getContext(),
+                        "Partija završena",
+                        Toast.LENGTH_SHORT
+                ).show();
         }
     }
 }

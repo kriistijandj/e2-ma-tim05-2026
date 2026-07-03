@@ -9,7 +9,24 @@
     <fragment
         android:id="@+id/nav_home"
         android:name="com.example.slagalica.fragments.HomeFragment"
-        android:label="Home" />
+        android:label="Home" >
+
+        <action
+            android:id="@+id/action_home_to_leaderboard"
+            app:destination="@id/nav_leaderboard" />
+        <action
+            android:id="@+id/action_home_to_friends"
+            app:destination="@id/nav_friends" />
+        <action
+            android:id="@+id/action_home_to_tournament"
+            app:destination="@id/nav_tournament"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_friends"
+        android:name="com.example.slagalica.fragments.FriendsFragment"
+        android:label="Prijatelji"
+        tools:layout="@layout/fragment_friends" />
 
     <fragment
         android:id="@+id/nav_notifications"
@@ -76,7 +93,7 @@
         android:id="@+id/nav_korak"
         android:name="com.example.slagalica.games.KorakPoKorakFragment"
         android:label="Korak po korak"
-        app:popUpTo="@+id/nav_home"
+
         tools:layout="@layout/fragment_korak_po_korak"
         />
 
@@ -112,4 +129,65 @@
         app:popUpTo="@+id/nav_home"
         app:popUpToInclusive="true" />
 
+    <fragment
+        android:id="@+id/nav_daily_missions"
+        android:name="com.example.slagalica.fragments.DailyMissionsFragment"
+        android:label="Dnevne Misije"
+        tools:layout="@layout/fragment_daily_missions" />
+
+    <fragment
+        android:id="@+id/nav_region_map"
+        android:name="com.example.slagalica.fragments.RegionMapFragment"
+        android:label="Regioni"
+        tools:layout="@layout/fragment_region_map"/>
+
+    <fragment
+        android:id="@+id/nav_region_list"
+        android:name="com.example.slagalica.fragments.RegionListFragment"
+        android:label="Rang lista regiona"
+        tools:layout="@layout/fragment_region_list"/>
+
+    <fragment
+        android:id="@+id/nav_region_detail"
+        android:name="com.example.slagalica.fragments.RegionDetailFragment"
+        android:label="Statistika regiona"
+        tools:layout="@layout/fragment_region_detail"/>
+
+    <fragment
+        android:id="@+id/nav_chat"
+        android:name="com.example.slagalica.fragments.ChatFragment"
+        android:label="Čet"
+        tools:layout="@layout/fragment_chat" />
+
+
+    <fragment
+        android:id="@+id/nav_leaderboard"
+        android:name="com.example.slagalica.fragments.LeaderboardFragment"
+        android:label="Rang Lista"
+        tools:layout="@layout/fragment_leaderboard"
+        app:popUpTo="@+id/nav_home"
+        app:popUpToInclusive="false" />
+    <fragment
+        android:id="@+id/nav_tournament"
+        android:name="com.example.slagalica.fragments.TournamentFragment"
+        android:label="Turnir"
+        tools:layout="@layout/fragment_tournament" />
+
+    <fragment
+        android:id="@+id/nav_challenge_list"
+        android:name="com.example.slagalica.fragments.ChallengeListFragment"
+        android:label="Izazovi"
+        tools:layout="@layout/fragment_challenge_list" />
+
+    <fragment
+        android:id="@+id/nav_challenge_waiting_room"
+        android:name="com.example.slagalica.fragments.ChallengeWaitingRoomFragment"
+        android:label="Čekaonica izazova"
+        tools:layout="@layout/fragment_challenge_waiting_room" />
+
+    <fragment
+        android:id="@+id/nav_challenge_result"
+        android:name="com.example.slagalica.fragments.ChallengeResultFragment"
+        android:label="Rezultat izazova"
+        tools:layout="@layout/fragment_challenge_result" />
 </navigation>

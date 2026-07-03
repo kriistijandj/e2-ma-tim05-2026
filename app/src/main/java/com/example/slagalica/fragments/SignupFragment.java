@@ -8,16 +8,21 @@ import androidx.navigation.Navigation;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.example.slagalica.R;
+import com.example.slagalica.region.SerbiaRegions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SignupFragment extends Fragment {
@@ -30,6 +35,7 @@ public class SignupFragment extends Fragment {
 
     private FirebaseAuth auth;
     private FirebaseFirestore db;
+    private Spinner spinnerRegion;
 
     public SignupFragment() {}
 
@@ -60,6 +66,15 @@ public class SignupFragment extends Fragment {
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
+        spinnerRegion = view.findViewById(R.id.spinnerRegion);
+        List<String> regionOptions = new ArrayList<>();
+        regionOptions.add("Izaberi region...");
+        regionOptions.addAll(SerbiaRegions.ALL);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                requireContext(), android.R.layout.simple_spinner_item, regionOptions);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerRegion.setAdapter(adapter);
+
         Button btnSignup = view.findViewById(R.id.btnSignup);
         btnSignup.setOnClickListener(v -> registerUser(view));
 
@@ -75,12 +90,17 @@ public class SignupFragment extends Fragment {
 
         String email          = ((TextView) view.findViewById(R.id.etEmail)).getText().toString().trim();
         String username       = ((TextView) view.findViewById(R.id.etUsername)).getText().toString().trim();
-        String region         = ((TextView) view.findViewById(R.id.etRegion)).getText().toString().trim();
+        String region         = (String) spinnerRegion.getSelectedItem();
         String password       = ((TextView) view.findViewById(R.id.etPassword)).getText().toString().trim();
         String repeatPassword = ((TextView) view.findViewById(R.id.etRepeatPassword)).getText().toString().trim();
 
-        if (email.isEmpty() || username.isEmpty() || region.isEmpty() || password.isEmpty()) {
+        if (email.isEmpty() || username.isEmpty() || password.isEmpty()) {
             Toast.makeText(getContext(), "Potrebno je popuniti sva polja", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (region == null || region.equals("Izaberi region...")) {
+            Toast.makeText(getContext(), "Molimo izaberite region", Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -139,14 +159,33 @@ public class SignupFragment extends Fragment {
 
                     // ── Osnovni podaci ────────────────────────────────────────
                     Map<String, Object> userMap = new HashMap<>();
-                    userMap.put("email",     email);
-                    userMap.put("username",  username);
-                    userMap.put("region",    region);
-                    userMap.put("createdAt", System.currentTimeMillis());
-                    userMap.put("isEnabled", false);
-                    userMap.put("tokens",    0);
-                    userMap.put("stars",     0);
-                    userMap.put("avatarId",  0);
+
+
+                    userMap.put("uid",      uid);
+                    userMap.put("email",    email);
+                    userMap.put("username", username);
+                    userMap.put("region",   region);
+                    userMap.put("tokens", 5);   // bonus za registraciju
+                    userMap.put("stars", 0); // Ukupne zvezde
+                    userMap.put("weeklyStars", 0);  // Zvezde u tekućoj nedelji (kreće od 0)
+                    userMap.put("monthlyStars", 0); // Zvezde u tekućem mesecu (kreće od 0)
+                    userMap.put("leagueIcon", "bronze_league"); // Zahtev (b) - podrazumevana liga
+                    // Pamtićemo id-eve ciklusa u kojima je korisnik poslednji put osvojio zvezdu
+                    userMap.put("lastWeeklyCycle", "");
+                    userMap.put("lastMonthlyCycle", "");
+                    userMap.put("online",   false);
+                    userMap.put("inMatch",  false);
+                    userMap.put("isEnabled", false);  // čeka email verifikaciju
+                    userMap.put("lastTokenClaimTimestamp", System.currentTimeMillis());
+
+                    int regionIdx = SerbiaRegions.indexOf(region);
+                    if (regionIdx >= 0) {
+                        double[] pos = SerbiaRegions.randomLatLng(regionIdx);
+                        userMap.put("lat", pos[0]);
+                        userMap.put("lng", pos[1]);
+                    }
+
+                    userMap.put("avatarId", 0);
 
                     // ── Statistika – sve na nulama ────────────────────────────
                     Map<String, Object> globalStats = new HashMap<>();

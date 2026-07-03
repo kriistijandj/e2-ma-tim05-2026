@@ -18,15 +18,23 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.Navigation;
 
 import com.example.slagalica.R;
+import com.example.slagalica.helper.MatchPresenceHelper;
 import com.example.slagalica.models.skocko.FirebaseAttempt;
 import com.example.slagalica.models.skocko.SkockoGameState;
 import com.example.slagalica.models.skocko.SkockoSymbol;
 import com.example.slagalica.viewmodel.SkockoViewModel;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class SkockoFragment extends Fragment {
 
@@ -35,6 +43,7 @@ public class SkockoFragment extends Fragment {
     private LinearLayout[] feedbackContainers = new LinearLayout[7];
 
     private TextView tvLeftName, tvRightName, tvLeftScore, tvRightScore, tvTimer;
+    private TextView tvRoundResult;
 
     private SkockoViewModel viewModel;
     private final List<SkockoSymbol> localAttempt = new ArrayList<>();
@@ -42,69 +51,208 @@ public class SkockoFragment extends Fragment {
     private int activeRowInUi = 0;
     private int lastRenderedRound = -1;
 
+    // ─── Navigacija ───────────────────────────────────────────────────────────
+    private String matchId;
+    private String myRole;
+    private boolean isTournament;
+    private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
+    private ValueEventListener gameAdvanceListener;
+    private boolean navigationScheduled = false;
+
+    private MatchPresenceHelper presenceHelper;
+
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_skocko, container, false);
 
         tableAttempts = v.findViewById(R.id.tableAttempts);
-        tvLeftName = v.findViewById(R.id.tvLeftName);
-        tvRightName = v.findViewById(R.id.tvRightName);
-        tvLeftScore = v.findViewById(R.id.tvLeftScore);
-        tvRightScore = v.findViewById(R.id.tvRightScore);
-        tvTimer = v.findViewById(R.id.tvTimerSkocko);
+        tvLeftName    = v.findViewById(R.id.tvLeftName);
+        tvRightName   = v.findViewById(R.id.tvRightName);
+        tvLeftScore   = v.findViewById(R.id.tvLeftScore);
+        tvRightScore  = v.findViewById(R.id.tvRightScore);
+        tvTimer       = v.findViewById(R.id.tvTimerSkocko);
+        tvRoundResult = v.findViewById(R.id.tvRoundResult);
 
         setupGrid();
         setupButtons(v);
-
         resetLocalAttempt();
 
-        // Inicijalizacija ViewModel-a (Troslojna arhitektura)
         viewModel = new ViewModelProvider(this).get(SkockoViewModel.class);
 
-        // Uzimamo podatke (Ovo posle menjate pravim matchmaking podacima)
-        String gameId = "test_game_001";
-        String myPlayerId = "player1";
-
+        matchId = "test_game_001";
+        myRole  = "player1";
         if (getArguments() != null) {
-            gameId = getArguments().getString("ROOM_ID", "test_game_001");
-            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+            matchId = getArguments().getString("MATCH_ID",     "test_game_001");
+            myRole  = getArguments().getString("PLAYER_ROLE", "player1");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
-        viewModel.init(gameId, myPlayerId);
-        viewModel.setupInitialGameIfHost();
+        viewModel.init(matchId, myRole);
 
-        // ---------------- POSMATRAČI (OBSERVERS) ----------------
-        viewModel.getTimerText().observe(getViewLifecycleOwner(), timeStr -> tvTimer.setText(timeStr));
+        setupPresence();
+
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(),
+                new androidx.activity.OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                .setTitle("Napusti partiju")
+                                .setMessage("Ako izađeš, gubiš partiju i ne dobijaš zvezde. Nastaviti?")
+                                .setPositiveButton("Napusti", (d, w) -> {
+                                    if (presenceHelper != null) presenceHelper.leaveMatch();
+                                    Navigation.findNavController(requireView())
+                                            .navigate(R.id.nav_home);
+                                })
+                                .setNegativeButton("Otkaži", null)
+                                .show();
+                    }
+                }
+        );
+
+        viewModel.getTimerText().observe(getViewLifecycleOwner(),
+                timeStr -> tvTimer.setText(timeStr));
 
         viewModel.getGameState().observe(getViewLifecycleOwner(), state -> {
             if (state == null) return;
             renderUiFromState(state);
         });
 
+        // Čeka završetak igre pa prelazi na sledeću
+        viewModel.getGameState().observe(getViewLifecycleOwner(), state -> {
+            if (state != null && "finished".equals(state.status) && !navigationScheduled) {
+                navigationScheduled = true;
+                listenForNextGame();
+            }
+        });
+
         return v;
     }
+
+    private void setupPresence() {
+        String myUid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
+        presenceHelper.markPresent();
+
+        FirebaseDatabase.getInstance()
+                .getReference("matches").child(matchId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String p1 = snapshot.child("player1Id").getValue(String.class);
+                        String p2 = snapshot.child("player2Id").getValue(String.class);
+                        String opponentUid = "player1".equals(myRole) ? p2 : p1;
+
+                        if (opponentUid != null && presenceHelper != null) {
+                            presenceHelper.listenForOpponentLeft(opponentUid, () -> {
+                                if (viewModel != null) viewModel.onOpponentLeft();
+                            });
+                        }
+                    }
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {}
+                });
+    }
+
+    // ─── Čekanje na Firebase pre navigacije ──────────────────────────────────
+
+    private void listenForNextGame() {
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("matches")
+                .child(matchId)
+                .child("currentGame");
+
+        gameAdvanceListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Integer game = snapshot.getValue(Integer.class);
+
+                // Skočko je case 3, prelazimo kad currentGame >= 4
+                if (game != null && game >= 4) {
+                    ref.removeEventListener(this);
+
+                    if (!isAdded() || getView() == null) return;
+
+                    Bundle args = new Bundle();
+                    args.putString("MATCH_ID", matchId);
+                    args.putString("PLAYER_ROLE", myRole);
+                    args.putBoolean("IS_TOURNAMENT", isTournament);
+                    args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
+
+                    Navigation.findNavController(requireView())
+                            .navigate(R.id.nav_game, args);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+
+        ref.addValueEventListener(gameAdvanceListener);
+    }
+
+
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (gameAdvanceListener != null) {
+            FirebaseDatabase.getInstance()
+                    .getReference("matches")
+                    .child(matchId)
+                    .child("currentGame")
+                    .removeEventListener(gameAdvanceListener);
+            gameAdvanceListener = null;
+        }
+        if (presenceHelper != null) presenceHelper.detach();   // ← dodato
+    }
+
+
 
     private void renderUiFromState(SkockoGameState state) {
         if (state == null) return;
 
-        //  AKO JE DOŠLO DO PROMENE RUNDE, POTPUNO RESETUJ LOKALNI UNOS I BROJAČ KOLONA!
         if (state.round != lastRenderedRound) {
-            resetLocalAttempt(); // Ovo postavlja currentCol = 0 i puni listu sa null
+            resetLocalAttempt();
             lastRenderedRound = state.round;
         }
 
-        // Ažuriraj rezultate i imena
-        String ja = viewModel.getMyPlayerId();
-        tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ✎" : ""));
-        tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ✎" : ""));
-        tvLeftScore.setText("Bodovi: " + state.p1Score);
-        tvRightScore.setText("Bodovi: " + state.p2Score);
+        if (state.showingRoundResult) {
+            tvRoundResult.setVisibility(View.VISIBLE);
+            tvRoundResult.setText("Runda 1 završena!\nSledeća runda počinje za trenutak...");
+        } else {
+            tvRoundResult.setVisibility(View.GONE);
+        }
 
-        // Očisti kompletnu tabelu pre ponovnog iscrtavanja stanja iz baze
+        int leftScore  = 0;
+        int rightScore = 0;
+        if (state.scores != null) {
+            for (Map.Entry<String, Integer> entry : state.scores.entrySet()) {
+                if (entry.getKey().equals(state.player1Id)) {
+                    leftScore = entry.getValue();
+                } else {
+                    rightScore = entry.getValue();
+                }
+            }
+        }
+
+        tvLeftName.setText("Igrač 1"  + (state.activePlayer == 1 ? " ✎" : ""));
+        tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ✎" : ""));
+        tvLeftScore.setText("Bodovi: "  + leftScore);
+        tvRightScore.setText("Bodovi: " + rightScore);
+
         clearGridGraphics();
 
-        // Iscrtaj sve potvrđene pokušaje iz Firebase-a
         int i = 0;
         for (FirebaseAttempt attempt : state.attempts) {
             if (i >= 7) break;
@@ -116,21 +264,32 @@ public class SkockoFragment extends Fragment {
             i++;
         }
 
-        // Određujemo u kom redu trenutni igrač kuca (ako je on na potezu)
         activeRowInUi = state.isOpponentChance ? 6 : state.attempts.size();
 
         if ("finished".equals(state.status)) {
-            Toast.makeText(getContext(), "Igra Skočko je završena!", Toast.LENGTH_LONG).show();
+            String resultMsg = "Igra Skočko je završena!";
+            if (state.scores != null && state.scores.size() == 2) {
+                int p1 = 0, p2 = 0;
+                for (Map.Entry<String, Integer> entry : state.scores.entrySet()) {
+                    if (entry.getKey().equals(state.player1Id)) p1 = entry.getValue();
+                    else                                         p2 = entry.getValue();
+                }
+                if (p1 > p2)      resultMsg = "Igrač 1 pobjeđuje! (" + p1 + " : " + p2 + ")";
+                else if (p2 > p1) resultMsg = "Igrač 2 pobjeđuje! (" + p1 + " : " + p2 + ")";
+                else              resultMsg = "Nerešeno! (" + p1 + " : " + p2 + ")";
+            }
+            Toast.makeText(getContext(), resultMsg, Toast.LENGTH_LONG).show();
         }
     }
+
+
 
     private void addSymbol(int drawableId) {
         SkockoGameState state = viewModel.getGameState().getValue();
         if (state == null || "finished".equals(state.status)) return;
 
-        // Provera da li sam JA uopšte na potezu
-        boolean amIActive = (state.activePlayer == 1 && "player1".equals(viewModel.getMyPlayerId())) ||
-                (state.activePlayer == 2 && "player2".equals(viewModel.getMyPlayerId()));
+        boolean amIActive = (state.activePlayer == 1 && "player1".equals(viewModel.getMyRole())) ||
+                (state.activePlayer == 2 && "player2".equals(viewModel.getMyRole()));
         if (!amIActive) return;
 
         if (currentCol >= 4 || activeRowInUi >= 7) return;
@@ -152,7 +311,6 @@ public class SkockoFragment extends Fragment {
             Toast.makeText(getContext(), "Popunite sva polja!", Toast.LENGTH_SHORT).show();
             return;
         }
-        // Šaljemo lokalni pokušaj u ViewModel na proveru i slanje u Firebase
         viewModel.submitAttempt(new ArrayList<>(localAttempt));
         resetLocalAttempt();
     }
@@ -163,11 +321,12 @@ public class SkockoFragment extends Fragment {
         currentCol = 0;
     }
 
+
+
     private void clearGridGraphics() {
         for (int i = 0; i < 7; i++) {
             feedbackContainers[i].removeAllViews();
             for (int j = 0; j < 4; j++) {
-                // Ako je to red u kom trenutno igrač kuca lokalno, ne briši mu unos usred kucanja
                 if (i == activeRowInUi && currentCol > 0) continue;
                 cells[i][j].setImageDrawable(null);
             }
@@ -175,10 +334,10 @@ public class SkockoFragment extends Fragment {
     }
 
     private void setupGrid() {
-        float d = getResources().getDisplayMetrics().density;
-        int size = (int) (45 * d);
+        float d    = getResources().getDisplayMetrics().density;
+        int size   = (int) (45 * d);
         int margin = (int) (4 * d);
-        int feedbackWidth = (int) (90 * d);
+        int fbWidth = (int) (90 * d);
 
         for (int i = 0; i < 7; i++) {
             TableRow row = new TableRow(getContext());
@@ -191,7 +350,6 @@ public class SkockoFragment extends Fragment {
                 iv.setLayoutParams(lp);
                 iv.setBackgroundColor(Color.parseColor("#888888"));
                 iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-
                 cells[i][j] = iv;
                 row.addView(iv);
             }
@@ -199,10 +357,9 @@ public class SkockoFragment extends Fragment {
             LinearLayout feedback = new LinearLayout(getContext());
             feedback.setOrientation(LinearLayout.HORIZONTAL);
             feedback.setGravity(Gravity.CENTER);
-
-            TableRow.LayoutParams flp = new TableRow.LayoutParams(feedbackWidth, TableRow.LayoutParams.MATCH_PARENT);
+            TableRow.LayoutParams flp = new TableRow.LayoutParams(fbWidth,
+                    TableRow.LayoutParams.MATCH_PARENT);
             feedback.setLayoutParams(flp);
-
             feedbackContainers[i] = feedback;
             row.addView(feedback);
             tableAttempts.addView(row);
@@ -210,38 +367,36 @@ public class SkockoFragment extends Fragment {
     }
 
     private void setupButtons(View v) {
-        bindSymbol(v, R.id.btnSkocko, R.drawable.ic_skocko);
+        bindSymbol(v, R.id.btnSkocko,  R.drawable.ic_skocko);
         bindSymbol(v, R.id.btnKvadrat, R.drawable.ic_kvadrat);
-        bindSymbol(v, R.id.btnKrug, R.drawable.ic_krug);
-        bindSymbol(v, R.id.btnSrce, R.drawable.ic_srce);
+        bindSymbol(v, R.id.btnKrug,    R.drawable.ic_krug);
+        bindSymbol(v, R.id.btnSrce,    R.drawable.ic_srce);
         bindSymbol(v, R.id.btnTrougao, R.drawable.ic_trougao);
-        bindSymbol(v, R.id.btnZvezda, R.drawable.ic_zvezda);
-
+        bindSymbol(v, R.id.btnZvezda,  R.drawable.ic_zvezda);
         v.findViewById(R.id.btnDelete).setOnClickListener(view -> deleteSymbol());
         v.findViewById(R.id.btnSubmit).setOnClickListener(view -> submitAttempt());
     }
 
     private void bindSymbol(View v, int btnId, int drawableId) {
-        ImageButton btn = v.findViewById(btnId);
-        btn.setOnClickListener(view -> addSymbol(drawableId));
+        ((ImageButton) v.findViewById(btnId)).setOnClickListener(view -> addSymbol(drawableId));
     }
 
     private void showFeedback(int row, int red, int yellow) {
         LinearLayout fb = feedbackContainers[row];
         fb.removeAllViews();
-        for (int i = 0; i < red; i++) fb.addView(makeCircle(Color.RED));
-        for (int i = 0; i < yellow; i++) fb.addView(makeCircle(Color.YELLOW));
+        for (int i = 0; i < red; i++)               fb.addView(makeCircle(Color.RED));
+        for (int i = 0; i < yellow; i++)            fb.addView(makeCircle(Color.YELLOW));
         for (int i = 0; i < 4 - red - yellow; i++) fb.addView(makeCircle(Color.DKGRAY));
     }
 
     private View makeCircle(int color) {
-        View v = new View(getContext());
+        View circle = new View(getContext());
         float d = getResources().getDisplayMetrics().density;
         int size = (int) (12 * d);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
         lp.setMargins(4, 0, 4, 0);
-        v.setLayoutParams(lp);
-        v.setBackgroundColor(color);
-        return v;
+        circle.setLayoutParams(lp);
+        circle.setBackgroundColor(color);
+        return circle;
     }
 }

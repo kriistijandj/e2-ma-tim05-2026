@@ -14,10 +14,19 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.Navigation;
 
 import com.example.slagalica.R;
+import com.example.slagalica.helper.MatchPresenceHelper;
 import com.example.slagalica.models.asocijacije.AsocijacijeGameState;
 import com.example.slagalica.viewmodel.AsocijacijeViewModel;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.util.Map;
 
 public class AsocijacijeFragment extends Fragment {
 
@@ -28,8 +37,19 @@ public class AsocijacijeFragment extends Fragment {
     private TextView tvTimer, tvLeftName, tvRightName, tvLeftScore, tvRightScore;
 
     private boolean isClickPending = false;
-    private boolean hasOpenedFieldInThisTurn = false;
     private AsocijacijeViewModel viewModel;
+
+    private String matchId;
+    private String myRole;
+    private boolean isTournament;
+    private String tournamentId;
+    private boolean isChallenge;
+    private String challengeId;
+
+    private ValueEventListener gameAdvanceListener;
+    private boolean navigationScheduled = false;
+
+    private MatchPresenceHelper presenceHelper;
 
     @Nullable
     @Override
@@ -39,37 +59,56 @@ public class AsocijacijeFragment extends Fragment {
 
         View v = inflater.inflate(R.layout.fragment_asocijacije, container, false);
 
-        tvLeftName = v.findViewById(R.id.tvLeftName);
+        tvLeftName  = v.findViewById(R.id.tvLeftName);
         tvRightName = v.findViewById(R.id.tvRightName);
         tvLeftScore = v.findViewById(R.id.tvLeftScore);
         tvRightScore = v.findViewById(R.id.tvRightScore);
-        tvTimer = v.findViewById(R.id.tvTimer);
-        etGuess = v.findViewById(R.id.etGuess);
-        btnFinal = v.findViewById(R.id.btnFinal);
+        tvTimer     = v.findViewById(R.id.tvTimer);
+        etGuess     = v.findViewById(R.id.etGuess);
+        btnFinal    = v.findViewById(R.id.btnFinal);
 
-        // Inicijalizacija koordinatne mreže dugmića
         setupColumnViews(v, 0, new int[]{R.id.a1, R.id.a2, R.id.a3, R.id.a4}, R.id.colA);
         setupColumnViews(v, 1, new int[]{R.id.b1, R.id.b2, R.id.b3, R.id.b4}, R.id.colB);
         setupColumnViews(v, 2, new int[]{R.id.c1, R.id.c2, R.id.c3, R.id.c4}, R.id.colC);
         setupColumnViews(v, 3, new int[]{R.id.d1, R.id.d2, R.id.d3, R.id.d4}, R.id.colD);
 
-        // Inicijalizacija troslojne arhitekture (ViewModel)
         viewModel = new ViewModelProvider(this).get(AsocijacijeViewModel.class);
 
-        // Podrazumevane vrednosti ako fragment startuje bez lobi sistema (npr. direktno iz koda)
-        String gameId = "test_game_001";
-        String myPlayerId = "player1";
+        matchId = "test_game_001";
+        myRole  = "player1";
 
-        // Prihvatanje sobe i uloge koje je dodelio lobi sistem iz GameFragment-a
         if (getArguments() != null) {
-            gameId = getArguments().getString("ROOM_ID", "test_game_001");
-            myPlayerId = getArguments().getString("PLAYER_ROLE", "player1");
+            matchId = getArguments().getString("MATCH_ID", "test_game_001");
+            myRole  = getArguments().getString("PLAYER_ROLE", "player1");
+            isTournament = getArguments().getBoolean("IS_TOURNAMENT", false);
+            tournamentId = getArguments().getString("TOURNAMENT_ID");
+            isChallenge = getArguments().getBoolean("IS_CHALLENGE", false);
+            challengeId = getArguments().getString("CHALLENGE_ID");
         }
 
-        viewModel.init(gameId, myPlayerId);
-        viewModel.setupInitialGameIfHost();
+        viewModel.init(matchId, myRole);
 
-        // Klik na dugme KONAČNO (Slanje konačnog rešenja)
+        setupPresence();
+
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(),
+                new androidx.activity.OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                .setTitle("Napusti partiju")
+                                .setMessage("Ako izađeš, gubiš partiju i ne dobijaš zvezde. Nastaviti?")
+                                .setPositiveButton("Napusti", (d, w) -> {
+                                    if (presenceHelper != null) presenceHelper.leaveMatch();
+                                    Navigation.findNavController(requireView())
+                                            .navigate(R.id.nav_home);
+                                })
+                                .setNegativeButton("Otkaži", null)
+                                .show();
+                    }
+                }
+        );
+
         btnFinal.setOnClickListener(view -> {
             String guess = etGuess.getText().toString();
             if (guess.trim().isEmpty()) {
@@ -81,35 +120,123 @@ public class AsocijacijeFragment extends Fragment {
             etGuess.setText("");
         });
 
-        // OSLUŠKIVANJE PROMENA (OBSERVERS)
-        viewModel.getTimerText().observe(getViewLifecycleOwner(), text -> tvTimer.setText(text));
+        viewModel.getTimerText().observe(getViewLifecycleOwner(),
+                text -> tvTimer.setText(text));
 
+        viewModel.getGameState().observe(getViewLifecycleOwner(),
+                state -> {
+                    if (state == null) return;
+                    renderScreenFromState(state);
+                });
+
+        // Navigator: čeka da currentGame poraste pre prelaska na sledeću igru
         viewModel.getGameState().observe(getViewLifecycleOwner(), state -> {
-            if (state == null) return;
-            renderScreenFromState(state);
+            if (state != null && "finished".equals(state.status) && !navigationScheduled) {
+                navigationScheduled = true;
+                listenForNextGame();
+            }
         });
 
         return v;
     }
+
+    private void setupPresence() {
+        String myUid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        presenceHelper = new com.example.slagalica.helper.MatchPresenceHelper(matchId, myUid);
+        if (isChallenge && challengeId != null) presenceHelper.setChallengeContext(challengeId);
+        presenceHelper.markPresent();
+
+        FirebaseDatabase.getInstance()
+                .getReference("matches").child(matchId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String p1 = snapshot.child("player1Id").getValue(String.class);
+                        String p2 = snapshot.child("player2Id").getValue(String.class);
+                        String opponentUid = "player1".equals(myRole) ? p2 : p1;
+
+                        if (opponentUid != null && presenceHelper != null) {
+                            presenceHelper.listenForOpponentLeft(opponentUid, () -> {
+                                if (viewModel != null) viewModel.onOpponentLeft();
+                            });
+                        }
+                    }
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {}
+                });
+    }
+
+
+
+    private void listenForNextGame() {
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("matches")
+                .child(matchId)
+                .child("currentGame");
+
+        gameAdvanceListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Integer game = snapshot.getValue(Integer.class);
+
+                // Asocijacije je case 2, dakle prelazimo kad currentGame >= 3
+                if (game != null && game >= 3) {
+                    ref.removeEventListener(this);
+
+                    if (!isAdded() || getView() == null) return;
+
+                    Bundle args = new Bundle();
+                    args.putString("MATCH_ID", matchId);
+                    args.putString("PLAYER_ROLE", myRole);
+                    args.putBoolean("IS_TOURNAMENT", isTournament);
+                    args.putString("TOURNAMENT_ID", tournamentId);
+                    args.putBoolean("IS_CHALLENGE", isChallenge);
+                    args.putString("CHALLENGE_ID", challengeId);
+
+                    Navigation.findNavController(requireView())
+                            .navigate(R.id.nav_game, args);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+
+        ref.addValueEventListener(gameAdvanceListener);
+    }
+
+
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (gameAdvanceListener != null) {
+            FirebaseDatabase.getInstance()
+                    .getReference("matches")
+                    .child(matchId)
+                    .child("currentGame")
+                    .removeEventListener(gameAdvanceListener);
+            gameAdvanceListener = null;
+        }
+        if (presenceHelper != null) presenceHelper.detach();   // ← dodato
+    }
+
+
 
     private void setupColumnViews(View v, int col, int[] fieldIds, int solutionId) {
         for (int i = 0; i < 4; i++) {
             final int rowIdx = i;
             fields[col][i] = v.findViewById(fieldIds[i]);
 
-            // Klik na pojedinačno polje (npr. A1, B3...)
             fields[col][i].setOnClickListener(view -> {
                 if (isClickPending) return;
-
                 isClickPending = true;
-                hasOpenedFieldInThisTurn = true;
                 viewModel.openField(col, rowIdx);
             });
         }
 
         columnSolutions[col] = v.findViewById(solutionId);
 
-        // Klik na rešenje kolone (Slanje rešenja za tu kolonu)
         columnSolutions[col].setOnClickListener(view -> {
             String guess = etGuess.getText().toString();
             if (guess.trim().isEmpty()) {
@@ -117,37 +244,47 @@ public class AsocijacijeFragment extends Fragment {
                 return;
             }
             String colLetter = (col == 0) ? "A" : (col == 1) ? "B" : (col == 2) ? "C" : "D";
-
             isClickPending = true;
             boolean isCorrect = viewModel.submitGuess(colLetter, guess);
             if (isCorrect) Toast.makeText(getContext(), "Kolona " + colLetter + " je rešena!", Toast.LENGTH_SHORT).show();
             etGuess.setText("");
         });
     }
-    private int lastActivePlayer = -1;
+
+
+
     private void renderScreenFromState(AsocijacijeGameState state) {
-        // 1. Ažuriranje rezultata i zaglavlja
         isClickPending = false;
-        if (state.activePlayer != lastActivePlayer) {
-            hasOpenedFieldInThisTurn = false;
-            lastActivePlayer = state.activePlayer;
-        }
-        tvLeftName.setText("Igrač 1" + (state.activePlayer == 1 ? " ★" : ""));
+
+        tvLeftName.setText("Igrač 1"  + (state.activePlayer == 1 ? " ★" : ""));
         tvRightName.setText("Igrač 2" + (state.activePlayer == 2 ? " ★" : ""));
-        tvLeftScore.setText("Bodovi: " + state.p1Score);
-        tvRightScore.setText("Bodovi: " + state.p2Score);
 
+        int p1Score = 0;
+        int p2Score = 0;
 
-        // Provera da li sam ja trenutno aktivni igrač
-        boolean amIActive = (state.activePlayer == 1 && "player1".equals(viewModel.getMyPlayerId())) ||
-                (state.activePlayer == 2 && "player2".equals(viewModel.getMyPlayerId()));
+        if (state.scores != null) {
+            if (state.scores.containsKey(state.player1Id)) {
+                Integer s1 = state.scores.get(state.player1Id);
+                p1Score = s1 != null ? s1 : 0;
+            }
+            for (Map.Entry<String, Integer> entry : state.scores.entrySet()) {
+                if (!entry.getKey().equals(state.player1Id)) {
+                    p2Score = entry.getValue() != null ? entry.getValue() : 0;
+                    break;
+                }
+            }
+        }
 
-        // 2. Iscrtavanje matrice polja i kolona na osnovu podataka iz baze
+        tvLeftScore.setText("Bodovi: "  + p1Score);
+        tvRightScore.setText("Bodovi: " + p2Score);
+
+        boolean amIActive = (state.activePlayer == 1 && "player1".equals(viewModel.getMyRole())) ||
+                (state.activePlayer == 2 && "player2".equals(viewModel.getMyRole()));
+
         for (int c = 0; c < 4; c++) {
             String colKey = (c == 0) ? "A" : (c == 1) ? "B" : (c == 2) ? "C" : "D";
             boolean isColResolved = Boolean.TRUE.equals(state.columnResolved.get(colKey));
 
-            // Iscrtaj pojedinačna polja u koloni
             for (int r = 0; r < 4; r++) {
                 boolean isFieldOpened = state.openedFields.get(c).get(r);
                 if (isFieldOpened) {
@@ -156,50 +293,50 @@ public class AsocijacijeFragment extends Fragment {
                     fields[c][r].setTextColor(Color.BLACK);
                     fields[c][r].setEnabled(false);
                 } else {
-                    // Ako polje nije otvoreno, ponovo ga vrati u podrazumevano stanje (za novu rundu)
                     fields[c][r].setText(colKey + (r + 1));
-                    fields[c][r].setBackgroundColor(Color.parseColor("#3F51B5")); // Plava boja Slagalice
+                    fields[c][r].setBackgroundColor(Color.parseColor("#3F51B5"));
                     fields[c][r].setTextColor(Color.WHITE);
-
-                    // Onemogući klik ako nisam na potezu ILI ako sam u režimu gde smem samo pogađati rešenja
-                    fields[c][r].setEnabled(amIActive && !state.isGuessOnlyMode && !hasOpenedFieldInThisTurn);
+                    fields[c][r].setEnabled(amIActive && !state.isGuessOnlyMode);
                 }
             }
 
-            // Iscrtaj dugme za rešenje kolone
             if (isColResolved) {
                 columnSolutions[c].setText(viewModel.getColumnSolutionText(c));
-                columnSolutions[c].setBackgroundColor(Color.parseColor("#4CAF50")); // Zelena
+                columnSolutions[c].setBackgroundColor(Color.parseColor("#4CAF50"));
                 columnSolutions[c].setTextColor(Color.WHITE);
                 columnSolutions[c].setEnabled(false);
             } else {
                 columnSolutions[c].setText("KOLONA " + colKey);
-                columnSolutions[c].setBackgroundColor(Color.parseColor("#FFA000")); // Narandžasta
+                columnSolutions[c].setBackgroundColor(Color.parseColor("#FFA000"));
                 columnSolutions[c].setTextColor(Color.WHITE);
                 columnSolutions[c].setEnabled(amIActive);
             }
         }
 
-        // 3. Iscrtavanje dugmeta za Konačno rešenje
         if (state.finalResolved) {
             btnFinal.setText(viewModel.getFinalSolutionText());
-            btnFinal.setBackgroundColor(Color.parseColor("#2E7D32")); // Tamno zelena
+            btnFinal.setBackgroundColor(Color.parseColor("#2E7D32"));
             btnFinal.setTextColor(Color.WHITE);
             btnFinal.setEnabled(false);
             etGuess.setEnabled(false);
         } else {
             btnFinal.setText("KONAČNO REŠENJE");
-            btnFinal.setBackgroundColor(Color.parseColor("#D32F2F")); // Crvena
+            btnFinal.setBackgroundColor(Color.parseColor("#D32F2F"));
             btnFinal.setTextColor(Color.WHITE);
             btnFinal.setEnabled(amIActive);
             etGuess.setEnabled(amIActive);
         }
 
-        // Ako je cela igra gotova, blokiraj unos
         if ("finished".equals(state.status)) {
             Toast.makeText(getContext(), "Igra Asocijacije je završena!", Toast.LENGTH_LONG).show();
             etGuess.setEnabled(false);
             btnFinal.setEnabled(false);
+            for (int c = 0; c < 4; c++) {
+                columnSolutions[c].setEnabled(false);
+                for (int r = 0; r < 4; r++) {
+                    fields[c][r].setEnabled(false);
+                }
+            }
         }
     }
 }

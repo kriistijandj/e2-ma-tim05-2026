@@ -83,7 +83,16 @@
             android:textSize="20sp"
             android:layout_marginBottom="16dp"
             app:cornerRadius="20dp"/>
-
+        <Button
+            android:id="@+id/btnStartTournament"
+            style="@style/AuthButton"
+            android:backgroundTint="#FF9800"
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:text="Igraj TURNIR"
+            android:textSize="20sp"
+            android:layout_marginBottom="16dp"
+            app:cornerRadius="20dp"/>
         <GridLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -105,6 +114,15 @@
                 android:layout_height="80dp">
                 <LinearLayout style="@style/GameMenuContent">
                     <TextView android:text="Podešavanja" style="@style/GameMenuText"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardFriends"
+                style="@style/GameMenuCard"
+                android:layout_height="80dp">
+                <LinearLayout style="@style/GameMenuContent">
+                    <TextView android:text="Prijatelji" style="@style/GameMenuText"/>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

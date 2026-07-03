@@ -126,6 +126,20 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.cardview.widget.CardView>
 
+    <TextView
+        android:id="@+id/tvRoundResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:gravity="center"
+        android:padding="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="Runda 1 završena!"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/textDark"
+        android:background="@color/cardBackground"/>
+
     <TableLayout
         android:id="@+id/tableAttempts"
         android:layout_width="match_parent"
