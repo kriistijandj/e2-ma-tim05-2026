@@ -90,10 +90,23 @@ public class FriendRepository {
                             m.league = doc.getLong("league") != null ? doc.getLong("league").intValue() : 0;
                             m.avatarId = doc.getLong("avatarId") != null ? doc.getLong("avatarId").intValue() : 0;
                             m.online = Boolean.TRUE.equals(doc.getBoolean("online"));
-                            m.inMatch = Boolean.TRUE.equals(doc.getBoolean("inMatch"));
-                            synchronized (result) { result.add(m); }
+
+                            // inMatch se sada čita iz RTDB-a, ne iz Firestore-a
+                            rtdb.child("players").child(uid).child("inMatch")
+                                    .get()
+                                    .addOnSuccessListener(snap -> {
+                                        m.inMatch = Boolean.TRUE.equals(snap.getValue(Boolean.class));
+                                        synchronized (result) { result.add(m); }
+                                        if (remaining.decrementAndGet() == 0) callback.onLoaded(result);
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        m.inMatch = false;
+                                        synchronized (result) { result.add(m); }
+                                        if (remaining.decrementAndGet() == 0) callback.onLoaded(result);
+                                    });
+                        } else {
+                            if (remaining.decrementAndGet() == 0) callback.onLoaded(result);
                         }
-                        if (remaining.decrementAndGet() == 0) callback.onLoaded(result);
                     })
                     .addOnFailureListener(e -> {
                         if (remaining.decrementAndGet() == 0) callback.onLoaded(result);
@@ -174,8 +187,33 @@ public class FriendRepository {
         invite.put("timestamp", ServerValue.TIMESTAMP);
 
         rtdb.child("gameInvites").child(friendUid).setValue(invite)
-                .addOnSuccessListener(v -> callback.onResult(true, "Poziv poslat"))
+                .addOnSuccessListener(v -> {
+                    sendInviteNotificationIfOffline(myUsername, friendUid);
+                    callback.onResult(true, "Poziv poslat");
+                })
                 .addOnFailureListener(e -> callback.onResult(false, e.getMessage()));
+    }
+
+    // Isti obrazac kao ChatRepository.sendMessage(): sistemska notifikacija se upisuje
+    // u Firestore SAMO ako korisnik trenutno nije online (isti "online" flag koji se
+    // ažurira u HomeActivity kad je korisnik ulogovan/u aplikaciji).
+    private void sendInviteNotificationIfOffline(String myUsername, String friendUid) {
+        fs.collection("users").document(friendUid).get()
+                .addOnSuccessListener(doc -> {
+                    boolean online = Boolean.TRUE.equals(doc.getBoolean("online"));
+                    if (online) return; // korisnik je u aplikaciji, dijalog za poziv će iskočiti uživo
+
+                    Map<String, Object> notif = new HashMap<>();
+                    notif.put("title", myUsername + " (poziv za igru)");
+                    notif.put("message", myUsername + " te poziva na prijateljsku partiju!");
+                    notif.put("timestamp", System.currentTimeMillis());
+                    notif.put("isRead", false);
+                    notif.put("type", "INVITE");
+
+                    fs.collection("users").document(friendUid)
+                            .collection("notifications")
+                            .add(notif);
+                });
     }
 
     public void cancelGameInvite(String friendUid) {
@@ -229,8 +267,8 @@ public class FriendRepository {
         matchData.put("currentGame", 0);
         matchData.put("createdAt", ServerValue.TIMESTAMP);
         Map<String, Object> scores = new HashMap<>();
-        scores.put("player1", 0);
-        scores.put("player2", 0);
+        scores.put(inviterId, 0);
+        scores.put(myUid, 0);
         matchData.put("scores", scores);
 
         rtdb.child("matches").child(matchId).setValue(matchData)
@@ -240,8 +278,8 @@ public class FriendRepository {
                     update.put("matchId", matchId);
                     rtdb.child("gameInvites").child(myUid).updateChildren(update);
 
-                    fs.collection("users").document(inviterId).update("inMatch", true);
-                    fs.collection("users").document(myUid).update("inMatch", true);
+                    rtdb.child("players").child(inviterId).child("inMatch").setValue(true);
+                    rtdb.child("players").child(myUid).child("inMatch").setValue(true);
 
                     callback.onMatchCreated(matchId, "player2");
                 })

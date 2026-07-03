@@ -42,6 +42,8 @@ public class HomeActivity extends AppCompatActivity {
     public static final String REWARD_CHANNEL_ID = "reward_channel";
     public static final String OTHER_CHANNEL_ID = "other_channel";
 
+    public static final String INVITE_CHANNEL_ID = "invite_channel";
+
     private NavController navController;
     private DrawerLayout drawer;
     private AppBarConfiguration appBarConfiguration;
@@ -305,12 +307,15 @@ public class HomeActivity extends AppCompatActivity {
                     REWARD_CHANNEL_ID, "Reward notifications", NotificationManager.IMPORTANCE_HIGH);
             NotificationChannel other = new NotificationChannel(
                     OTHER_CHANNEL_ID, "Other notifications", NotificationManager.IMPORTANCE_DEFAULT);
+            NotificationChannel invite = new NotificationChannel(
+                    INVITE_CHANNEL_ID, "Game invites", NotificationManager.IMPORTANCE_HIGH);
 
             NotificationManager manager = getSystemService(NotificationManager.class);
             manager.createNotificationChannel(chat);
             manager.createNotificationChannel(rank);
             manager.createNotificationChannel(reward);
             manager.createNotificationChannel(other);
+            manager.createNotificationChannel(invite);
 
             android.util.Log.d("FIREBASE_NOTIF", "Kanali su uspešno registrovani u HomeActivity!");
         }
@@ -351,6 +356,7 @@ public class HomeActivity extends AppCompatActivity {
                         String channelId;
                         if ("CHAT".equals(notif.getType())) channelId = CHAT_CHANNEL_ID;
                         else if ("RANK".equals(notif.getType())) channelId = RANK_CHANNEL_ID;
+                        else if ("INVITE".equals(notif.getType())) channelId = INVITE_CHANNEL_ID;
                         else if ("REWARD".equals(notif.getType()) || "REWARDS".equals(notif.getType())) channelId = REWARD_CHANNEL_ID;
                         else channelId = OTHER_CHANNEL_ID;
 

@@ -19,7 +19,9 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="12dp"
         android:layout_marginBottom="8dp"
-        android:text="Postavi izazov"/>
+        android:text="Postavi izazov"
+        android:backgroundTint="#F2AF14"
+        android:textColor="#FFFFFF"/>
 
     <TextView
         android:id="@+id/tvNoChallenges"

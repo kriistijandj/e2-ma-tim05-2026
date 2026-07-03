@@ -37,6 +37,8 @@
         android:id="@+id/btnResultHome"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Nazad na početnu"/>
+        android:text="Nazad na početnu"
+        android:backgroundTint="#F2AF14"
+        android:textColor="#FFFFFF"/>
 
 </LinearLayout>
