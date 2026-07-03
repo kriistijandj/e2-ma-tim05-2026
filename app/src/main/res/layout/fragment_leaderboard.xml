@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://tools.android.com/apk/res/tools"
+    xmlns:tools="http://tools.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#121212"
-    android:padding="16dp"
+    android:background="@color/AuthBackground"
+    android:padding="20dp"
     tools:context=".fragments.LeaderboardFragment">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Rang Lista"
-        android:textColor="#F2AF14"
-        android:textSize="24sp"
+        android:textColor="@color/white"
+        android:textSize="28sp"
         android:textStyle="bold"
         android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="20dp"/>
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayoutCycle"
@@ -27,10 +28,12 @@
         app:tabTextColor="#90A4AE"
         app:tabSelectedTextColor="#F2AF14"
         app:tabIndicatorColor="#F2AF14">
+
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Nedeljna" />
+
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -54,6 +57,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:paddingTop="8dp"
         tools:listitem="@layout/item_leaderboard_player"/>
 
 </LinearLayout>
