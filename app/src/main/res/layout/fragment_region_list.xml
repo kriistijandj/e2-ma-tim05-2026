@@ -19,7 +19,9 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="12dp"
         android:layout_marginBottom="8dp"
-        android:text="Izazovi"/>
+        android:text="Izazovi"
+        android:backgroundTint="#F2AF14"
+        android:textColor="#FFFFFF"/>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvRegions"

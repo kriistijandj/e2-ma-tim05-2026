@@ -123,6 +123,8 @@ public class SpojniceFragment extends Fragment {
 
     private boolean opponentLeft = false;
 
+    private boolean isFriendly = false;
+
     public SpojniceFragment() {}
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -208,6 +210,8 @@ public class SpojniceFragment extends Fragment {
 
         // ── Korak 1: učitaj početne skorove iz meča, pa tek pokreni igru ─────
         loadMatchScores();
+
+
 
         setupPresence();
 
@@ -329,6 +333,19 @@ public class SpojniceFragment extends Fragment {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void loadMatchScores() {
+
+        matchRef.child("isFriendly").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Boolean value = snapshot.getValue(Boolean.class);
+                isFriendly = Boolean.TRUE.equals(value);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+            }
+        });
+
         matchRef.child("scores").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -754,7 +771,15 @@ public class SpojniceFragment extends Fragment {
                                 });
             } else {
                 // Regularni mod ažurira standardne zvezdice, tokene, statistike i dnevne misije
-                applyStarsTokensAndStats(myUid, iWon, myFinalScore, myConnectedCorrect, myConnectedTotal);
+                if (!isFriendly) {
+                    applyStarsTokensAndStats(
+                            myUid,
+                            iWon,
+                            myFinalScore,
+                            myConnectedCorrect,
+                            myConnectedTotal
+                    );
+                }
             }
 
             // ── ZAJEDNIČKO KORISNIČKO INTERFEJS OSVEŽAVANJE (Radi i za turnir) ──
@@ -772,9 +797,9 @@ public class SpojniceFragment extends Fragment {
                 String p2Label = "player2".equals(myRole) ? "Ti" : "Protivnik";
 
                 if (scorePlayer1 > scorePlayer2)
-                    tvStatus.setText("🏆 " + p1Label + " si pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+                    tvStatus.setText("🏆 Pobednik: " + p1Label + "\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
                 else if (scorePlayer2 > scorePlayer1)
-                    tvStatus.setText("🏆 " + p2Label + " je pobedio!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
+                    tvStatus.setText("🏆 Pobednik: " + p2Label + "\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
                 else
                     tvStatus.setText("Nerešeno!\n" + p1Label + ": " + scorePlayer1 + "\n" + p2Label + ": " + scorePlayer2);
             }

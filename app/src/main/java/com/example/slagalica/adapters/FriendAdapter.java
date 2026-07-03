@@ -64,7 +64,7 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.VH> {
         dot.setColor(f.online ? 0xFF4CAF50 : 0xFF9E9E9E);
         h.vOnlineDot.setBackground(dot);
 
-        if (f.online && !f.inMatch) {
+        if (!f.inMatch) {
             h.btnPlay.setVisibility(View.VISIBLE);
             h.btnPlay.setOnClickListener(v -> listener.onPlay(f));
         } else {

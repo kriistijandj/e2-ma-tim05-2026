@@ -60,7 +60,9 @@
             android:layout_width="wrap_content"
             android:layout_height="36dp"
             android:text="Pridruži se"
-            android:textSize="12sp"/>
+            android:textSize="12sp"
+            android:backgroundTint="#F2AF14"
+            android:textColor="#FFFFFF"/>
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>
