@@ -50,8 +50,6 @@ public class DailyMissionsFragment extends Fragment {
 
         // Akcija za preuzimanje glavnog bonusa (Zahtev b)
         btnClaimBonus.setOnClickListener(v -> claimUltimateBonus());
-
-        // ⚠️ SIMULACIJA ZA TESTIRANJE (Zamenjuje rad tvog kolege dok ne završi)
         btnSimulateMission.setOnClickListener(v -> simulateColleagueAction());
 
         return view;
@@ -160,12 +158,6 @@ public class DailyMissionsFragment extends Fragment {
         });
     }
 
-    // =================================================================
-    // ⚠️ KAKO OVO POMAŽE DA RADIŠ BEZ KOLEGE:
-    // Ova metoda simulira da je okinut događaj iz drugog dela aplikacije.
-    // Kada klikneš na narandžasto dugme, promeniće se stanje u bazi,
-    // a tvoj SnapshotListener će odmah sam odreagovati i štiklirati UI!
-    // =================================================================
     private void simulateColleagueAction() {
         DocumentReference userRef = db.collection("users").document(currentUid);
 

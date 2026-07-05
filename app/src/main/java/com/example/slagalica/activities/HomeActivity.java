@@ -22,6 +22,7 @@ import androidx.navigation.ui.NavigationUI;
 import androidx.navigation.NavOptions;
 
 import com.example.slagalica.R;
+import com.example.slagalica.helper.DateHelper;
 import com.example.slagalica.helper.NotificationHelper;
 import com.example.slagalica.repository.FriendRepository;
 import com.google.android.material.navigation.NavigationView;
@@ -32,8 +33,11 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+
+import java.util.Calendar;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -43,7 +47,7 @@ public class HomeActivity extends AppCompatActivity {
     public static final String OTHER_CHANNEL_ID = "other_channel";
 
     public static final String INVITE_CHANNEL_ID = "invite_channel";
-
+    private boolean isCheckingRewards = false;
     private NavController navController;
     private DrawerLayout drawer;
     private AppBarConfiguration appBarConfiguration;
@@ -65,7 +69,7 @@ public class HomeActivity extends AppCompatActivity {
         setContentView(R.layout.activity_home);
         createNotificationChannels();
         startNotificationsListener();
-
+        checkPendingRewards();
         drawer = findViewById(R.id.drawer_layout);
         NavigationView navView = findViewById(R.id.nav_view);
         Toolbar toolbar = findViewById(R.id.toolbar);
@@ -134,7 +138,90 @@ public class HomeActivity extends AppCompatActivity {
         FirebaseAuth.getInstance().addAuthStateListener(authStateListener);
     }
 
-    // ─── Invite listener ──────────────────────────────────────────────────────
+    private void checkPendingRewards() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) return;
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String lastWeek = getPreviousWeeklyCycleId(); // Metoda ispod
+
+        db.collection("users").document(user.getUid()).get().addOnSuccessListener(userDoc -> {
+            String lastClaimed = userDoc.getString("lastClaimedWeeklyCycle");
+
+            if (lastClaimed == null || !lastClaimed.equals(lastWeek)) {
+                // IGRAČ JE ZASLUŽIO NAGRADU ZA PROŠLI CIKLUS
+                calculateAndAwardTokens(user.getUid(), lastWeek);
+            }
+        });
+    }
+
+    private void calculateAndAwardTokens(String uid, String cycleId) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // 1. Dobijamo broj zvezda našeg igrača iz tog ciklusa
+        db.collection("users").document(uid).get().addOnSuccessListener(doc -> {
+            long myStars = doc.getLong("weeklyStars") != null ? doc.getLong("weeklyStars") : 0;
+
+            // 2. Koliko igrača ima više zvezda od mene? (To je moja pozicija)
+            db.collection("users")
+                    .whereEqualTo("lastWeeklyCycle", cycleId)
+                    .whereGreaterThan("weeklyStars", myStars)
+                    .get()
+                    .addOnSuccessListener(querySnap -> {
+                        int rank = querySnap.size() + 1; // +1 jer smo mi na poziciji posle njih
+                        int tokens = calculateTokensFromRank(rank);
+
+                        if (tokens > 0) {
+                            applyReward(uid, tokens, cycleId);
+                        } else {
+                            // Ako nije u top 10, samo obeleži da je preuzeto
+                            db.collection("users").document(uid).update("lastClaimedWeeklyCycle", cycleId);
+                        }
+                    });
+        });
+    }
+
+    private int calculateTokensFromRank(int rank) {
+        if (rank == 1) return 5;
+        if (rank == 2) return 3;
+        if (rank == 3) return 2;
+        if (rank >= 4 && rank <= 10) return 1;
+        return 0;
+    }
+    private String getPreviousWeeklyCycleId() {
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.WEEK_OF_YEAR, -1); // Vrati se jednu nedelju nazad
+        return cal.get(Calendar.YEAR) + "_W" + cal.get(Calendar.WEEK_OF_YEAR);
+    }
+    private void applyReward(String uid, int tokens, String cycleId) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.runTransaction(transaction -> {
+            DocumentReference userRef = db.collection("users").document(uid);
+
+            // Dodaj tokene
+            transaction.update(userRef, "tokens", com.google.firebase.firestore.FieldValue.increment(tokens));
+            // Obeleži ciklus kao preuzet
+            transaction.update(userRef, "lastClaimedWeeklyCycle", cycleId);
+
+            return null;
+        }).addOnSuccessListener(aVoid -> {
+            showRewardDialog(String.valueOf(tokens)); // Prikazujemo animaciju/dialog
+        });
+    }
+    private void showRewardDialog(String cycleId) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Nagrada za rang listu!");
+        builder.setMessage("Završio se nedeljni ciklus. Proveravamo tvoju poziciju...");
+        builder.setCancelable(false);
+        builder.setPositiveButton("OK", (d, w) -> {
+            // Označi kao preuzeto da ne iskače ponovo
+            FirebaseFirestore.getInstance().collection("users")
+                    .document(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                    .update("lastClaimedWeeklyCycle", cycleId);
+            d.dismiss();
+        });
+        builder.show();
+    }
 
     private void startInviteListener(String uid) {
         stopInviteListener();

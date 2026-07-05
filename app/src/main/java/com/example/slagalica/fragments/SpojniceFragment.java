@@ -1014,22 +1014,16 @@ public class SpojniceFragment extends Fragment {
             updates.put("lastMonthlyCycle", currentMonthlyId);
 
             // --- DNEVNE MISIJE ---
+            // --- DNEVNE MISIJE ---
             Boolean alreadyWonToday = snapshot.getBoolean("dailyMissions.wonGame");
-            if (won) {
-                if (alreadyWonToday == null || !alreadyWonToday) {
-                    updates.put("dailyMissions.wonGame", true);
-                    remainingStars += 3;
-                    if (remainingStars >= STARS_PER_TOKEN) {
-                        newTokens += (remainingStars / STARS_PER_TOKEN);
-                        remainingStars = remainingStars % STARS_PER_TOKEN;
-                    }
-                    updates.put("stars", remainingStars);
-                    updates.put("tokens", newTokens);
+            if (won && (alreadyWonToday == null || !alreadyWonToday)) {
+                updates.put("dailyMissions.wonGame", true);
 
-                    // APSOLUTNO BEZBEDNO UVEĆANJE: Koristimo ponovo increment za bonus misije
-                    updates.put("weeklyStars", FieldValue.increment(3));
-                    updates.put("monthlyStars", FieldValue.increment(3));
-                }
+                // BONUS: Samo inkrementiraj, Firestore će to dodati na trenutno stanje
+                // koje je već izračunato u ostatku transakcije.
+                updates.put("stars", FieldValue.increment(3));
+                updates.put("weeklyStars", FieldValue.increment(3));
+                updates.put("monthlyStars", FieldValue.increment(3));
             }
 
             updates.put("stats.spojnice.connected", FieldValue.increment(connectedCorrect));
