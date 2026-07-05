@@ -127,10 +127,6 @@ public class SpojniceFragment extends Fragment {
 
     public SpojniceFragment() {}
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // LIFECYCLE
-    // ─────────────────────────────────────────────────────────────────────────
-
 // Unutar onCreateView ili onCreate dodaj inicijalizaciju:
 
     @Override
@@ -207,14 +203,8 @@ public class SpojniceFragment extends Fragment {
                 .getReference("matches").child(matchId);
 
         setupClickListeners();
-
-        // ── Korak 1: učitaj početne skorove iz meča, pa tek pokreni igru ─────
         loadMatchScores();
-
-
-
         setupPresence();
-
         requireActivity().getOnBackPressedDispatcher().addCallback(
                 getViewLifecycleOwner(),
                 new androidx.activity.OnBackPressedCallback(true) {
@@ -237,7 +227,6 @@ public class SpojniceFragment extends Fragment {
 
         return view;
     }
-
     private boolean isHost() {
         return "player1".equals(myRole) || (opponentLeft && "player2".equals(myRole));
     }
@@ -281,14 +270,6 @@ public class SpojniceFragment extends Fragment {
         opponentLeft = true;
         autoSkipIfOpponentAbsent();
     }
-
-    /**
-     * Preskače fazu runde koja pripada protivniku koji je napustio partiju,
-     * umesto da se zauvijek čeka njegov (nepostojeći) potez. Poziva se i odmah
-     * po detekciji odlaska, i pri svakoj kasnijoj promeni faze/runde (npr. na
-     * početku runde 2), jer se Firebase event o prisustvu okine samo jednom, a
-     * preostali igrač treba da može da rešava igru sve vreme u obe runde.
-     */
     private void autoSkipIfOpponentAbsent() {
         if (!opponentLeft) return;
 
@@ -308,8 +289,6 @@ public class SpojniceFragment extends Fragment {
             gameRef.child("rounds").child(String.valueOf(currentRound))
                     .child("phase").setValue("done");
         }
-        // Ako sam JA trenutno na potezu (active ili fixing), ništa ne diram —
-        // samo nastavljam da igram normalno.
     }
 
     @Override
@@ -388,11 +367,6 @@ public class SpojniceFragment extends Fragment {
             startRound(0);
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // DA LI SMIJE KLIKNUTI
-    // ─────────────────────────────────────────────────────────────────────────
-
     private boolean canIClick() {
         if ("active".equals(myPhase)) {
             return (currentRound == 0 && "player1".equals(myRole))
@@ -404,11 +378,6 @@ public class SpojniceFragment extends Fragment {
         }
         return false;
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // POKRETANJE RUNDE
-    // ─────────────────────────────────────────────────────────────────────────
-
     private void startRound(int round) {
         currentRound       = round;
         myPhase            = "active";
@@ -755,9 +724,6 @@ public class SpojniceFragment extends Fragment {
                 // Turnirski mod koristi posebna pravila nagrađivanja
                 handleTournamentEnd(myUid, iWon, myFinalScore);
             } else if (isChallengeMatch && challengeMatchId != null) {
-                // Izazov: samo predajemo konačan rezultat solo partije - obračun zvezdica/tokena
-                // (75%/nazad-uloženo) radi se tek kad svi učesnici izazova završe, u
-                // ChallengeRepository, a ne ovde po analogiji sa normalnim mečom.
                 new com.example.slagalica.repository.ChallengeRepository()
                         .submitChallengeResult(challengeMatchId, myUid, myFinalScore,
                                 new com.example.slagalica.repository.ChallengeRepository.OnChallengeActionListener() {
@@ -770,8 +736,12 @@ public class SpojniceFragment extends Fragment {
                                     }
                                 });
             } else {
-                // Regularni mod ažurira standardne zvezdice, tokene, statistike i dnevne misije
-                if (!isFriendly) {
+                // Regularni mod ili prijateljski mod
+                if (isFriendly) {
+                    // SAMO OVO DODAJEMO: Logika za dnevnu misiju prijateljske partije
+                    handleFriendlyMission(myUid);
+                } else {
+                    // Regularni mod ažurira standardne zvezdice, tokene, statistike i dnevne misije
                     applyStarsTokensAndStats(
                             myUid,
                             iWon,
@@ -788,9 +758,6 @@ public class SpojniceFragment extends Fragment {
             if (tvKriterijum != null) tvKriterijum.setText("");
 
             if (isChallengeMatch) {
-                // Solo partija u izazovu - nema "protivnika" za poređenje, samo prikazujemo
-                // sopstveni konačan rezultat; rangiranje u odnosu na ostale učesnike se
-                // vidi na ekranu rezultata izazova.
                 tvStatus.setText("Partija u izazovu završena!\nTvoj rezultat: " + myFinalScore + " poena.");
             } else {
                 String p1Label = "player1".equals(myRole) ? "Ti" : "Protivnik";
@@ -808,9 +775,30 @@ public class SpojniceFragment extends Fragment {
             updateScoreUI();
         }
     }
+    private void handleFriendlyMission(String uid) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference userRef = db.collection("users").document(uid);
+
+        db.runTransaction(transaction -> {
+            DocumentSnapshot snapshot = transaction.get(userRef);
+            Boolean alreadyPlayed = snapshot.getBoolean("dailyMissions.playedFriendly");
+
+            if (alreadyPlayed == null || !alreadyPlayed) {
+                // Ažuriraj misiju
+                transaction.update(userRef, "dailyMissions.playedFriendly", true);
+
+                // Dodaj 3 zvezde za misiju
+                transaction.update(userRef, "stars", FieldValue.increment(3));
+                transaction.update(userRef, "weeklyStars", FieldValue.increment(3));
+                transaction.update(userRef, "monthlyStars", FieldValue.increment(3));
+            }
+            return null;
+        }).addOnFailureListener(e ->
+                Log.e("FriendlyMission", "Greška pri upisu misije: " + e.getMessage())
+        );
+    }
     private void handleTournamentEnd(String uid, boolean won, int score) {
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
-        // Direktno gađamo čvor gde je upisana faza tog konkretnog meča
         DatabaseReference phaseRef = FirebaseDatabase.getInstance().getReference("matches")
                 .child(matchId).child("tournamentPhase");
 
@@ -823,8 +811,22 @@ public class SpojniceFragment extends Fragment {
                 final String currentPhase = phase;
                 DocumentReference userRef = firestore.collection("users").document(uid);
 
+
+
                 firestore.runTransaction((Transaction.Function<Void>) transaction -> {
                     DocumentSnapshot userSnap = transaction.get(userRef);
+
+                    Boolean alreadyWonTournament = userSnap.getBoolean("dailyMissions.wonTournamentGame");
+
+                    if (won && (alreadyWonTournament == null || !alreadyWonTournament)) {
+                        // 1. Obeleži da je misija "Pobedi partiju u turniru" ispunjena
+                        transaction.update(userRef, "dailyMissions.wonTournamentGame", true);
+
+                        // 2. Dodaj 3 zvezde za ispunjenu misiju
+                        transaction.update(userRef, "stars", FieldValue.increment(3));
+                        transaction.update(userRef, "weeklyStars", FieldValue.increment(3));
+                        transaction.update(userRef, "monthlyStars", FieldValue.increment(3));
+                    }
 
                     // Računanje zvezda iz bodova partije (40 bodova = 1 zvezda)
                     int starsFromScore = score / POINTS_PER_STAR;
@@ -1012,25 +1014,18 @@ public class SpojniceFragment extends Fragment {
             updates.put("lastMonthlyCycle", currentMonthlyId);
 
             // --- DNEVNE MISIJE ---
+            // --- DNEVNE MISIJE ---
             Boolean alreadyWonToday = snapshot.getBoolean("dailyMissions.wonGame");
-            if (won) {
-                if (alreadyWonToday == null || !alreadyWonToday) {
-                    updates.put("dailyMissions.wonGame", true);
-                    remainingStars += 3;
-                    if (remainingStars >= STARS_PER_TOKEN) {
-                        newTokens += (remainingStars / STARS_PER_TOKEN);
-                        remainingStars = remainingStars % STARS_PER_TOKEN;
-                    }
-                    updates.put("stars", remainingStars);
-                    updates.put("tokens", newTokens);
+            if (won && (alreadyWonToday == null || !alreadyWonToday)) {
+                updates.put("dailyMissions.wonGame", true);
 
-                    // APSOLUTNO BEZBEDNO UVEĆANJE: Koristimo ponovo increment za bonus misije
-                    updates.put("weeklyStars", FieldValue.increment(3));
-                    updates.put("monthlyStars", FieldValue.increment(3));
-                }
+                // BONUS: Samo inkrementiraj, Firestore će to dodati na trenutno stanje
+                // koje je već izračunato u ostatku transakcije.
+                updates.put("stars", FieldValue.increment(3));
+                updates.put("weeklyStars", FieldValue.increment(3));
+                updates.put("monthlyStars", FieldValue.increment(3));
             }
 
-            // --- STATISTIKA ---
             updates.put("stats.spojnice.connected", FieldValue.increment(connectedCorrect));
             updates.put("stats.spojnice.total",     FieldValue.increment(connectedTotal));
             updates.put("stats.spojnice.wins",      FieldValue.increment(won ? 1 : 0));
@@ -1049,12 +1044,9 @@ public class SpojniceFragment extends Fragment {
             }
         });
     }
-
-
     private void setButtonTint(MaterialButton btn, int color) {
         btn.setBackgroundTintList(ColorStateList.valueOf(color));
     }
-
     private void updateScoreUI() {
         if ("player1".equals(myRole)) {
             tvScorePlayer1.setText("Ti: " + scorePlayer1);

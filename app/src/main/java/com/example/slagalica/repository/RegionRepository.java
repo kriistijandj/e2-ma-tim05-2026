@@ -46,69 +46,48 @@ public class RegionRepository {
     }
 
     public void loadRegionList(RegionListCallback callback) {
-        String cycleId = getCurrentCycleId();
         List<RegionModel> result = new ArrayList<>();
         for (String name : SerbiaRegions.ALL) {
             result.add(new RegionModel(name));
         }
 
-        // +1 for the users query that counts registered players per region
-        final int[] pending = {SerbiaRegions.ALL.size() + 1};
-
+        // Zbir zvezda i broj igrača po regionu računamo direktno iz kolekcije
+        // "users" — svaki igrač nosi svoje zvezde u polju "stars".
         db.collection("users").whereEqualTo("isEnabled", true).get().addOnCompleteListener(usersTask -> {
             if (usersTask.isSuccessful() && usersTask.getResult() != null) {
                 Map<String, Integer> playerCounts = new HashMap<>();
+                Map<String, Long> starSums = new HashMap<>();
                 for (QueryDocumentSnapshot doc : usersTask.getResult()) {
                     String region = doc.getString("region");
                     if (region != null && SerbiaRegions.isValid(region)) {
                         playerCounts.put(region, playerCounts.getOrDefault(region, 0) + 1);
+                        Long stars = doc.getLong("stars");
+                        starSums.put(region, starSums.getOrDefault(region, 0L)
+                                + (stars != null ? stars : 0L));
                     }
                 }
                 for (RegionModel m : result) {
                     Integer count = playerCounts.get(m.getName());
                     m.setPlayerCount(count != null ? count : 0);
+                    Long stars = starSums.get(m.getName());
+                    m.setTotalStars(stars != null ? stars : 0L);
                 }
             }
-            pending[0]--;
-            if (pending[0] == 0) {
-                assignRanks(result);
-                callback.onResult(result);
-            }
+            assignRanks(result);
+            callback.onResult(result);
         });
-
-        for (int i = 0; i < SerbiaRegions.ALL.size(); i++) {
-            final int idx = i;
-            String regionName = SerbiaRegions.ALL.get(i);
-            db.collection("regionStats")
-                    .document(regionName)
-                    .collection("cycles")
-                    .document(cycleId)
-                    .get()
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
-                            Long stars = task.getResult().getLong("totalStars");
-                            result.get(idx).setTotalStars(stars != null ? stars : 0);
-                        }
-                        pending[0]--;
-                        if (pending[0] == 0) {
-                            assignRanks(result);
-                            callback.onResult(result);
-                        }
-                    });
-        }
     }
 
     private void assignRanks(List<RegionModel> list) {
-        List<RegionModel> sorted = new ArrayList<>(list);
-        Collections.sort(sorted, (a, b) -> Long.compare(b.getTotalStars(), a.getTotalStars()));
-        for (int i = 0; i < sorted.size(); i++) {
-            sorted.get(i).setRank(i + 1);
+        Collections.sort(list, (a, b) -> Long.compare(b.getTotalStars(), a.getTotalStars()));
+        for (int i = 0; i < list.size(); i++) {
+            list.get(i).setRank(i + 1);
         }
     }
 
     public void loadRegionDetail(String regionName, RegionDetailCallback callback) {
         RegionModel model = new RegionModel(regionName);
-        final int[] pending = {3};
+        final int[] pending = {2};
 
         db.collection("regionStats")
                 .document(regionName)
@@ -128,6 +107,7 @@ public class RegionRepository {
                     if (pending[0] == 0) callback.onResult(model);
                 });
 
+        // Broj igrača i zbir zvezda regiona sabiramo iz samih igrača.
         db.collection("users")
                 .whereEqualTo("region", regionName)
                 .whereEqualTo("isEnabled", true)
@@ -136,21 +116,12 @@ public class RegionRepository {
                     if (task.isSuccessful() && task.getResult() != null) {
                         model.setTotalPlayers(task.getResult().size());
                         model.setActivePlayers(task.getResult().size());
-                    }
-                    pending[0]--;
-                    if (pending[0] == 0) callback.onResult(model);
-                });
-
-        String cycleId = getCurrentCycleId();
-        db.collection("regionStats")
-                .document(regionName)
-                .collection("cycles")
-                .document(cycleId)
-                .get()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
-                        Long stars = task.getResult().getLong("totalStars");
-                        model.setTotalStars(stars != null ? stars : 0);
+                        long totalStars = 0L;
+                        for (QueryDocumentSnapshot doc : task.getResult()) {
+                            Long stars = doc.getLong("stars");
+                            if (stars != null) totalStars += stars;
+                        }
+                        model.setTotalStars(totalStars);
                     }
                     pending[0]--;
                     if (pending[0] == 0) callback.onResult(model);

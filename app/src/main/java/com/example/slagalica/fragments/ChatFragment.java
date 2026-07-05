@@ -71,7 +71,25 @@ public class ChatFragment extends Fragment {
             if (!text.isEmpty() && userRegion != null) {
                 viewModel.sendMessage(userRegion, currentUserId, currentUsername, text);
                 etMessage.setText("");
+                handleChatMission(currentUserId);
             }
+        });
+    }
+    private void handleChatMission(String uid) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        com.google.firebase.firestore.DocumentReference userRef = db.collection("users").document(uid);
+
+        db.runTransaction(transaction -> {
+            com.google.firebase.firestore.DocumentSnapshot snapshot = transaction.get(userRef);
+            Boolean alreadySent = snapshot.getBoolean("dailyMissions.sentChatMessage");
+
+            if (alreadySent == null || !alreadySent) {
+                transaction.update(userRef, "dailyMissions.sentChatMessage", true);
+                transaction.update(userRef, "stars", com.google.firebase.firestore.FieldValue.increment(3));
+                transaction.update(userRef, "weeklyStars", com.google.firebase.firestore.FieldValue.increment(3));
+                transaction.update(userRef, "monthlyStars", com.google.firebase.firestore.FieldValue.increment(3));
+            }
+            return null;
         });
     }
 }
