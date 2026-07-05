@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.slagalica.R;
 import com.example.slagalica.adapters.LeaderboardAdapter;
+import com.example.slagalica.helper.DateHelper;
 import com.google.android.material.tabs.TabLayout;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
@@ -134,7 +135,8 @@ public class LeaderboardFragment extends Fragment {
     private void loadLeaderboardData() {
         String targetStarsField = isWeeklySelected ? "weeklyStars" : "monthlyStars";
         String targetCycleField = isWeeklySelected ? "lastWeeklyCycle" : "lastMonthlyCycle";
-        String currentCycleId = isWeeklySelected ? getCurrentWeeklyCycleId() : getCurrentMonthlyCycleId();
+        String currentCycleId = isWeeklySelected ?
+                DateHelper.getCurrentWeeklyCycleId() : DateHelper.getCurrentMonthlyCycleId();
 
         // Query: sortiraj po zvezdama opadajuće, ali uzimamo samo igrače čije su zvezde > 0
         // i koji pripadaju TEKUĆEM ciklusu
